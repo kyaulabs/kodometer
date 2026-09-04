@@ -139,6 +139,15 @@ void DeepSeekUsageParserTest::rejectsMalformedResponses()
           "currency":"USD","total_balance":"bad","granted_balance":"0","topped_up_balance":"0"}]})",
          QStringLiteral("DeepSeek balance API returned a non-numeric balance")},
         {R"({"is_available":true,"balance_infos":[{
+          "currency":"USD","total_balance":"1","granted_balance":"bad","topped_up_balance":"0"}]})",
+         QStringLiteral("DeepSeek balance API returned a non-numeric balance")},
+        {R"({"is_available":true,"balance_infos":[{
+          "currency":"USD","total_balance":"1","granted_balance":"0","topped_up_balance":"bad"}]})",
+         QStringLiteral("DeepSeek balance API returned a non-numeric balance")},
+        {R"({"is_available":true,"balance_infos":[{
+          "currency":"USD","total_balance":"1e999","granted_balance":"0","topped_up_balance":"0"}]})",
+         QStringLiteral("DeepSeek balance API returned a non-numeric balance")},
+        {R"({"is_available":true,"balance_infos":[{
           "currency":"","total_balance":"1","granted_balance":"0","topped_up_balance":"1"}]})",
          QStringLiteral("DeepSeek balance API returned an invalid currency")},
         {R"({"is_available":true,"balance_infos":[{
@@ -152,6 +161,8 @@ void DeepSeekUsageParserTest::rejectsMalformedResponses()
                      .has_value());
         QCOMPARE(error, expected);
     }
+
+    QVERIFY(!DeepSeekUsageParser::parse("{", QDateTime::currentDateTimeUtc()).has_value());
 }
 
 QTEST_GUILESS_MAIN(DeepSeekUsageParserTest)

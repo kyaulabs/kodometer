@@ -53,6 +53,12 @@ void DeepSeekCredentialsTest::rejectsMissingAndUnsafeKeys()
                  {{QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("line\nbreak")}}, &error)
                  .has_value());
     QCOMPARE(error, QStringLiteral("DeepSeek API key contains invalid characters"));
+
+    QVERIFY(!DeepSeekCredentialResolver::resolve(
+                 {{QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("line\rbreak")}}, &error)
+                 .has_value());
+    QCOMPARE(error, QStringLiteral("DeepSeek API key contains invalid characters"));
+    QVERIFY(!DeepSeekCredentialResolver::resolve({}).has_value());
 }
 
 QTEST_GUILESS_MAIN(DeepSeekCredentialsTest)

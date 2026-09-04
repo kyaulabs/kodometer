@@ -26,7 +26,13 @@ Flickable {
                                                                                  && provider.error.message
                                                                                  || "")
     readonly property bool hasCredits: credits.remaining !== undefined && credits.remaining !== null
-    readonly property bool hasCost: cost.balanceUSD !== undefined || cost.todayUSD !== undefined
+    readonly property bool hasBalance: cost.balance !== undefined || cost.balanceUSD !== undefined
+    readonly property real balance: Number(cost.balance !== undefined ? cost.balance :
+                                                                        cost.balanceUSD)
+    readonly property string balanceCurrency: String(cost.currencyCode || "USD")
+    readonly property bool hasBalanceBreakdown: cost.toppedUpBalance !== undefined
+                                                || cost.grantedBalance !== undefined
+    readonly property bool hasCost: root.hasBalance || cost.todayUSD !== undefined
                                     || cost.last30DaysUSD !== undefined || cost.usedUSD
                                     !== undefined
 
@@ -171,15 +177,25 @@ Flickable {
             spacing: Kirigami.Units.smallSpacing
 
             QQC2.Label {
-                text: qsTr("Cost")
+                text: qsTr("Billing")
                 font.bold: true
                 font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.08
             }
             QQC2.Label {
-                visible: root.cost.balanceUSD !== undefined
-                text: qsTr("Prepaid balance: %1").arg(Private.PresentationFormatter.usdLabel(Number(
-                                                                                                 root.cost.balanceUSD
-                                                                                                 || 0)))
+                visible: root.hasBalance
+                text: qsTr("%1: %2").arg(root.cost.period || qsTr("Balance")).arg(
+                          Private.PresentationFormatter.creditsLabel(root.balance,
+                                                                     root.balanceCurrency))
+            }
+            QQC2.Label {
+                visible: root.hasBalanceBreakdown
+                text: qsTr("Paid: %1 · Granted: %2").arg(Private.PresentationFormatter.creditsLabel(
+                                                             Number(root.cost.toppedUpBalance || 0),
+                                                             root.balanceCurrency)).arg(
+                          Private.PresentationFormatter.creditsLabel(Number(
+                                                                         root.cost.grantedBalance
+                                                                         || 0), root.balanceCurrency))
+                color: Kirigami.Theme.disabledTextColor
             }
             QQC2.Label {
                 visible: root.cost.usedUSD !== undefined && root.cost.limitUSD !== undefined

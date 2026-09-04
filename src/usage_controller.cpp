@@ -2,6 +2,7 @@
 
 #include <kodometer/claude_provider_adapter.hpp>
 #include <kodometer/codex_provider_adapter.hpp>
+#include <kodometer/deepseek_provider_adapter.hpp>
 #include <kodometer/gemini_provider_adapter.hpp>
 #include <kodometer/kimi_provider_adapter.hpp>
 #include <kodometer/xai_provider_adapter.hpp>
@@ -27,7 +28,8 @@ QString displayName(const QString &providerId)
 UsageController::UsageController(QObject *parent)
     : UsageController(QList<ProviderAdapter *>{new CodexProviderAdapter, new ClaudeProviderAdapter,
                                                new GeminiProviderAdapter, new XaiProviderAdapter,
-                                               new KimiProviderAdapter},
+                                               new KimiProviderAdapter,
+                                               new DeepSeekProviderAdapter},
                       parent)
 {}
 // GCOVR_EXCL_BR_STOP

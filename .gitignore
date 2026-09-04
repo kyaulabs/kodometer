@@ -1,3 +1,27 @@
-# Visual Studio cache directory
-*/.vs/
+# CMake and compiler output
+/build*/
+CMakeUserPresets.json
+compile_commands.json
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+
+# Generated packages
+/dist/
+*.plasmoid
+*.sha256
+
+# Editors and operating systems
+.vscode/
+.idea/
 .vs/
+*.swp
+.DS_Store
+
+# JavaScript tooling
+node_modules/
+
+# Test output
+Testing/
+coverage/

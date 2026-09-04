@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-16T12:00:00Z",
+  "staleAfterSeconds": 180,
+  "host": {
+    "codexBarVersion": "0.56.4",
+    "refreshIntervalSeconds": 0
+  },
+  "providers": [
+    {
+      "id": "codex",
+      "name": "Codex",
+      "enabled": true,
+      "source": "oauth",
+      "status": {
+        "level": "ok",
+        "label": "Operational",
+        "updatedAt": "2026-07-16T11:59:00Z"
+      },
+      "identity": {
+        "accountEmail": "user@example.com",
+        "plan": "Pro"
+      },
+      "windows": [
+        {
+          "kind": "session",
+          "label": "Session",
+          "usedPercent": 28,
+          "remainingPercent": 72,
+          "resetAt": "2026-07-16T17:15:00Z"
+        }
+      ],
+      "credits": {
+        "remaining": 112.4,
+        "unit": "credits"
+      },
+      "cost": {
+        "todayUSD": 1.04,
+        "last30DaysUSD": 18.22
+      },
+      "display": {
+        "accentColor": "#49A3B0",
+        "sortKey": 0,
+        "priority": "normal"
+      },
+      "error": null,
+      "updatedAt": "2026-07-16T11:59:45Z",
+      "futureField": { "preserved": true }
+    },
+    {
+      "id": "claude",
+      "name": "Claude",
+      "enabled": true,
+      "source": "oauth",
+      "status": null,
+      "identity": null,
+      "windows": [],
+      "credits": null,
+      "cost": null,
+      "display": {
+        "accentColor": "#D97757",
+        "sortKey": 10,
+        "priority": "normal"
+      },
+      "accounts": [
+        {
+          "id": "claude-swap:2",
+          "label": "personal@example.com",
+          "active": true,
+          "identity": { "accountEmail": "personal@example.com", "plan": null },
+          "windows": [],
+          "pace": null,
+          "error": null,
+          "updatedAt": "2026-07-16T12:00:00Z"
+        }
+      ],
+      "error": {
+        "code": 1,
+        "kind": "provider",
+        "message": "temporarily unavailable"
+      },
+      "updatedAt": "2026-07-16T12:00:00Z"
+    }
+  ]
+}

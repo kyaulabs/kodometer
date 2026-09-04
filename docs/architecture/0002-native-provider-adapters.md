@@ -24,6 +24,8 @@ The Gemini adapter reads Gemini CLI's `oauth_creds.json` and authentication sele
 
 The xAI adapter uses a Management API key and explicit team ID from the process environment until KWallet-backed provider settings are available. It reads the team's posted prepaid balance and requests a best-effort 30-day daily spend series. Billing authentication failures invalidate the refresh, while analytics, parse, network, timeout, and size failures preserve a valid balance. The adapter does not treat prepaid balance as spend or share credentials with the separate Grok consumer service.
 
+The Kimi adapter targets Kimi For Coding rather than the Moonshot/Kimi Open Platform. It prefers `KIMI_CODE_API_KEY`, then securely reads a fresh access token and stable device identity from the official Kimi Code CLI home. CLI credentials remain read-only because Kodometer neither invokes the CLI nor uses its refresh token. A rejected explicit key receives one retry with a fresh CLI credential. The adapter maps the Code API's 7-day request allowance and first short-window rate limit; it does not inspect browser cookies or accept `KIMI_AUTH_TOKEN`.
+
 All network adapters must use fixed HTTPS endpoints in production, disable automatic redirects, impose request timeouts and response-size limits, avoid logging credentials, and test success, authentication renewal, malformed data, network failure, timeout, and oversized-response paths against local servers.
 
 ## Consequences

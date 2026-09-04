@@ -16,7 +16,9 @@ Implement each provider as a C++ `ProviderAdapter`. Adapters authenticate, make 
 
 Do not invoke provider CLIs or retain a subprocess fallback. Existing provider credential files are accepted only after provider-specific ownership, type, size, and permission checks. Future manually entered secrets will be stored through KWallet rather than plaintext configuration files.
 
-The first adapter supports Codex. It reads `auth.json` from `$CODEX_HOME`, or `~/.codex` by default; extracts identity and expiry claims from OAuth tokens; refreshes expiring tokens; persists rotations atomically with owner-only permissions; and maps usage windows directly into the applet schema. Account identity is redacted before publication to QML.
+The Codex adapter reads `auth.json` from `$CODEX_HOME`, or `~/.codex` by default; extracts identity and expiry claims from OAuth tokens; refreshes expiring tokens; persists rotations atomically with owner-only permissions; and maps usage windows directly into the applet schema. Account identity is redacted before publication to QML.
+
+The Claude adapter reads the selected Claude Code `.credentials.json`, including `CLAUDE_CONFIG_DIR` and `CLAUDE_SECURESTORAGE_CONFIG_DIR` profile boundaries. It refreshes expiring credentials through Anthropic's OAuth token endpoint, atomically updates the shared credential file, and maps session, weekly, model-scoped, routines, monthly-cap, and spend-limit data. No Claude executable or browser session is used.
 
 All network adapters must use fixed HTTPS endpoints in production, disable automatic redirects, impose request timeouts and response-size limits, avoid logging credentials, and test success, authentication renewal, malformed data, network failure, timeout, and oversized-response paths against local servers.
 

@@ -22,3 +22,17 @@ target_compile_definitions(
 )
 
 add_test(NAME dashboard-snapshot COMMAND dashboard-snapshot-test)
+
+find_program(QMLTESTRUNNER_EXECUTABLE qmltestrunner HINTS "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_BINS}")
+if(QMLTESTRUNNER_EXECUTABLE)
+    add_test(
+        NAME visual-primitives
+        COMMAND "${QMLTESTRUNNER_EXECUTABLE}" -input "${CMAKE_CURRENT_SOURCE_DIR}/qml"
+    )
+    set_tests_properties(
+        visual-primitives
+        PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/qml"
+    )
+endif()

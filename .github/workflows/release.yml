@@ -51,7 +51,7 @@ jobs:
           else
             git config user.name github-actions[bot]
             git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git tag --annotate "$tag" --message "CodexBar Plasma $tag"
+            git tag --annotate "$tag" --message "Kodometer $tag"
             git push origin "$tag"
           fi
       - name: Create GitHub release
@@ -62,7 +62,7 @@ jobs:
           if ! gh release view "$tag" >/dev/null 2>&1; then
             git cliff --tag "$tag" --output release-notes.md
             gh release create "$tag" dist/* \
-              --title "CodexBar Plasma $tag" \
+              --title "Kodometer $tag" \
               --notes-file release-notes.md \
               --verify-tag
           fi

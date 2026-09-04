@@ -1,11 +1,11 @@
-#include <codexbar/presentation_formatter.hpp>
+#include <kodometer/presentation_formatter.hpp>
 
 #include <QRegularExpression>
 
 #include <algorithm>
 #include <cmath>
 
-namespace CodexBar {
+namespace Kodometer {
 
 double PresentationFormatter::clampPercent(double percent) noexcept
 {
@@ -115,4 +115,4 @@ QString PresentationFormatter::compactNumber(double amount)
     return result;
 }
 
-} // namespace CodexBar
+} // namespace Kodometer

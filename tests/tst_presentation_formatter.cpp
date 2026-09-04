@@ -1,10 +1,10 @@
-#include <codexbar/presentation_formatter.hpp>
+#include <kodometer/presentation_formatter.hpp>
 
 #include <QtTest>
 
 #include <limits>
 
-using CodexBar::PresentationFormatter;
+using Kodometer::PresentationFormatter;
 
 class PresentationFormatterTest final : public QObject
 {

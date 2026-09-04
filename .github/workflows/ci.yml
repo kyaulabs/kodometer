@@ -73,7 +73,7 @@ jobs:
       - name: Build
         run: cmake --build build
       - name: Lint QML
-        run: cmake --build build --target org.kyaulabs.codexbar_qmllint
+        run: cmake --build build --target org.kyaulabs.kodometer_qmllint
       - name: Run tests
         env:
           QT_QPA_PLATFORM: offscreen
@@ -157,7 +157,7 @@ jobs:
       - name: Upload package
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
-          name: codexbar-plasma-${{ github.sha }}
+          name: kodometer-${{ github.sha }}
           path: dist/
           if-no-files-found: error
           retention-days: 7

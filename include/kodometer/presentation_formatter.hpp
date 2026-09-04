@@ -6,7 +6,7 @@
 #include <QString>
 #include <QVariant>
 
-namespace CodexBar {
+namespace Kodometer {
 
 class PresentationFormatter : public QObject
 {
@@ -30,4 +30,4 @@ class PresentationFormatter : public QObject
     [[nodiscard]] static QString compactNumber(double amount);
 };
 
-} // namespace CodexBar
+} // namespace Kodometer

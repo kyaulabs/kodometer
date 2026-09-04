@@ -1,8 +1,8 @@
-#include <codexbar/provider_selection_model.hpp>
+#include <kodometer/provider_selection_model.hpp>
 
 #include <utility>
 
-namespace CodexBar {
+namespace Kodometer {
 
 ProviderSelectionModel::ProviderSelectionModel(QObject *parent) : QObject(parent) {}
 
@@ -143,4 +143,4 @@ void ProviderSelectionModel::selectTab(qsizetype tabIndex)
     setSelection(providerIdAt(tabIndex - (hasOverview ? 1 : 0)));
 }
 
-} // namespace CodexBar
+} // namespace Kodometer

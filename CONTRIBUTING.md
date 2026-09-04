@@ -32,7 +32,7 @@ All code changes happen through pull requests and are the best way to propose ch
 
 ## Reporting bugs and feature requests
 
-Use [GitHub Issues](/../../issues) to report a bug or request a feature. Include reproducible steps, the Plasma and Qt versions, the CodexBar CLI version, and relevant logs with credentials removed.
+Use [GitHub Issues](/../../issues) to report a bug or request a feature. Include reproducible steps, the Plasma and Qt versions, the affected provider, and relevant logs with credentials removed.
 
 ## Contributions & Software Licensing
 

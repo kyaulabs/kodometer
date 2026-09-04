@@ -7,15 +7,15 @@
         "Name": "kyau"
       }
     ],
-    "BugReportUrl": "https://github.com/kyaulabs/codexbar-plasma/issues",
+    "BugReportUrl": "https://github.com/kyaulabs/kodometer/issues",
     "Category": "System Information",
     "Description": "AI coding provider limits in the Plasma panel",
     "Icon": "view-statistics-symbolic",
-    "Id": "org.kyaulabs.codexbar",
+    "Id": "org.kyaulabs.kodometer",
     "License": "AGPL-3.0-only",
-    "Name": "CodexBar Plasma",
+    "Name": "Kodometer",
     "Version": "0.1.0",
-    "Website": "https://github.com/kyaulabs/codexbar-plasma"
+    "Website": "https://github.com/kyaulabs/kodometer"
   },
   "X-Plasma-API-Minimum-Version": "6.0"
 }

@@ -1,0 +1,60 @@
+#pragma once
+
+#include <kodometer/provider_adapter.hpp>
+
+#include <QObject>
+#include <QQmlEngine>
+#include <QVariantList>
+#include <QVariantMap>
+
+namespace Kodometer {
+
+class UsageController : public QObject
+{
+    Q_OBJECT
+    QML_ELEMENT
+
+    Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
+    Q_PROPERTY(QString error READ error NOTIFY errorChanged)
+    Q_PROPERTY(QVariantMap snapshot READ snapshot NOTIFY snapshotChanged)
+    Q_PROPERTY(QVariantList providers READ providers NOTIFY providersChanged)
+
+  public:
+    explicit UsageController(QObject *parent = nullptr);
+    explicit UsageController(const QList<ProviderAdapter *> &adapters, QObject *parent = nullptr);
+
+    [[nodiscard]] bool busy() const noexcept;
+    [[nodiscard]] QString error() const;
+    [[nodiscard]] QVariantMap snapshot() const;
+    [[nodiscard]] QVariantList providers() const;
+
+    Q_INVOKABLE void refresh();
+
+  signals:
+    void busyChanged();
+    void errorChanged();
+    void snapshotChanged();
+    void providersChanged();
+    void refreshFinished(bool success);
+
+  private:
+    void registerAdapter(ProviderAdapter *adapter);
+    void adapterSucceeded(ProviderAdapter *adapter, const QVariantMap &provider);
+    void adapterFailed(ProviderAdapter *adapter, const QString &error);
+    void finishAdapter();
+    void rebuildProviders();
+    void setBusy(bool busy);
+    void setError(const QString &error);
+
+    QList<ProviderAdapter *> m_adapters;
+    QMap<QString, QVariantMap> m_providerSnapshots;
+    QVariantList m_providers;
+    QVariantMap m_snapshot;
+    QStringList m_refreshErrors;
+    QString m_error;
+    qsizetype m_pendingAdapters = 0;
+    bool m_busy = false;
+    bool m_anySuccess = false;
+};
+
+} // namespace Kodometer

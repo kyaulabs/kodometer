@@ -1,6 +1,6 @@
 # ADR 0001: Native Plasma client over the CodexBar dashboard contract
 
-- Status: Accepted
+- Status: Superseded by [ADR 0002](0002-native-provider-adapters.md)
 - Date: 2026-09-03
 
 ## Context

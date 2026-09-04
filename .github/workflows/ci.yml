@@ -58,6 +58,8 @@ jobs:
           ninja qt6-declarative shellcheck
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Trust the container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Check shell scripts
         run: shellcheck scripts/*.sh
       - name: Check source formatting
@@ -88,6 +90,8 @@ jobs:
           cmake gcovr git ninja qt6-declarative
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Trust the container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Measure coverage
         run: scripts/coverage.sh
       - name: Upload coverage report
@@ -110,6 +114,8 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+      - name: Trust the container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Scan Git history for secrets
         run: gitleaks git --no-banner --redact --verbose
       - name: Lint GitHub Actions
@@ -144,6 +150,8 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+      - name: Trust the container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Build reproducible package
         run: scripts/package.sh
       - name: Upload package

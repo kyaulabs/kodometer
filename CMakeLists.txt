@@ -65,6 +65,9 @@ target_sources(kodometer-core
         src/gemini_credentials.cpp
         src/gemini_provider_adapter.cpp
         src/gemini_usage_parser.cpp
+        src/xai_credentials.cpp
+        src/xai_provider_adapter.cpp
+        src/xai_usage_parser.cpp
         src/presentation_formatter.cpp
         src/provider_selection_model.cpp
         src/usage_controller.cpp
@@ -81,6 +84,9 @@ target_sources(kodometer-core
             include/kodometer/gemini_credentials.hpp
             include/kodometer/gemini_provider_adapter.hpp
             include/kodometer/gemini_usage_parser.hpp
+            include/kodometer/xai_credentials.hpp
+            include/kodometer/xai_provider_adapter.hpp
+            include/kodometer/xai_usage_parser.hpp
             include/kodometer/presentation_formatter.hpp
             include/kodometer/provider_adapter.hpp
             include/kodometer/provider_selection_model.hpp

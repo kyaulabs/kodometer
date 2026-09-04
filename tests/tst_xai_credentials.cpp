@@ -49,8 +49,8 @@ void XaiCredentialsTest::rejectsMissingAndInvalidCredentials()
         {{QStringLiteral("XAI_MANAGEMENT_API_KEY"), QStringLiteral("key")}}, &error));
     QCOMPARE(error, QStringLiteral("xAI team ID is missing"));
 
-    for (const QString &team : {QStringLiteral("."), QStringLiteral(".."),
-                                QStringLiteral("team/other")}) {
+    for (const QString &team :
+         {QStringLiteral("."), QStringLiteral(".."), QStringLiteral("team/other")}) {
         QVERIFY(!XaiCredentialResolver::resolve(
             {{QStringLiteral("XAI_MANAGEMENT_API_KEY"), QStringLiteral("key")},
              {QStringLiteral("XAI_TEAM_ID"), team}},

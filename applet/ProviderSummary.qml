@@ -19,6 +19,7 @@ QQC2.ItemDelegate {
                                                                                  provider.error
                                                                                  && provider.error.message
                                                                                  || "")
+    readonly property var cost: provider.cost || ({})
     readonly property var windows: {
         const allWindows = provider.windows ? provider.windows.filter(windowData =>
         !windowData.idle) : []
@@ -120,8 +121,14 @@ QQC2.ItemDelegate {
 
             QQC2.Label {
                 visible: root.windows.length === 0 && root.errorText.length === 0
-                text: root.provider.status && root.provider.status.label
-                      ? root.provider.status.label : qsTr("No quota windows")
+                text: root.cost.balanceUSD !== undefined ? qsTr("Balance: %1").arg(
+                                                               Private.PresentationFormatter.usdLabel(
+                                                                   Number(root.cost.balanceUSD
+                                                                          || 0))) : (
+                                                               root.provider.status
+                                                               && root.provider.status.label
+                                                               ? root.provider.status.label : qsTr(
+                                                                     "No quota windows"))
                 color: Kirigami.Theme.disabledTextColor
                 font: Kirigami.Theme.smallFont
             }

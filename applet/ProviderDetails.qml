@@ -26,8 +26,9 @@ Flickable {
                                                                                  && provider.error.message
                                                                                  || "")
     readonly property bool hasCredits: credits.remaining !== undefined && credits.remaining !== null
-    readonly property bool hasCost: cost.todayUSD !== undefined || cost.last30DaysUSD !== undefined
-                                    || cost.usedUSD !== undefined
+    readonly property bool hasCost: cost.balanceUSD !== undefined || cost.todayUSD !== undefined
+                                    || cost.last30DaysUSD !== undefined || cost.usedUSD
+                                    !== undefined
 
     contentWidth: width
     contentHeight: details.implicitHeight + Kirigami.Units.largeSpacing
@@ -175,6 +176,12 @@ Flickable {
                 font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.08
             }
             QQC2.Label {
+                visible: root.cost.balanceUSD !== undefined
+                text: qsTr("Prepaid balance: %1").arg(Private.PresentationFormatter.usdLabel(Number(
+                                                                                                 root.cost.balanceUSD
+                                                                                                 || 0)))
+            }
+            QQC2.Label {
                 visible: root.cost.usedUSD !== undefined && root.cost.limitUSD !== undefined
                 text: qsTr("%1: %2 / %3").arg(root.cost.period || qsTr("Monthly cap")).arg(
                           Private.PresentationFormatter.usdLabel(Number(root.cost.usedUSD
@@ -189,9 +196,10 @@ Flickable {
             }
             QQC2.Label {
                 visible: root.cost.last30DaysUSD !== undefined
-                text: qsTr("Last 30 days: %1").arg(Private.PresentationFormatter.usdLabel(Number(
-                                                                                              root.cost.last30DaysUSD
-                                                                                              || 0)))
+                text: qsTr("%1: %2").arg(root.cost.historyPartial ? qsTr("Last 30 days (partial)") :
+                                                                    qsTr("Last 30 days")).arg(
+                          Private.PresentationFormatter.usdLabel(Number(root.cost.last30DaysUSD
+                                                                        || 0)))
             }
         }
 

@@ -30,8 +30,7 @@ void XaiUsageParserTest::parsesInvertedLedgerBalances_data()
     QTest::newRow("positive-ledger") << QByteArray(R"({"total":{"val":"2500"}})") << -25.0;
     QTest::newRow("zero") << QByteArray(R"({"total":{"val":"0"}})") << 0.0;
     QTest::newRow("credit") << QByteArray(R"({"total":{"val":"-333"}})") << 3.33;
-    QTest::newRow("fractional-cent") << QByteArray(R"({"total":{"val":"-12.5"}})")
-                                      << 0.125;
+    QTest::newRow("fractional-cent") << QByteArray(R"({"total":{"val":"-12.5"}})") << 0.125;
 }
 
 void XaiUsageParserTest::parsesInvertedLedgerBalances()
@@ -54,12 +53,11 @@ void XaiUsageParserTest::rejectsMalformedBalances()
     QVERIFY(!XaiUsageParser::parseBalance("[]", &error));
     QCOMPARE(error, QStringLiteral("xAI balance API returned an invalid object"));
 
-    for (const QByteArray &body : {QByteArray("{}"), QByteArray(R"({"total":{"val":7}})"),
-                                   QByteArray(R"({"total":{"val":"n/a"}})"),
-                                   QByteArray(R"({"total":{"val":"1e999"}})")}) {
+    for (const QByteArray &body :
+         {QByteArray("{}"), QByteArray(R"({"total":{"val":7}})"),
+          QByteArray(R"({"total":{"val":"n/a"}})"), QByteArray(R"({"total":{"val":"1e999"}})")}) {
         QVERIFY(!XaiUsageParser::parseBalance(body, &error));
-        QCOMPARE(error,
-                 QStringLiteral("xAI balance API did not return a valid cent amount"));
+        QCOMPARE(error, QStringLiteral("xAI balance API did not return a valid cent amount"));
     }
     QVERIFY(!XaiUsageParser::parseBalance("{", nullptr));
 }
@@ -95,8 +93,8 @@ void XaiUsageParserTest::aggregatesDailySpendHistory()
 void XaiUsageParserTest::acceptsEmptyHistoryAndRejectsMalformedHistory()
 {
     QString error;
-    const auto empty = XaiUsageParser::parseHistory(
-        R"({"timeSeries":[],"limitReached":false})", &error);
+    const auto empty =
+        XaiUsageParser::parseHistory(R"({"timeSeries":[],"limitReached":false})", &error);
     QVERIFY2(empty.has_value(), qPrintable(error));
     QVERIFY(empty->daily.isEmpty());
     QVERIFY(!empty->partial);
@@ -105,10 +103,11 @@ void XaiUsageParserTest::acceptsEmptyHistoryAndRejectsMalformedHistory()
         QByteArray("{"),
         QByteArray("[]"),
         QByteArray("{}"),
+        QByteArray(R"({"timeSeries":["invalid"]})"),
         QByteArray(R"({"timeSeries":[{}]})"),
+        QByteArray(R"({"timeSeries":[{"dataPoints":["invalid"]}]})"),
         QByteArray(R"({"timeSeries":[{"dataPoints":[{}]}]})"),
-        QByteArray(
-            R"({"timeSeries":[{"dataPoints":[{"timestamp":"bad","values":[1]}]}]})"),
+        QByteArray(R"({"timeSeries":[{"dataPoints":[{"timestamp":"bad","values":[1]}]}]})"),
         QByteArray(
             R"({"timeSeries":[{"dataPoints":[{"timestamp":"2027-01-15T00:00:00Z","values":[]}]}]})"),
         QByteArray(
@@ -136,11 +135,9 @@ void XaiUsageParserTest::mapsProviderWithAndWithoutHistory()
     QCOMPARE(provider.value(QStringLiteral("name")).toString(), QStringLiteral("xAI"));
     QCOMPARE(provider.value(QStringLiteral("source")).toString(), QStringLiteral("api-key"));
     QVERIFY(provider.value(QStringLiteral("windows")).toList().isEmpty());
-    QCOMPARE(provider.value(QStringLiteral("identity"))
-                 .toMap()
-                 .value(QStringLiteral("plan"))
-                 .toString(),
-             QStringLiteral("Management API"));
+    QCOMPARE(
+        provider.value(QStringLiteral("identity")).toMap().value(QStringLiteral("plan")).toString(),
+        QStringLiteral("Management API"));
     const QVariantMap cost = provider.value(QStringLiteral("cost")).toMap();
     QCOMPARE(cost.value(QStringLiteral("balanceUSD")).toDouble(), 10.0);
     QCOMPARE(cost.value(QStringLiteral("todayUSD")).toDouble(), 1.25);

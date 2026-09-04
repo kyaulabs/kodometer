@@ -23,8 +23,7 @@ struct HttpRequest
 
 struct HttpResponse
 {
-    HttpResponse(int responseStatus = 200, QByteArray responseBody = "{}",
-                 bool shouldSend = true)
+    HttpResponse(int responseStatus = 200, QByteArray responseBody = "{}", bool shouldSend = true)
         : status(responseStatus), body(std::move(responseBody)), send(shouldSend)
     {}
 
@@ -134,8 +133,7 @@ void configure(XaiProviderAdapter &adapter, const HttpServer &server)
 {
     adapter.setBaseEndpoint(server.baseUrl());
     adapter.setEnvironment(credentials());
-    adapter.setCurrentDateTime(
-        QDateTime::fromSecsSinceEpoch(1'800'000'000, QTimeZone::UTC));
+    adapter.setCurrentDateTime(QDateTime::fromSecsSinceEpoch(1'800'000'000, QTimeZone::UTC));
 }
 
 } // namespace
@@ -170,8 +168,7 @@ void XaiProviderAdapterTest::fetchesBalanceAndDailyUsage()
     QCOMPARE(finished.first().first().toBool(), true);
     QCOMPARE(server.requests.size(), 2);
     QCOMPARE(server.requests.at(0).method, QByteArray("GET"));
-    QCOMPARE(server.requests.at(0).path,
-             QByteArray("/v1/billing/teams/team-1234/prepaid/balance"));
+    QCOMPARE(server.requests.at(0).path, QByteArray("/v1/billing/teams/team-1234/prepaid/balance"));
     QCOMPARE(server.requests.at(0).headers.value("authorization"),
              QByteArray("Bearer management-key"));
     QCOMPARE(server.requests.at(0).headers.value("accept"), QByteArray("application/json"));
@@ -237,15 +234,13 @@ void XaiProviderAdapterTest::reportsCredentialFailures()
     QCOMPARE(finished.count(), 1);
     QCOMPARE(adapter.error(), QStringLiteral("xAI Management API key is missing"));
 
-    adapter.setEnvironment(
-        {{QStringLiteral("XAI_MANAGEMENT_API_KEY"), QStringLiteral("key")}});
+    adapter.setEnvironment({{QStringLiteral("XAI_MANAGEMENT_API_KEY"), QStringLiteral("key")}});
     adapter.refresh();
     QCOMPARE(finished.count(), 2);
     QCOMPARE(adapter.error(), QStringLiteral("xAI team ID is missing"));
 
-    adapter.setEnvironment(
-        {{QStringLiteral("XAI_MANAGEMENT_API_KEY"), QStringLiteral("key")},
-         {QStringLiteral("XAI_TEAM_ID"), QStringLiteral("../team")}});
+    adapter.setEnvironment({{QStringLiteral("XAI_MANAGEMENT_API_KEY"), QStringLiteral("key")},
+                            {QStringLiteral("XAI_TEAM_ID"), QStringLiteral("../team")}});
     adapter.refresh();
     QCOMPARE(finished.count(), 3);
     QCOMPARE(adapter.error(),
@@ -291,9 +286,11 @@ void XaiProviderAdapterTest::reportsBalanceParseAndNetworkFailures()
     adapter.setBaseEndpoint(QUrl(QStringLiteral("http://127.0.0.1:1")));
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 2);
-    QVERIFY(adapter.error().startsWith(QStringLiteral("xAI balance request failed: network error")));
+    QVERIFY(
+        adapter.error().startsWith(QStringLiteral("xAI balance request failed: network error")));
 
     server.enqueue({200, R"({"total":{"val":"-100"}})"});
+    server.enqueue({500, "{}"});
     adapter.setBaseEndpoint(server.baseUrl());
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 3);

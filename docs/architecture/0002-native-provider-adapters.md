@@ -20,6 +20,8 @@ The Codex adapter reads `auth.json` from `$CODEX_HOME`, or `~/.codex` by default
 
 The Claude adapter reads the selected Claude Code `.credentials.json`, including `CLAUDE_CONFIG_DIR` and `CLAUDE_SECURESTORAGE_CONFIG_DIR` profile boundaries. It refreshes expiring credentials through Anthropic's OAuth token endpoint, atomically updates the shared credential file, and maps session, weekly, model-scoped, routines, monthly-cap, and spend-limit data. No Claude executable or browser session is used.
 
+The Gemini adapter reads Gemini CLI's `oauth_creds.json` and authentication selection. It resolves the CLI's public installed-app OAuth client from environment overrides or installed JavaScript, without starting Gemini or another process. The adapter renews and atomically persists access tokens, loads Code Assist tier and project metadata, optionally discovers a suitable Cloud project, and maps the most constrained Pro, Flash, and Flash Lite quota buckets. It identifies Google's June 2026 consumer-tier shutdown while leaving Workspace, education, and licensed Code Assist accounts enabled.
+
 All network adapters must use fixed HTTPS endpoints in production, disable automatic redirects, impose request timeouts and response-size limits, avoid logging credentials, and test success, authentication renewal, malformed data, network failure, timeout, and oversized-response paths against local servers.
 
 ## Consequences

@@ -1,0 +1,15 @@
+{
+  "name": "codexbar-plasma-tooling",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Development tooling for CodexBar Plasma",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "commitlint": "commitlint"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.2",
+    "@commitlint/config-conventional": "21.2.2"
+  }
+}

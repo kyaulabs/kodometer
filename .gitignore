@@ -19,6 +19,9 @@ compile_commands.json
 *.swp
 .DS_Store
 
+# JavaScript tooling
+node_modules/
+
 # Test output
 Testing/
 coverage/

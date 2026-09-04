@@ -19,6 +19,15 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
+option(CODEXBAR_ENABLE_COVERAGE "Instrument C++ targets for coverage" OFF)
+if(CODEXBAR_ENABLE_COVERAGE)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(FATAL_ERROR "Coverage requires GCC or Clang")
+    endif()
+    add_compile_options(--coverage -O0 -g)
+    add_link_options(--coverage)
+endif()
+
 option(CODEXBAR_BUILD_APPLET "Build the KDE Plasma applet" ON)
 if(CODEXBAR_BUILD_APPLET)
     set(KDE_INSTALL_USE_QT_SYS_PATHS ON CACHE BOOL "Install to the active Qt paths")
@@ -30,6 +39,19 @@ if(CODEXBAR_BUILD_APPLET)
 endif()
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Qml)
+
+function(codexbar_enable_warnings target)
+    target_compile_options(
+        "${target}"
+        PRIVATE
+            -Wall
+            -Wextra
+            -Wpedantic
+            -Wconversion
+            -Wsign-conversion
+            -Werror=return-type
+    )
+endfunction()
 
 add_library(codexbar-core STATIC)
 target_sources(codexbar-core
@@ -45,9 +67,11 @@ target_sources(codexbar-core
 )
 target_link_libraries(codexbar-core PUBLIC Qt6::Core Qt6::Qml)
 target_compile_features(codexbar-core PUBLIC cxx_std_20)
+codexbar_enable_warnings(codexbar-core)
 
 if(CODEXBAR_BUILD_APPLET)
     add_subdirectory(applet)
+    install(FILES LICENSE README.md DESTINATION "${KDE_INSTALL_DATADIR}/doc/codexbar-plasma")
 endif()
 
 if(BUILD_TESTING)

@@ -15,3 +15,4 @@ plasma_add_applet(org.kyaulabs.codexbar
 target_include_directories(org.kyaulabs.codexbar PRIVATE ../include ../include/codexbar)
 target_link_libraries(org.kyaulabs.codexbar PRIVATE Qt6::Core Qt6::Qml Plasma::Plasma)
 target_compile_features(org.kyaulabs.codexbar PRIVATE cxx_std_20)
+codexbar_enable_warnings(org.kyaulabs.codexbar)

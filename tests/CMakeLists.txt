@@ -1,5 +1,6 @@
 add_executable(fake-codexbar fake_codexbar.cpp)
 target_link_libraries(fake-codexbar PRIVATE Qt6::Core)
+codexbar_enable_warnings(fake-codexbar)
 target_compile_definitions(
     fake-codexbar
     PRIVATE FIXTURE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/dashboard-v1.json"
@@ -7,6 +8,7 @@ target_compile_definitions(
 
 add_executable(dashboard-controller-test tst_dashboard_controller.cpp)
 target_link_libraries(dashboard-controller-test PRIVATE codexbar-core Qt6::Test)
+codexbar_enable_warnings(dashboard-controller-test)
 target_compile_definitions(
     dashboard-controller-test
     PRIVATE FAKE_CODEXBAR_PATH="$<TARGET_FILE:fake-codexbar>"
@@ -16,6 +18,7 @@ add_test(NAME dashboard-controller COMMAND dashboard-controller-test)
 
 add_executable(dashboard-snapshot-test tst_dashboard_snapshot.cpp)
 target_link_libraries(dashboard-snapshot-test PRIVATE codexbar-core Qt6::Test)
+codexbar_enable_warnings(dashboard-snapshot-test)
 target_compile_definitions(
     dashboard-snapshot-test
     PRIVATE FIXTURE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/dashboard-v1.json"

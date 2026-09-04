@@ -28,6 +28,21 @@ target_link_libraries(claude-usage-parser-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(claude-usage-parser-test)
 add_test(NAME claude-usage-parser COMMAND claude-usage-parser-test)
 
+add_executable(gemini-credentials-test tst_gemini_credentials.cpp)
+target_link_libraries(gemini-credentials-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(gemini-credentials-test)
+add_test(NAME gemini-credentials COMMAND gemini-credentials-test)
+
+add_executable(gemini-provider-adapter-test tst_gemini_provider_adapter.cpp)
+target_link_libraries(gemini-provider-adapter-test PRIVATE kodometer-core Qt6::Network Qt6::Test)
+kodometer_enable_warnings(gemini-provider-adapter-test)
+add_test(NAME gemini-provider-adapter COMMAND gemini-provider-adapter-test)
+
+add_executable(gemini-usage-parser-test tst_gemini_usage_parser.cpp)
+target_link_libraries(gemini-usage-parser-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(gemini-usage-parser-test)
+add_test(NAME gemini-usage-parser COMMAND gemini-usage-parser-test)
+
 add_executable(presentation-formatter-test tst_presentation_formatter.cpp)
 target_link_libraries(presentation-formatter-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(presentation-formatter-test)

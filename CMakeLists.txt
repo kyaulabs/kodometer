@@ -15,6 +15,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+option(CODEXBAR_BUILD_APPLET "Build the KDE Plasma applet" ON)
+if(CODEXBAR_BUILD_APPLET)
+    set(KDE_INSTALL_USE_QT_SYS_PATHS ON CACHE BOOL "Install to the active Qt paths")
+    find_package(ECM 6.0 NO_MODULE REQUIRED)
+    list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
+    include(KDEInstallDirs6)
+    find_package(KF6 6.0 REQUIRED COMPONENTS Config CoreAddons)
+    find_package(Plasma 6.0 REQUIRED)
+endif()
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Qml)
 
@@ -32,6 +45,10 @@ target_sources(codexbar-core
 )
 target_link_libraries(codexbar-core PUBLIC Qt6::Core Qt6::Qml)
 target_compile_features(codexbar-core PUBLIC cxx_std_20)
+
+if(CODEXBAR_BUILD_APPLET)
+    add_subdirectory(applet)
+endif()
 
 if(BUILD_TESTING)
     find_package(Qt6 6.4 REQUIRED COMPONENTS Test)

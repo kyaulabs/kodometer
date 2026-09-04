@@ -1,0 +1,21 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [
+      {
+        "Email": "kyau@kyau.net",
+        "Name": "kyau"
+      }
+    ],
+    "BugReportUrl": "https://github.com/kyaulabs/codexbar-plasma/issues",
+    "Category": "System Information",
+    "Description": "AI coding provider limits in the Plasma panel",
+    "Icon": "view-statistics-symbolic",
+    "Id": "org.kyaulabs.codexbar",
+    "License": "AGPL-3.0-only",
+    "Name": "CodexBar Plasma",
+    "Version": "0.1.0",
+    "Website": "https://github.com/kyaulabs/codexbar-plasma"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0"
+}

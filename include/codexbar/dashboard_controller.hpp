@@ -10,7 +10,7 @@
 
 namespace CodexBar {
 
-class DashboardController final : public QObject
+class DashboardController : public QObject
 {
     Q_OBJECT
     QML_ELEMENT

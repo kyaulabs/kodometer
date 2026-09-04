@@ -1,14 +1,22 @@
 plasma_add_applet(org.kyaulabs.codexbar
     QML_SOURCES
         CompactMeter.qml
-        ProviderCard.qml
+        OverviewPage.qml
+        ProviderDetails.qml
+        ProviderSummary.qml
+        ProviderTabs.qml
         UsageBar.qml
+        WindowRow.qml
         main.qml
     CPP_SOURCES
         ../include/codexbar/dashboard_controller.hpp
         ../include/codexbar/dashboard_snapshot.hpp
+        ../include/codexbar/presentation_formatter.hpp
+        ../include/codexbar/provider_selection_model.hpp
         ../src/dashboard_controller.cpp
         ../src/dashboard_snapshot.cpp
+        ../src/presentation_formatter.cpp
+        ../src/provider_selection_model.cpp
     GENERATE_APPLET_CLASS
 )
 

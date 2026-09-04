@@ -29,6 +29,11 @@ TestCase {
         }
     }
 
+    Component {
+        id: signalSpyComponent
+        SignalSpy {}
+    }
+
     function test_usageBarClampsPercent() {
         const bar = createTemporaryObject(usageBarComponent, this)
         verify(bar)
@@ -67,14 +72,14 @@ TestCase {
         verify(tabs)
         compare(tabs.tabCount, 3)
 
-        const overviewSpy = signalSpy.createObject(this, {
-                                                       target: tabs,
-                                                       signalName: "overviewSelected"
-                                                   })
-        const providerSpy = signalSpy.createObject(this, {
-                                                       target: tabs,
-                                                       signalName: "providerSelected"
-                                                   })
+        const overviewSpy = signalSpyComponent.createObject(this, {
+                                                                target: tabs,
+                                                                signalName: "overviewSelected"
+                                                            })
+        const providerSpy = signalSpyComponent.createObject(this, {
+                                                                target: tabs,
+                                                                signalName: "providerSelected"
+                                                            })
 
         tabs.activateTab(0)
         compare(overviewSpy.count, 1)
@@ -96,10 +101,10 @@ TestCase {
         verify(tabs)
         compare(tabs.tabCount, 1)
 
-        const providerSpy = signalSpy.createObject(this, {
-                                                       target: tabs,
-                                                       signalName: "providerSelected"
-                                                   })
+        const providerSpy = signalSpyComponent.createObject(this, {
+                                                                target: tabs,
+                                                                signalName: "providerSelected"
+                                                            })
         tabs.activateTab(0)
         compare(providerSpy.signalArguments[0][0], "codex")
         tabs.activateTab(-1)

@@ -3,6 +3,7 @@
 #include <kodometer/claude_provider_adapter.hpp>
 #include <kodometer/codex_provider_adapter.hpp>
 #include <kodometer/gemini_provider_adapter.hpp>
+#include <kodometer/xai_provider_adapter.hpp>
 
 #include <QDateTime>
 
@@ -24,7 +25,7 @@ QString displayName(const QString &providerId)
 // GCOVR_EXCL_BR_START -- Qt container allocation branches
 UsageController::UsageController(QObject *parent)
     : UsageController(QList<ProviderAdapter *>{new CodexProviderAdapter, new ClaudeProviderAdapter,
-                                               new GeminiProviderAdapter},
+                                               new GeminiProviderAdapter, new XaiProviderAdapter},
                       parent)
 {}
 // GCOVR_EXCL_BR_STOP

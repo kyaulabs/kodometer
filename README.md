@@ -12,9 +12,9 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 Kodometer is under active development. The current release foundation includes:
 
 - a compiled Plasma 6 applet for Wayland and X11;
-- native Codex and Claude OAuth refresh and usage requests through Qt Network;
+- native Codex, Claude, and Gemini OAuth refresh and usage requests through Qt Network;
 - secure loading and atomic rotation of provider credentials;
-- session, weekly, model-specific, routines, and spend-limit windows;
+- session, weekly, model-specific, routines, spend-limit, and Gemini tier windows;
 - Claude monthly-cap and plan presentation;
 - provider tabs, an overview, reset countdowns, and account and plan labels;
 - last-good data retention when a refresh fails;
@@ -23,7 +23,7 @@ Kodometer is under active development. The current release foundation includes:
 - C++ and QML tests with line, function, and branch coverage gates above 95%;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-Codex and Claude are available as native providers. Planned adapters include Gemini, xAI, Kimi, DeepSeek, z.AI, and OpenRouter. KWallet-backed manual credential entry, settings, multi-account controls, cost history, notifications, and provider actions will follow in reviewable branches.
+Codex, Claude, and Gemini are available as native providers. Planned adapters include xAI, Kimi, DeepSeek, z.AI, and OpenRouter. KWallet-backed manual credential entry, settings, multi-account controls, cost history, notifications, and provider actions will follow in reviewable branches.
 
 ## Requirements
 
@@ -32,14 +32,18 @@ Runtime:
 - KDE Plasma 6.0 or newer;
 - Qt 6.4 or newer;
 - a Codex login at `~/.codex/auth.json`, or under `$CODEX_HOME/auth.json`;
-- a Claude login at `~/.claude/.credentials.json`.
+- a Claude login at `~/.claude/.credentials.json`;
+- a Gemini CLI OAuth login at `~/.gemini/oauth_creds.json`.
 
-Kodometer accepts the OAuth credentials written by Codex and Claude. Codex's `OPENAI_API_KEY` file form is also supported. Claude profile roots set through `CLAUDE_CONFIG_DIR` are honored, as is `CLAUDE_SECURESTORAGE_CONFIG_DIR`; relative profile paths resolve from Kodometer's working directory, matching Claude Code's literal-path behavior.
+Kodometer accepts OAuth credentials written by Codex, Claude, and Gemini CLI. Codex's `OPENAI_API_KEY` file form is also supported. Claude profile roots set through `CLAUDE_CONFIG_DIR` are honored, as is `CLAUDE_SECURESTORAGE_CONFIG_DIR`; relative profile paths resolve from Kodometer's working directory, matching Claude Code's literal-path behavior.
+
+Gemini API-key and Vertex AI sessions do not expose the Code Assist OAuth quota endpoint and are not supported by this adapter. Token refresh reads Gemini CLI's public installed-app OAuth values from its installed JavaScript package without running the CLI. `GEMINI_OAUTH_CLIENT_ID` and `GEMINI_OAUTH_CLIENT_SECRET` override discovery; `GEMINI_OAUTH2_JS_PATH` selects a specific `oauth2.js` file. Following Google's June 2026 consumer-tier shutdown, Gemini quota access is limited to Workspace, education, and Code Assist Standard or Enterprise accounts. Individual, Google AI Pro, and Ultra accounts must use Antigravity instead.
 
 Credential files must be regular files owned by the current user. Kodometer rejects symbolic links, files larger than 1 MiB, and files that grant group or other users read or write access. To secure the default files:
 
 ```bash
-chmod 600 "$HOME/.codex/auth.json" "$HOME/.claude/.credentials.json"
+chmod 600 "$HOME/.codex/auth.json" "$HOME/.claude/.credentials.json" \
+  "$HOME/.gemini/oauth_creds.json"
 ```
 
 Build requirements:
@@ -123,7 +127,7 @@ Development follows Git Flow and Conventional Commits.
 
 ## Security and privacy
 
-Kodometer reads credentials only from the expected Codex and Claude authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation is persisted to the selected Claude credential file so later Claude Code and Kodometer sessions share the current token chain.
+Kodometer reads credentials only from the expected Codex, Claude, and Gemini authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state.
 
 Network requests use fixed provider endpoints, bounded response buffers, explicit timeouts, and disabled automatic redirects. Account email addresses are redacted before data reaches QML. Tokens are never added to the presentation model or logs.
 

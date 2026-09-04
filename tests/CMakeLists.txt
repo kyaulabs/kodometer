@@ -13,6 +13,21 @@ target_link_libraries(codex-usage-parser-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(codex-usage-parser-test)
 add_test(NAME codex-usage-parser COMMAND codex-usage-parser-test)
 
+add_executable(claude-credentials-test tst_claude_credentials.cpp)
+target_link_libraries(claude-credentials-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(claude-credentials-test)
+add_test(NAME claude-credentials COMMAND claude-credentials-test)
+
+add_executable(claude-provider-adapter-test tst_claude_provider_adapter.cpp)
+target_link_libraries(claude-provider-adapter-test PRIVATE kodometer-core Qt6::Network Qt6::Test)
+kodometer_enable_warnings(claude-provider-adapter-test)
+add_test(NAME claude-provider-adapter COMMAND claude-provider-adapter-test)
+
+add_executable(claude-usage-parser-test tst_claude_usage_parser.cpp)
+target_link_libraries(claude-usage-parser-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(claude-usage-parser-test)
+add_test(NAME claude-usage-parser COMMAND claude-usage-parser-test)
+
 add_executable(presentation-formatter-test tst_presentation_formatter.cpp)
 target_link_libraries(presentation-formatter-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(presentation-formatter-test)

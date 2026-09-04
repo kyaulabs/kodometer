@@ -13,10 +13,13 @@ class DashboardControllerTest final : public QObject
     void init();
     void cleanup();
     void hasSafeDefaults();
+    void configuresBackend();
     void refreshesFromCli();
     void ignoresConcurrentRefresh();
     void retainsSnapshotAfterInvalidJson();
     void reportsCommandFailure();
+    void reportsSilentCommandFailure();
+    void reportsCrashedCommand();
     void reportsMissingExecutable();
     void enforcesOutputLimit();
     void timesOutSlowCommand();
@@ -49,10 +52,36 @@ void DashboardControllerTest::hasSafeDefaults()
     QVERIFY(controller.providers().isEmpty());
 }
 
+void DashboardControllerTest::configuresBackend()
+{
+    DashboardController controller;
+    QSignalSpy executableSpy(&controller, &DashboardController::executableChanged);
+    QSignalSpy timeoutSpy(&controller, &DashboardController::timeoutMillisecondsChanged);
+    QSignalSpy identitySpy(&controller, &DashboardController::identityRedactedChanged);
+
+    controller.setExecutable(QStringLiteral("custom-codexbar"));
+    controller.setExecutable(QStringLiteral("custom-codexbar"));
+    QCOMPARE(controller.executable(), QStringLiteral("custom-codexbar"));
+    QCOMPARE(executableSpy.count(), 1);
+
+    controller.setTimeoutMilliseconds(-1);
+    controller.setTimeoutMilliseconds(1);
+    QCOMPARE(controller.timeoutMilliseconds(), 1);
+    controller.setTimeoutMilliseconds(100'000'000);
+    QCOMPARE(controller.timeoutMilliseconds(), 86'400'000);
+    QCOMPARE(timeoutSpy.count(), 2);
+
+    controller.setIdentityRedacted(false);
+    controller.setIdentityRedacted(false);
+    QVERIFY(!controller.identityRedacted());
+    QCOMPARE(identitySpy.count(), 1);
+}
+
 void DashboardControllerTest::refreshesFromCli()
 {
     DashboardController controller;
     controller.setExecutable(QStringLiteral(FAKE_CODEXBAR_PATH));
+    controller.setIdentityRedacted(false);
     QSignalSpy busySpy(&controller, &DashboardController::busyChanged);
     QSignalSpy snapshotSpy(&controller, &DashboardController::snapshotChanged);
 
@@ -99,6 +128,26 @@ void DashboardControllerTest::reportsCommandFailure()
 
     QVERIFY(waitForRefresh(controller, false));
     QVERIFY(controller.error().contains(QStringLiteral("provider request failed")));
+}
+
+void DashboardControllerTest::reportsSilentCommandFailure()
+{
+    DashboardController controller;
+    controller.setExecutable(QStringLiteral(FAKE_CODEXBAR_PATH));
+    selectMode("silent-failure");
+
+    QVERIFY(waitForRefresh(controller, false));
+    QVERIFY(controller.error().contains(QStringLiteral("code 7")));
+}
+
+void DashboardControllerTest::reportsCrashedCommand()
+{
+    DashboardController controller;
+    controller.setExecutable(QStringLiteral(FAKE_CODEXBAR_PATH));
+    selectMode("crash");
+
+    QVERIFY(waitForRefresh(controller, false));
+    QVERIFY(!controller.error().isEmpty());
 }
 
 void DashboardControllerTest::reportsMissingExecutable()

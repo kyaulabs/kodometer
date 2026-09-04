@@ -3,6 +3,8 @@
 #include <QTextStream>
 #include <QThread>
 
+#include <cstdlib>
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -28,6 +30,12 @@ int main(int argc, char *argv[])
     if (mode == "slow") {
         QThread::msleep(500);
         return 0;
+    }
+    if (mode == "silent-failure") {
+        return 7;
+    }
+    if (mode == "crash") {
+        std::abort();
     }
 
     QTextStream(stderr) << "provider request failed\n";

@@ -58,12 +58,16 @@ target_sources(codexbar-core
     PRIVATE
         src/dashboard_controller.cpp
         src/dashboard_snapshot.cpp
+        src/presentation_formatter.cpp
+        src/provider_selection_model.cpp
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
         FILES
             include/codexbar/dashboard_controller.hpp
             include/codexbar/dashboard_snapshot.hpp
+            include/codexbar/presentation_formatter.hpp
+            include/codexbar/provider_selection_model.hpp
 )
 target_link_libraries(codexbar-core PUBLIC Qt6::Core Qt6::Qml)
 target_compile_features(codexbar-core PUBLIC cxx_std_20)

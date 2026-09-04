@@ -13,14 +13,15 @@ This project is under active development. The current foundation includes:
 
 - a compiled Plasma 6 applet for Wayland and X11 sessions;
 - session and weekly meters in the panel;
-- generic cards for every provider returned by `codexbar dashboard`;
+- provider tabs, an overview page, and detailed quota windows for every dashboard provider;
+- reset countdowns, account and plan labels, credits, costs, and provider status details;
 - a Qt/C++ process boundary with time and output limits;
 - last-good data retention when a refresh fails;
 - redacted account identity by default;
 - C++ and QML tests, with line, function, and branch coverage gates above 95%;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-Later feature branches will add the full CodexBar popover, provider switching, settings, account views, cost history, status details, notifications, and visual parity work.
+Later feature branches will add settings, multi-account controls, cost history views, notifications, provider actions, and further visual parity work.
 
 ## Requirements
 

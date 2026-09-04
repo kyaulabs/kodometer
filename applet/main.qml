@@ -5,91 +5,158 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasmoid
+import org.kde.plasma.core as PlasmaCore
 import plasma.applet.org.kyaulabs.codexbar as Private
 
 PlasmoidItem {
     id: root
 
-    property int refreshIntervalMinutes: 5
+    switchWidth: Kirigami.Units.gridUnit * 10
+    switchHeight: Kirigami.Units.gridUnit * 10
+    Plasmoid.icon: "view-statistics"
+    Plasmoid.status: backend.busy ? PlasmaCore.Types.ActiveStatus : PlasmaCore.Types.PassiveStatus
+
+    property int clockTick: 0
 
     function remainingFor(kind) {
-        if (backend.providers.length === 0) {
-            return 0
-        }
-        const windows = backend.providers[0].windows || []
-        for (const window of windows) {
-            if (window.kind === kind) {
-                return Number(window.remainingPercent)
+        let remaining = null
+        for (const provider of backend.providers) {
+            const windows = provider.windows || []
+            for (const windowData of windows) {
+                if (windowData.kind !== kind || windowData.remainingPercent === null
+                        || windowData.remainingPercent === undefined) {
+                    continue
+                }
+                const value = Number(windowData.remainingPercent)
+                remaining = remaining === null ? value : Math.min(remaining, value)
             }
         }
-        return 0
+        return remaining === null ? 0 : remaining
     }
-
-    switchWidth: Kirigami.Units.gridUnit * 19
-    switchHeight: Kirigami.Units.gridUnit * 16
-    toolTipMainText: "CodexBar"
-    toolTipSubText: backend.error.length > 0 ? backend.error : backend.providers.length
-                                               + " providers"
 
     Private.DashboardController {
         id: backend
     }
 
-    Timer {
-        interval: root.refreshIntervalMinutes * 60 * 1000
-        repeat: true
-        running: true
-        onTriggered: backend.refresh()
+    Private.ProviderSelectionModel {
+        id: navigation
+        providers: backend.providers
     }
 
-    Component.onCompleted: backend.refresh()
+    Timer {
+        interval: 60000
+        repeat: true
+        running: root.expanded
+        onTriggered: root.clockTick++
+    }
 
-    compactRepresentation: MouseArea {
-        id: compact
-        activeFocusOnTab: true
-        Accessible.name: root.toolTipMainText
-        Accessible.description: root.toolTipSubText
-        Accessible.role: Accessible.Button
-        onClicked: root.expanded = !root.expanded
-
+    compactRepresentation: Item {
         CompactMeter {
-            anchors.centerIn: parent
-            width: Math.min(parent.width, Kirigami.Units.gridUnit * 1.25)
-            height: Math.min(parent.height, Kirigami.Units.gridUnit)
+            anchors.fill: parent
             sessionRemaining: root.remainingFor("session")
             weeklyRemaining: root.remainingFor("weekly")
-            opacity: backend.busy ? 0.55 : 1
+        }
+
+        QQC2.ToolTip.visible: compactMouse.containsMouse
+        QQC2.ToolTip.text: qsTr("CodexBar usage")
+
+        MouseArea {
+            id: compactMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            onClicked: root.expanded = !root.expanded
         }
     }
 
     fullRepresentation: Item {
-        implicitWidth: Kirigami.Units.gridUnit * 19
-        implicitHeight: Kirigami.Units.gridUnit * 24
+        implicitWidth: Kirigami.Units.gridUnit * 22
+        implicitHeight: Kirigami.Units.gridUnit * 34
+        Layout.minimumWidth: Kirigami.Units.gridUnit * 18
+        Layout.minimumHeight: Kirigami.Units.gridUnit * 22
+        focus: true
+
+        Keys.onLeftPressed: navigation.selectPrevious()
+        Keys.onRightPressed: navigation.selectNext()
 
         ColumnLayout {
             anchors.fill: parent
+            anchors.margins: Kirigami.Units.largeSpacing
             spacing: Kirigami.Units.smallSpacing
+
+            ProviderTabs {
+                Layout.fillWidth: true
+                visible: providers.length > 0
+                providers: backend.providers
+                overviewVisible: providers.length > 1
+                selectedIndex: navigation.selectedTabIndex
+                onOverviewSelected: navigation.selectOverview()
+                onProviderSelected: providerId => navigation.selectProvider(providerId)
+            }
+
+            Kirigami.Separator {
+                Layout.fillWidth: true
+                visible: backend.providers.length > 0
+            }
+
+            Loader {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                active: backend.providers.length > 0
+                sourceComponent: navigation.overviewSelected ? overviewComponent : providerComponent
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: backend.providers.length === 0
+
+                Item {
+                    Layout.fillHeight: true
+                }
+                Kirigami.Icon {
+                    Layout.alignment: Qt.AlignHCenter
+                    source: backend.busy ? "view-refresh" : "view-statistics"
+                    implicitWidth: Kirigami.Units.iconSizes.large
+                    implicitHeight: width
+                }
+                QQC2.Label {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: backend.busy ? qsTr("Loading provider usage…") : qsTr("No provider data")
+                }
+                Item {
+                    Layout.fillHeight: true
+                }
+            }
+
+            Kirigami.InlineMessage {
+                Layout.fillWidth: true
+                visible: backend.error.length > 0
+                type: Kirigami.MessageType.Error
+                text: backend.error
+            }
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.margins: Kirigami.Units.largeSpacing
-
-                Kirigami.Heading {
-                    Layout.fillWidth: true
-                    level: 2
-                    text: "CodexBar"
-                }
 
                 QQC2.BusyIndicator {
-                    visible: backend.busy
-                    running: visible
-                    implicitWidth: Kirigami.Units.iconSizes.smallMedium
+                    implicitWidth: Kirigami.Units.iconSizes.small
                     implicitHeight: width
+                    running: backend.busy
+                    visible: running
+                }
+
+                QQC2.Label {
+                    Layout.fillWidth: true
+                    text: backend.snapshot.generatedAt ? qsTr("Snapshot %1").arg(
+                                                             backend.snapshot.generatedAt) : ""
+                    color: Kirigami.Theme.disabledTextColor
+                    font: Kirigami.Theme.smallFont
+                    elide: Text.ElideRight
                 }
 
                 QQC2.ToolButton {
-                    icon.name: "view-refresh-symbolic"
-                    text: "Refresh"
+                    icon.name: "view-refresh"
+                    text: qsTr("Refresh")
                     display: QQC2.AbstractButton.IconOnly
                     enabled: !backend.busy
                     onClicked: backend.refresh()
@@ -97,32 +164,26 @@ PlasmoidItem {
                     QQC2.ToolTip.visible: hovered
                 }
             }
-
-            QQC2.ScrollView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                contentWidth: availableWidth
-
-                ListView {
-                    spacing: Kirigami.Units.smallSpacing
-                    model: backend.providers
-                    clip: true
-
-                    delegate: ProviderCard {
-                        required property var modelData
-                        width: ListView.view.width
-                        provider: modelData
-                    }
-                }
-            }
-
-            Kirigami.InlineMessage {
-                Layout.fillWidth: true
-                Layout.margins: Kirigami.Units.largeSpacing
-                visible: backend.error.length > 0
-                type: Kirigami.MessageType.Error
-                text: backend.error
-            }
         }
     }
+
+    Component {
+        id: overviewComponent
+
+        OverviewPage {
+            providers: backend.providers
+            onProviderSelected: providerId => navigation.selectProvider(providerId)
+        }
+    }
+
+    Component {
+        id: providerComponent
+
+        ProviderDetails {
+            provider: navigation.selectedProvider
+            clockTick: root.clockTick
+        }
+    }
+
+    Component.onCompleted: backend.refresh()
 }

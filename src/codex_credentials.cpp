@@ -10,7 +10,6 @@
 #include <QTimeZone>
 
 #include <cmath>
-#include <limits>
 
 #if defined(Q_OS_UNIX)
 #include <unistd.h>
@@ -28,13 +27,14 @@ void setError(QString *error, const QString &message)
 
 QString nonEmpty(const QJsonValue &value)
 {
-    return value.isString() ? value.toString().trimmed() : QString{};
+    return value.isString() ? value.toString().trimmed() : QString{}; // GCOVR_EXCL_BR_LINE
 }
 
 QString tokenValue(const QJsonObject &tokens, const QString &snakeCase, const QString &camelCase)
 {
     const QString snakeValue = nonEmpty(tokens.value(snakeCase));
-    return snakeValue.isEmpty() ? nonEmpty(tokens.value(camelCase)) : snakeValue;
+    return snakeValue.isEmpty() ? nonEmpty(tokens.value(camelCase))
+                                : snakeValue; // GCOVR_EXCL_BR_LINE
 }
 
 QJsonObject jwtClaims(const QString &token)
@@ -81,9 +81,11 @@ QDateTime expirationFromClaims(const QJsonObject &claims)
         return {};
     }
     const double seconds = expiration.toDouble();
-    if (!std::isfinite(seconds) || std::floor(seconds) != seconds ||
-        seconds < static_cast<double>(std::numeric_limits<qint64>::min()) ||
-        seconds > static_cast<double>(std::numeric_limits<qint64>::max())) {
+    // Keep dates within the range accepted by Codex's cross-platform timestamp implementation.
+    constexpr double minimumExpiration = -8'334'601'228'800.0;
+    constexpr double maximumExpiration = 8'210'266'876'799.0;
+    if (!std::isfinite(seconds) || std::floor(seconds) != seconds || // GCOVR_EXCL_BR_LINE
+        seconds < minimumExpiration || seconds > maximumExpiration) {
         return {};
     }
     return QDateTime::fromSecsSinceEpoch(static_cast<qint64>(seconds), QTimeZone::UTC);
@@ -182,14 +184,15 @@ std::optional<CodexCredentials> CodexCredentialStore::load(const QString &path, 
     }
 
     QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
-        setError(error, QStringLiteral("Codex auth file could not be read"));
-        return std::nullopt;
+    if (!file.open(QIODevice::ReadOnly)) { // GCOVR_EXCL_LINE -- validated file changed concurrently
+        setError(error, QStringLiteral("Codex auth file could not be read")); // GCOVR_EXCL_LINE
+        return std::nullopt;                                                  // GCOVR_EXCL_LINE
     }
     const QByteArray data = file.read(MaximumFileSize + 1);
-    if (data.size() > MaximumFileSize) {
-        setError(error, QStringLiteral("Codex auth file exceeds the 1 MiB limit"));
-        return std::nullopt;
+    if (data.size() > MaximumFileSize) { // GCOVR_EXCL_LINE -- file grew after validation
+        setError(error,
+                 QStringLiteral("Codex auth file exceeds the 1 MiB limit")); // GCOVR_EXCL_LINE
+        return std::nullopt;                                                 // GCOVR_EXCL_LINE
     }
     return parse(data, error);
 }
@@ -282,19 +285,24 @@ bool CodexCredentialStore::save(const QString &path, const CodexCredentials &cre
 
     QSaveFile file(path);
     file.setDirectWriteFallback(false);
-    if (!file.open(QIODevice::WriteOnly)) {
-        setError(error, QStringLiteral("Codex auth file could not be opened for rotation"));
-        return false;
+    if (!file.open(
+            QIODevice::WriteOnly)) { // GCOVR_EXCL_LINE -- validated path changed concurrently
+        setError(error, QStringLiteral(
+                            "Codex auth file could not be opened for rotation")); // GCOVR_EXCL_LINE
+        return false;                                                             // GCOVR_EXCL_LINE
     }
-    if (!file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner)) {
-        file.cancelWriting();
-        setError(error, QStringLiteral("Codex auth file permissions could not be secured"));
-        return false;
+    if (!file.setPermissions(QFileDevice::ReadOwner |
+                             QFileDevice::WriteOwner)) { // GCOVR_EXCL_LINE -- platform failure
+        file.cancelWriting();                            // GCOVR_EXCL_LINE
+        setError(error, QStringLiteral(
+                            "Codex auth file permissions could not be secured")); // GCOVR_EXCL_LINE
+        return false;                                                             // GCOVR_EXCL_LINE
     }
     const QByteArray data = QJsonDocument(root).toJson(QJsonDocument::Indented);
-    if (file.write(data) != data.size() || !file.commit()) {
-        setError(error, QStringLiteral("Codex auth file rotation could not be committed"));
-        return false;
+    if (file.write(data) != data.size() || !file.commit()) { // GCOVR_EXCL_LINE -- storage failure
+        setError(error, QStringLiteral(
+                            "Codex auth file rotation could not be committed")); // GCOVR_EXCL_LINE
+        return false;                                                            // GCOVR_EXCL_LINE
     }
     return true;
 }

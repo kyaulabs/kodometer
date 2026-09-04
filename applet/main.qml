@@ -34,7 +34,7 @@ PlasmoidItem {
         return remaining === null ? 0 : remaining
     }
 
-    Private.DashboardController {
+    Private.UsageController {
         id: backend
     }
 

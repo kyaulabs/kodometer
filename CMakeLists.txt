@@ -59,8 +59,6 @@ target_sources(kodometer-core
         src/codex_credentials.cpp
         src/codex_provider_adapter.cpp
         src/codex_usage_parser.cpp
-        src/dashboard_controller.cpp
-        src/dashboard_snapshot.cpp
         src/presentation_formatter.cpp
         src/provider_selection_model.cpp
         src/usage_controller.cpp
@@ -71,8 +69,6 @@ target_sources(kodometer-core
             include/kodometer/codex_credentials.hpp
             include/kodometer/codex_provider_adapter.hpp
             include/kodometer/codex_usage_parser.hpp
-            include/kodometer/dashboard_controller.hpp
-            include/kodometer/dashboard_snapshot.hpp
             include/kodometer/presentation_formatter.hpp
             include/kodometer/provider_adapter.hpp
             include/kodometer/provider_selection_model.hpp

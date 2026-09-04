@@ -25,10 +25,16 @@ struct HttpRequest
 
 struct HttpResponse
 {
-    int status = 200;
-    QByteArray body = "{}";
+    HttpResponse(int responseStatus = 200, QByteArray responseBody = "{}",
+                 QMap<QByteArray, QByteArray> responseHeaders = {}, bool shouldSend = true)
+        : status(responseStatus), body(std::move(responseBody)),
+          headers(std::move(responseHeaders)), send(shouldSend)
+    {}
+
+    int status;
+    QByteArray body;
     QMap<QByteArray, QByteArray> headers;
-    bool send = true;
+    bool send;
 };
 
 class HttpServer final : public QObject
@@ -42,8 +48,6 @@ class HttpServer final : public QObject
                     m_buffers[socket].append(socket->readAll());
                     process(socket);
                 });
-                connect(socket, &QObject::destroyed, this,
-                        [this, socket] { m_buffers.remove(socket); });
             }
         });
         const bool listening = m_server.listen(QHostAddress::LocalHost);
@@ -173,7 +177,10 @@ class CodexProviderAdapterTest final : public QObject
     void fetchesUsageWithExistingToken();
     void refreshesExpiringTokenBeforeUsage();
     void retriesUnauthorizedUsageOnce();
+    void supportsApiKeyWithoutAccount();
     void reportsCredentialAndResponseFailures();
+    void reportsTokenFailures();
+    void reportsNetworkAndRedirectFailures();
     void rejectsConcurrentRefreshAndTimesOut();
     void limitsResponseSize();
 };
@@ -282,6 +289,34 @@ void CodexProviderAdapterTest::retriesUnauthorizedUsageOnce()
     QCOMPARE(server.requests.at(2).path, QByteArray("/usage"));
 }
 
+void CodexProviderAdapterTest::supportsApiKeyWithoutAccount()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString credentialPath = directory.filePath(QStringLiteral("auth.json"));
+    QFile file(credentialPath);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write(R"({"OPENAI_API_KEY":"sk-example"})");
+    file.close();
+    QVERIFY(file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner));
+
+    HttpServer server;
+    server.enqueue({200, usagePayload()});
+    QNetworkAccessManager network;
+    CodexProviderAdapter adapter(&network);
+    adapter.setCredentialPath(credentialPath);
+    adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
+    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+
+    adapter.refresh();
+
+    QVERIFY(finished.wait());
+    QCOMPARE(finished.first().first().toBool(), true);
+    QVERIFY(!server.requests.first().headers.contains("chatgpt-account-id"));
+    QCOMPARE(adapter.provider().value(QStringLiteral("source")).toString(),
+             QStringLiteral("api-key"));
+}
+
 void CodexProviderAdapterTest::reportsCredentialAndResponseFailures()
 {
     QTemporaryDir directory;
@@ -312,6 +347,86 @@ void CodexProviderAdapterTest::reportsCredentialAndResponseFailures()
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 3);
     QCOMPARE(adapter.error(), QStringLiteral("Codex usage API returned invalid JSON"));
+
+    server.enqueue({200, usagePayload()});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 4);
+    QVERIFY(adapter.error().isEmpty());
+}
+
+void CodexProviderAdapterTest::reportsTokenFailures()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString credentialPath = directory.filePath(QStringLiteral("auth.json"));
+    QVERIFY(writeCredentials(credentialPath, jwt({{QStringLiteral("exp"), 1}})));
+    HttpServer server;
+    QNetworkAccessManager network;
+    CodexProviderAdapter adapter(&network);
+    adapter.setCredentialPath(credentialPath);
+    adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
+    adapter.setTokenEndpoint(server.url(QStringLiteral("/token")));
+    adapter.setTimeoutMilliseconds(25);
+    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+
+    server.enqueue({400, R"({"error":"invalid_grant"})"});
+    adapter.refresh();
+    QVERIFY(finished.wait());
+    QCOMPARE(adapter.error(), QStringLiteral("Codex token request failed with HTTP 400"));
+
+    server.enqueue({200, "{"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 2);
+    QCOMPARE(adapter.error(), QStringLiteral("Codex token endpoint returned invalid JSON"));
+
+    server.enqueue({200, "{}", {}, false});
+    adapter.refresh();
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 3, 1000);
+    QCOMPARE(adapter.error(), QStringLiteral("Codex token request timed out"));
+
+    adapter.setTimeoutMilliseconds(1000);
+    server.enqueue({200, QByteArray(CodexProviderAdapter::MaximumResponseSize + 1, 'x')});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 4);
+    QCOMPARE(adapter.error(), QStringLiteral("Codex token response exceeds the 1 MiB limit"));
+
+    server.enqueue({200, R"({"access_token":"fresh"})"});
+    server.enqueue({401, "{}"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 5);
+    QCOMPARE(adapter.error(), QStringLiteral("Codex usage request failed with HTTP 401"));
+}
+
+void CodexProviderAdapterTest::reportsNetworkAndRedirectFailures()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString credentialPath = directory.filePath(QStringLiteral("auth.json"));
+    QVERIFY(writeCredentials(credentialPath, jwt({{QStringLiteral("exp"), 2'000'000'000}})));
+    QNetworkAccessManager network;
+    CodexProviderAdapter adapter(&network);
+    adapter.setCredentialPath(credentialPath);
+    adapter.setUsageEndpoint(QUrl(QStringLiteral("http://127.0.0.1:1/usage")));
+    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+
+    adapter.refresh();
+    QVERIFY(finished.wait());
+    QVERIFY(
+        adapter.error().startsWith(QStringLiteral("Codex usage request failed: network error")));
+
+    HttpServer server;
+    server.enqueue({302, "", {{QByteArray("Location"), QByteArray("/elsewhere")}}});
+    adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 2);
+    QCOMPARE(adapter.error(), QStringLiteral("Codex usage request failed with HTTP 302"));
+
+    QVERIFY(writeCredentials(credentialPath, jwt({{QStringLiteral("exp"), 1}})));
+    adapter.setTokenEndpoint(QUrl(QStringLiteral("http://127.0.0.1:1/token")));
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 3);
+    QVERIFY(
+        adapter.error().startsWith(QStringLiteral("Codex token request failed: network error")));
 }
 
 void CodexProviderAdapterTest::rejectsConcurrentRefreshAndTimesOut()

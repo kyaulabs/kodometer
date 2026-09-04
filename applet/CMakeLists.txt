@@ -9,18 +9,25 @@ plasma_add_applet(org.kyaulabs.kodometer
         WindowRow.qml
         main.qml
     CPP_SOURCES
-        ../include/kodometer/dashboard_controller.hpp
-        ../include/kodometer/dashboard_snapshot.hpp
+        ../include/kodometer/codex_credentials.hpp
+        ../include/kodometer/codex_provider_adapter.hpp
+        ../include/kodometer/codex_usage_parser.hpp
         ../include/kodometer/presentation_formatter.hpp
+        ../include/kodometer/provider_adapter.hpp
         ../include/kodometer/provider_selection_model.hpp
-        ../src/dashboard_controller.cpp
-        ../src/dashboard_snapshot.cpp
+        ../include/kodometer/usage_controller.hpp
+        ../src/codex_credentials.cpp
+        ../src/codex_provider_adapter.cpp
+        ../src/codex_usage_parser.cpp
         ../src/presentation_formatter.cpp
         ../src/provider_selection_model.cpp
+        ../src/usage_controller.cpp
     GENERATE_APPLET_CLASS
 )
 
 target_include_directories(org.kyaulabs.kodometer PRIVATE ../include ../include/kodometer)
-target_link_libraries(org.kyaulabs.kodometer PRIVATE Qt6::Core Qt6::Qml Plasma::Plasma)
+target_link_libraries(
+    org.kyaulabs.kodometer PRIVATE Qt6::Core Qt6::Network Qt6::Qml Plasma::Plasma
+)
 target_compile_features(org.kyaulabs.kodometer PRIVATE cxx_std_20)
 kodometer_enable_warnings(org.kyaulabs.kodometer)

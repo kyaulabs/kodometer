@@ -68,6 +68,7 @@ std::optional<QVariantMap> window(const QJsonValue &value, const QString &kind,
     }
 
     const double boundedUsed = std::clamp(*used, 0.0, 100.0);
+    // GCOVR_EXCL_BR_START -- Qt container allocation branches
     return QVariantMap{
         {QStringLiteral("kind"), kind},
         {QStringLiteral("label"), label},
@@ -76,6 +77,7 @@ std::optional<QVariantMap> window(const QJsonValue &value, const QString &kind,
         {QStringLiteral("resetAt"), resetTimestamp},
         {QStringLiteral("windowSeconds"), *duration},
     };
+    // GCOVR_EXCL_BR_STOP
 }
 
 QString slug(const QString &value)
@@ -103,18 +105,25 @@ void appendWindow(QVariantList &windows, const QJsonObject &limits, const QStrin
 QVariant credits(const QJsonObject &root)
 {
     const QJsonObject object = root.value(QStringLiteral("credits")).toObject();
-    if (!object.value(QStringLiteral("has_credits")).toBool() ||
-        object.value(QStringLiteral("unlimited")).toBool()) {
+    const bool hasCredits =
+        object.value(QStringLiteral("has_credits")).toBool();                  // GCOVR_EXCL_BR_LINE
+    const bool unlimited = object.value(QStringLiteral("unlimited")).toBool(); // GCOVR_EXCL_BR_LINE
+    if (!hasCredits) {
+        return {};
+    }
+    if (unlimited) {
         return {};
     }
     const auto balance = number(object.value(QStringLiteral("balance")));
     if (!balance) {
         return {};
     }
+    // GCOVR_EXCL_BR_START -- Qt container allocation branches
     return QVariantMap{
         {QStringLiteral("remaining"), *balance},
         {QStringLiteral("unit"), QStringLiteral("credits")},
     };
+    // GCOVR_EXCL_BR_STOP
 }
 
 } // namespace
@@ -183,6 +192,7 @@ std::optional<QVariantMap> CodexUsageParser::parse(const QByteArray &data,
         identity.insert(QStringLiteral("plan"), plan);
     }
 
+    // GCOVR_EXCL_BR_START -- Qt container allocation branches
     return QVariantMap{
         {QStringLiteral("id"), QStringLiteral("codex")},
         {QStringLiteral("name"), QStringLiteral("Codex")},
@@ -200,6 +210,7 @@ std::optional<QVariantMap> CodexUsageParser::parse(const QByteArray &data,
         {QStringLiteral("error"), QVariant{}},
         {QStringLiteral("updatedAt"), updatedAt.toUTC().toString(Qt::ISODateWithMs)},
     };
+    // GCOVR_EXCL_BR_STOP
 }
 
 QString CodexUsageParser::formatPlan(const QString &plan)

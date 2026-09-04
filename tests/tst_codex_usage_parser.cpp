@@ -13,6 +13,7 @@ class CodexUsageParserTest final : public QObject
   private slots:
     void mapsUsageResponse();
     void toleratesOptionalAndMalformedWindows();
+    void mapsAdditionalWindowFallbacks();
     void rejectsInvalidResponses();
     void formatsPlanNames_data();
     void formatsPlanNames();
@@ -129,6 +130,58 @@ void CodexUsageParserTest::toleratesOptionalAndMalformedWindows()
     QVERIFY(!identity.contains(QStringLiteral("accountEmail")));
 }
 
+void CodexUsageParserTest::mapsAdditionalWindowFallbacks()
+{
+    const QByteArray payload = R"({
+        "rate_limit": {
+            "primary_window": {
+                "used_percent": -5,
+                "reset_at": 1800000000.5,
+                "limit_window_seconds": 60
+            },
+            "secondary_window": {
+                "used_percent": 140,
+                "reset_at": 1800000000,
+                "limit_window_seconds": 60
+            }
+        },
+        "additional_rate_limits": [
+            {
+                "limit_name":"--Fast Model--",
+                "rate_limit": {
+                    "primary_window": {
+                        "used_percent": 10,
+                        "reset_at": 1800000000,
+                        "limit_window_seconds": 60
+                    },
+                    "secondary_window": {
+                        "used_percent": 20,
+                        "reset_at": 1800000000,
+                        "limit_window_seconds": 120
+                    }
+                }
+            },
+            {"limit_name":"", "metered_feature":"---"}
+        ],
+        "credits": {"has_credits": true, "unlimited": false}
+    })";
+    CodexCredentials credentials;
+    QString error;
+
+    const auto provider =
+        CodexUsageParser::parse(payload, credentials, QDateTime::currentDateTimeUtc(), &error);
+
+    QVERIFY2(provider.has_value(), qPrintable(error));
+    const QVariantList windows = provider->value(QStringLiteral("windows")).toList();
+    QCOMPARE(windows.size(), 3);
+    QCOMPARE(windows.at(0).toMap().value(QStringLiteral("usedPercent")).toDouble(), 100.0);
+    QCOMPARE(windows.at(1).toMap().value(QStringLiteral("kind")).toString(),
+             QStringLiteral("model-fast-model"));
+    QCOMPARE(windows.at(2).toMap().value(QStringLiteral("kind")).toString(),
+             QStringLiteral("model-fast-model-weekly"));
+    QVERIFY(provider->value(QStringLiteral("credits")).isNull());
+}
+
 void CodexUsageParserTest::rejectsInvalidResponses()
 {
     CodexCredentials credentials;
@@ -139,6 +192,7 @@ void CodexUsageParserTest::rejectsInvalidResponses()
 
     QVERIFY(!CodexUsageParser::parse("[]", credentials, QDateTime::currentDateTimeUtc(), &error));
     QCOMPARE(error, QStringLiteral("Codex usage API returned an invalid object"));
+    QVERIFY(!CodexUsageParser::parse("{", credentials, QDateTime::currentDateTimeUtc(), nullptr));
 }
 
 void CodexUsageParserTest::formatsPlanNames_data()

@@ -1,6 +1,7 @@
 #include <kodometer/codex_credentials.hpp>
 
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
@@ -46,11 +47,14 @@ class CodexCredentialsTest final : public QObject
     void parsesOAuthCredentials();
     void parsesCamelCaseCredentials();
     void parsesApiKey();
+    void parsesJwtFallbacks();
     void rejectsInvalidDocuments();
     void resolvesCredentialPaths();
     void loadsOnlyPrivateRegularFiles();
     void rejectsOversizedFile();
+    void rejectsUnsafePaths();
     void savesRotatedCredentialsAtomically();
+    void rejectsInvalidRotation();
     void calculatesRefreshNeed();
     void redactsIdentity();
 };
@@ -129,6 +133,60 @@ void CodexCredentialsTest::parsesApiKey()
     QVERIFY(credentials->apiKey);
 }
 
+void CodexCredentialsTest::parsesJwtFallbacks()
+{
+    const QString directToken = jwt({
+        {QStringLiteral("chatgpt_account_id"), QStringLiteral("direct-account")},
+        {QStringLiteral("email"), QStringLiteral("access@example.com")},
+    });
+    QString error;
+    auto credentials = CodexCredentialStore::parse(
+        QJsonDocument(
+            QJsonObject{
+                {QStringLiteral("tokens"),
+                 QJsonObject{{QStringLiteral("access_token"), directToken},
+                             {QStringLiteral("refresh_token"), QStringLiteral("refresh")}}},
+            })
+            .toJson(),
+        &error);
+    QVERIFY2(credentials.has_value(), qPrintable(error));
+    QCOMPARE(credentials->accountId, QStringLiteral("direct-account"));
+    QCOMPARE(credentials->email, QStringLiteral("access@example.com"));
+
+    const QString organizationToken = jwt({
+        {QStringLiteral("organizations"),
+         QJsonArray{QJsonObject{},
+                    QJsonObject{{QStringLiteral("id"), QStringLiteral("organization-account")}}}},
+        {QStringLiteral("exp"), 12.5},
+    });
+    credentials = CodexCredentialStore::parse(
+        QJsonDocument(
+            QJsonObject{
+                {QStringLiteral("tokens"),
+                 QJsonObject{{QStringLiteral("access_token"), organizationToken},
+                             {QStringLiteral("refresh_token"), QStringLiteral("refresh")},
+                             {QStringLiteral("id_token"), QStringLiteral("x.eA.signature")}}},
+            })
+            .toJson(),
+        &error);
+    QVERIFY2(credentials.has_value(), qPrintable(error));
+    QCOMPARE(credentials->accountId, QStringLiteral("organization-account"));
+    QVERIFY(!credentials->expiresAt.isValid());
+
+    const QString distantToken = jwt({{QStringLiteral("exp"), 9'000'000'000'000.0}});
+    credentials = CodexCredentialStore::parse(
+        QJsonDocument(
+            QJsonObject{
+                {QStringLiteral("tokens"),
+                 QJsonObject{{QStringLiteral("access_token"), distantToken},
+                             {QStringLiteral("refresh_token"), QStringLiteral("refresh")}}},
+            })
+            .toJson(),
+        &error);
+    QVERIFY2(credentials.has_value(), qPrintable(error));
+    QVERIFY(!credentials->expiresAt.isValid());
+}
+
 void CodexCredentialsTest::rejectsInvalidDocuments()
 {
     QString error;
@@ -140,6 +198,8 @@ void CodexCredentialsTest::rejectsInvalidDocuments()
 
     QVERIFY(!CodexCredentialStore::parse(R"({"tokens":{"access_token":"only"}})", &error));
     QCOMPARE(error, QStringLiteral("Codex auth file contains no usable credentials"));
+
+    QVERIFY(!CodexCredentialStore::parse("{", nullptr));
 }
 
 void CodexCredentialsTest::resolvesCredentialPaths()
@@ -189,6 +249,24 @@ void CodexCredentialsTest::rejectsOversizedFile()
     QCOMPARE(error, QStringLiteral("Codex auth file exceeds the 1 MiB limit"));
 }
 
+void CodexCredentialsTest::rejectsUnsafePaths()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QString error;
+
+    QVERIFY(!CodexCredentialStore::load(directory.path(), &error));
+    QCOMPARE(error, QStringLiteral("Codex auth path is not a regular file"));
+
+#if defined(Q_OS_UNIX)
+    if (QFileInfo(QStringLiteral("/etc/passwd")).ownerId() !=
+        QFileInfo(directory.path()).ownerId()) {
+        QVERIFY(!CodexCredentialStore::load(QStringLiteral("/etc/passwd"), &error));
+        QCOMPARE(error, QStringLiteral("Codex auth file is owned by another user"));
+    }
+#endif
+}
+
 void CodexCredentialsTest::savesRotatedCredentialsAtomically()
 {
     QTemporaryDir directory;
@@ -225,6 +303,23 @@ void CodexCredentialsTest::savesRotatedCredentialsAtomically()
     QCOMPARE(file.permissions() & (QFileDevice::ReadGroup | QFileDevice::WriteGroup |
                                    QFileDevice::ReadOther | QFileDevice::WriteOther),
              QFileDevice::Permissions{});
+}
+
+void CodexCredentialsTest::rejectsInvalidRotation()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(QStringLiteral("auth.json"));
+    QVERIFY(writePrivateFile(path, R"({"OPENAI_API_KEY":"sk-example"})"));
+    QString error;
+    const auto credentials = CodexCredentialStore::load(path, &error);
+    QVERIFY(credentials.has_value());
+
+    QVERIFY(!CodexCredentialStore::save(path, *credentials, &error));
+    QCOMPARE(error, QStringLiteral("Codex API-key credentials cannot be rotated"));
+    QVERIFY(!CodexCredentialStore::save(directory.filePath(QStringLiteral("missing")), *credentials,
+                                        &error));
+    QCOMPARE(error, QStringLiteral("Codex auth file was not found"));
 }
 
 void CodexCredentialsTest::calculatesRefreshNeed()

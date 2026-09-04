@@ -43,6 +43,7 @@ class UsageControllerTest final : public QObject
     void aggregatesProvidersInRegistrationOrder();
     void retainsLastGoodProviderOnFailure();
     void handlesNoProviders();
+    void handlesRegistrationEdges();
 };
 
 void UsageControllerTest::aggregatesProvidersInRegistrationOrder()
@@ -99,6 +100,31 @@ void UsageControllerTest::retainsLastGoodProviderOnFailure()
     QCOMPARE(controller.providers().size(), 2);
     QCOMPARE(controller.providers().at(0).toMap().value(QStringLiteral("version")).toInt(), 1);
     QCOMPARE(controller.error(), QStringLiteral("Codex: Codex unavailable"));
+}
+
+void UsageControllerTest::handlesRegistrationEdges()
+{
+    UsageController defaultController;
+    QVERIFY(defaultController.providers().isEmpty());
+
+    QObject owner;
+    auto *emptyId = new FakeProviderAdapter({});
+    emptyId->setParent(&owner);
+    UsageController controller({nullptr, emptyId});
+    QSignalSpy providersChanged(&controller, &UsageController::providersChanged);
+    QSignalSpy finished(&controller, &UsageController::refreshFinished);
+
+    controller.refresh();
+    emptyId->fail(QStringLiteral("Unavailable"));
+    QCOMPARE(finished.count(), 1);
+    QCOMPARE(controller.error(), QStringLiteral("Provider: Unavailable"));
+
+    controller.refresh();
+    emptyId->succeed({{QStringLiteral("id"), QStringLiteral("empty")}});
+    QCOMPARE(providersChanged.count(), 1);
+    controller.refresh();
+    emptyId->succeed({{QStringLiteral("id"), QStringLiteral("empty")}});
+    QCOMPARE(providersChanged.count(), 1);
 }
 
 void UsageControllerTest::handlesNoProviders()

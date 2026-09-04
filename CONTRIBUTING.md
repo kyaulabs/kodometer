@@ -8,9 +8,9 @@ Thanks for taking an interest in this project. We want to make contributing to t
 * Proposing new features
 * Becoming a maintainer
 
-## We Develop with Github
+## We develop with GitHub
 
-We use Github to host code, to track issues and feature requests, as well as accept pull requests. Discussion and general support is typically done through Discord.
+We use GitHub for source control, issues, feature requests, and pull requests. Discussion and general support take place on Discord.
 
 ## We Use [Git Flow](https://www.gitkraken.com/learn/git/git-flow)
 
@@ -18,20 +18,21 @@ We use Github to host code, to track issues and feature requests, as well as acc
 
 All code changes happen through pull requests and are the best way to propose changes to the codebase. We actively welcome your pull requests:
 
-1. Fork the repo and create your own branch off of the `develop` branch.
-2. Name your branch `feat/<name>-<hash>-<desc>` where:
-   * `<name>` is your Github username
-   * `<hash>` is equal to `openssl rand hex 2`
-   * `<desc>` is a short description using hyphen as a separator
-3. If you have added code that should be tested, add tests.
-4. If you have changed APIs, update the documentation.
-5. Ensure it passes whatever tests are being used.
-6. Make sure your code lints.
-7. Issue the pull request!
+1. Fork the repository and branch from `develop`.
+2. Name the branch `<type>/<name>-<hash>-<description>`, for example `feat/kyau-a1b2c3-provider-tabs`.
+   * `<type>` matches the intended Conventional Commit type.
+   * `<name>` is your GitHub username.
+   * Generate `<hash>` with `openssl rand -hex 3`.
+   * Write `<description>` in lowercase kebab case.
+3. Work test-first: add a failing test, make it pass, then refactor while the suite remains green.
+4. Keep commits atomic, signed, and compliant with Conventional Commits.
+5. Update documentation when behavior or public interfaces change.
+6. Run formatting, lint, tests, and coverage before pushing.
+7. Open the pull request against `develop` and complete the repository template.
 
-## Reporting Bugs / Feature Requests
+## Reporting bugs and feature requests
 
-We use Github issues to track public bugs and feature requests. Report a bug/feature by [opening a new issue](/../../issues); it is that easy!
+Use [GitHub Issues](/../../issues) to report a bug or request a feature. Include reproducible steps, the Plasma and Qt versions, the CodexBar CLI version, and relevant logs with credentials removed.
 
 ## Contributions & Software Licensing
 

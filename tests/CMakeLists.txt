@@ -16,6 +16,16 @@ target_compile_definitions(
 add_dependencies(dashboard-controller-test fake-codexbar)
 add_test(NAME dashboard-controller COMMAND dashboard-controller-test)
 
+add_executable(presentation-formatter-test tst_presentation_formatter.cpp)
+target_link_libraries(presentation-formatter-test PRIVATE codexbar-core Qt6::Test)
+codexbar_enable_warnings(presentation-formatter-test)
+add_test(NAME presentation-formatter COMMAND presentation-formatter-test)
+
+add_executable(provider-selection-model-test tst_provider_selection_model.cpp)
+target_link_libraries(provider-selection-model-test PRIVATE codexbar-core Qt6::Test)
+codexbar_enable_warnings(provider-selection-model-test)
+add_test(NAME provider-selection-model COMMAND provider-selection-model-test)
+
 add_executable(dashboard-snapshot-test tst_dashboard_snapshot.cpp)
 target_link_libraries(dashboard-snapshot-test PRIVATE codexbar-core Qt6::Test)
 codexbar_enable_warnings(dashboard-snapshot-test)

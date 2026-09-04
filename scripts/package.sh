@@ -2,12 +2,12 @@
 set -euo pipefail
 
 repo_root="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
-build_dir="${CODEXBAR_PACKAGE_BUILD_DIR:-$repo_root/build-package}"
+build_dir="${KODOMETER_PACKAGE_BUILD_DIR:-$repo_root/build-package}"
 staging_dir="$build_dir/staging"
-dist_dir="${CODEXBAR_DIST_DIR:-$repo_root/dist}"
+dist_dir="${KODOMETER_DIST_DIR:-$repo_root/dist}"
 version="$(awk '/^[[:space:]]*VERSION [0-9]+\.[0-9]+\.[0-9]+/{print $2; exit}' "$repo_root/CMakeLists.txt")"
 architecture="$(uname -m)"
-artifact="codexbar-plasma-$version-linux-$architecture.tar.gz"
+artifact="kodometer-$version-linux-$architecture.tar.gz"
 
 rm -rf "$build_dir"
 mkdir -p "$staging_dir" "$dist_dir"
@@ -18,7 +18,7 @@ cmake \
     -DBUILD_TESTING=OFF \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr \
-    -DCODEXBAR_BUILD_APPLET=ON
+    -DKODOMETER_BUILD_APPLET=ON
 cmake --build "$build_dir"
 DESTDIR="$staging_dir" cmake --install "$build_dir"
 

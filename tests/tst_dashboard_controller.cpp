@@ -1,9 +1,9 @@
-#include <codexbar/dashboard_controller.hpp>
+#include <kodometer/dashboard_controller.hpp>
 
 #include <QSignalSpy>
 #include <QtTest>
 
-using CodexBar::DashboardController;
+using Kodometer::DashboardController;
 
 class DashboardControllerTest final : public QObject
 {

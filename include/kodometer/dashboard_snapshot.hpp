@@ -9,7 +9,7 @@
 
 #include <optional>
 
-namespace CodexBar {
+namespace Kodometer {
 
 class DashboardSnapshot final
 {
@@ -36,4 +36,4 @@ class DashboardSnapshot final
     int m_staleAfterSeconds;
 };
 
-} // namespace CodexBar
+} // namespace Kodometer

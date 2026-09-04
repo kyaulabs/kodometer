@@ -8,7 +8,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-namespace CodexBar {
+namespace Kodometer {
 
 class DashboardController : public QObject
 {
@@ -75,4 +75,4 @@ class DashboardController : public QObject
     QByteArray m_standardOutput;
 };
 
-} // namespace CodexBar
+} // namespace Kodometer

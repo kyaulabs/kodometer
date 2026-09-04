@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
-import plasma.applet.org.kyaulabs.codexbar as Private
+import plasma.applet.org.kyaulabs.kodometer as Private
 
 ColumnLayout {
     id: root

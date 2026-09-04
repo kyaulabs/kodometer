@@ -1,9 +1,9 @@
-#include <codexbar/provider_selection_model.hpp>
+#include <kodometer/provider_selection_model.hpp>
 
 #include <QSignalSpy>
 #include <QtTest>
 
-using CodexBar::ProviderSelectionModel;
+using Kodometer::ProviderSelectionModel;
 
 namespace {
 

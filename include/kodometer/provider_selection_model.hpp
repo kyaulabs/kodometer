@@ -6,7 +6,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-namespace CodexBar {
+namespace Kodometer {
 
 class ProviderSelectionModel : public QObject
 {
@@ -49,4 +49,4 @@ class ProviderSelectionModel : public QObject
     QString m_selectedProviderId;
 };
 
-} // namespace CodexBar
+} // namespace Kodometer

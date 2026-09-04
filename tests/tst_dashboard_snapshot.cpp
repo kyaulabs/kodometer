@@ -1,11 +1,11 @@
-#include <codexbar/dashboard_snapshot.hpp>
+#include <kodometer/dashboard_snapshot.hpp>
 
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QtTest>
 
-using CodexBar::DashboardSnapshot;
+using Kodometer::DashboardSnapshot;
 
 class DashboardSnapshotTest final : public QObject
 {

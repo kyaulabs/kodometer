@@ -1,4 +1,4 @@
-plasma_add_applet(org.kyaulabs.codexbar
+plasma_add_applet(org.kyaulabs.kodometer
     QML_SOURCES
         CompactMeter.qml
         OverviewPage.qml
@@ -9,10 +9,10 @@ plasma_add_applet(org.kyaulabs.codexbar
         WindowRow.qml
         main.qml
     CPP_SOURCES
-        ../include/codexbar/dashboard_controller.hpp
-        ../include/codexbar/dashboard_snapshot.hpp
-        ../include/codexbar/presentation_formatter.hpp
-        ../include/codexbar/provider_selection_model.hpp
+        ../include/kodometer/dashboard_controller.hpp
+        ../include/kodometer/dashboard_snapshot.hpp
+        ../include/kodometer/presentation_formatter.hpp
+        ../include/kodometer/provider_selection_model.hpp
         ../src/dashboard_controller.cpp
         ../src/dashboard_snapshot.cpp
         ../src/presentation_formatter.cpp
@@ -20,7 +20,7 @@ plasma_add_applet(org.kyaulabs.codexbar
     GENERATE_APPLET_CLASS
 )
 
-target_include_directories(org.kyaulabs.codexbar PRIVATE ../include ../include/codexbar)
-target_link_libraries(org.kyaulabs.codexbar PRIVATE Qt6::Core Qt6::Qml Plasma::Plasma)
-target_compile_features(org.kyaulabs.codexbar PRIVATE cxx_std_20)
-codexbar_enable_warnings(org.kyaulabs.codexbar)
+target_include_directories(org.kyaulabs.kodometer PRIVATE ../include ../include/kodometer)
+target_link_libraries(org.kyaulabs.kodometer PRIVATE Qt6::Core Qt6::Qml Plasma::Plasma)
+target_compile_features(org.kyaulabs.kodometer PRIVATE cxx_std_20)
+kodometer_enable_warnings(org.kyaulabs.kodometer)

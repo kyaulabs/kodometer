@@ -6,7 +6,7 @@ import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
-import plasma.applet.org.kyaulabs.codexbar as Private
+import plasma.applet.org.kyaulabs.kodometer as Private
 
 PlasmoidItem {
     id: root
@@ -58,7 +58,7 @@ PlasmoidItem {
         }
 
         QQC2.ToolTip.visible: compactMouse.containsMouse
-        QQC2.ToolTip.text: qsTr("CodexBar usage")
+        QQC2.ToolTip.text: qsTr("Kodometer usage")
 
         MouseArea {
             id: compactMouse

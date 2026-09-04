@@ -1,9 +1,9 @@
-# CodexBar Plasma
+# Kodometer
 
 [![Conventional Commits](https://img.shields.io/badge/conventional%20commits-1.0.0-fe5196?logo=conventionalcommits)](https://www.conventionalcommits.org/en/v1.0.0/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
-CodexBar Plasma is a KDE Plasma 6 panel widget for AI provider limits. It follows the layout and meter behavior of [CodexBar](https://github.com/steipete/CodexBar) while using Plasma controls, keyboard access, and theme colors.
+Kodometer is a KDE Plasma 6 panel widget for AI provider limits. It follows the layout and meter behavior of [CodexBar](https://github.com/steipete/CodexBar) while using Plasma controls, keyboard access, and theme colors.
 
 The widget reads the stable dashboard-v1 JSON produced by the CodexBar CLI. Provider authentication, API access, local history scans, and provider configuration remain in the CLI. The widget does not read credential files or invoke a shell.
 
@@ -58,15 +58,15 @@ codexbar dashboard --identity redacted --pretty
 ## Build and install
 
 ```bash
-git clone https://github.com/kyaulabs/codexbar-plasma.git
-cd codexbar-plasma
+git clone https://github.com/kyaulabs/kodometer.git
+cd kodometer
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 cmake --install build --prefix "$HOME/.local"
 kbuildsycoca6
 ```
 
-Restart Plasma Shell after the first install, then add **CodexBar Plasma** from the widget browser. On a development machine, restart the shell with:
+Restart Plasma Shell after the first install, then add **Kodometer** from the widget browser. On a development machine, restart the shell with:
 
 ```bash
 kquitapp6 plasmashell
@@ -76,8 +76,8 @@ kstart plasmashell
 Release archives preserve system-relative paths. To install one for all users:
 
 ```bash
-sha256sum -c codexbar-plasma-X.Y.Z-linux-x86_64.tar.gz.sha256
-sudo tar -xzf codexbar-plasma-X.Y.Z-linux-x86_64.tar.gz -C /
+sha256sum -c kodometer-X.Y.Z-linux-x86_64.tar.gz.sha256
+sudo tar -xzf kodometer-X.Y.Z-linux-x86_64.tar.gz -C /
 ```
 
 ## Development
@@ -87,7 +87,7 @@ Build and run all tests:
 ```bash
 cmake -S . -B build -G Ninja -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
-cmake --build build --target org.kyaulabs.codexbar_qmllint
+cmake --build build --target org.kyaulabs.kodometer_qmllint
 ctest --test-dir build --output-on-failure
 ```
 
@@ -132,8 +132,8 @@ Report vulnerabilities according to [SECURITY.md](SECURITY.md).
 
 ## Attribution
 
-CodexBar Plasma is an independent Linux client inspired by Peter Steinberger's MIT-licensed [CodexBar](https://github.com/steipete/CodexBar). It consumes CodexBar's documented dashboard-v1 interface. CodexBar and its provider marks belong to their respective owners.
+Kodometer is an independent Linux client inspired by Peter Steinberger's MIT-licensed [CodexBar](https://github.com/steipete/CodexBar). It consumes CodexBar's documented dashboard-v1 interface. CodexBar and its provider marks belong to their respective owners.
 
 ## License
 
-CodexBar Plasma is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+Kodometer is licensed under the [GNU Affero General Public License v3.0](LICENSE).

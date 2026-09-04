@@ -1,12 +1,12 @@
-#include <codexbar/dashboard_controller.hpp>
+#include <kodometer/dashboard_controller.hpp>
 
-#include <codexbar/dashboard_snapshot.hpp>
+#include <kodometer/dashboard_snapshot.hpp>
 
 #include <QProcessEnvironment>
 
 #include <algorithm>
 
-namespace CodexBar {
+namespace Kodometer {
 namespace {
 
 constexpr qsizetype MaximumDiagnosticBytes = 4 * 1024;
@@ -203,4 +203,4 @@ void DashboardController::setError(const QString &error)
     emit errorChanged();
 }
 
-} // namespace CodexBar
+} // namespace Kodometer

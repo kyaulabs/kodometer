@@ -1,4 +1,4 @@
-#include <codexbar/dashboard_snapshot.hpp>
+#include <kodometer/dashboard_snapshot.hpp>
 
 #include <QJsonDocument>
 #include <QJsonParseError>
@@ -8,7 +8,7 @@
 #include <limits>
 #include <utility>
 
-namespace CodexBar {
+namespace Kodometer {
 namespace {
 
 std::optional<DashboardSnapshot> fail(QString message, QString *error)
@@ -182,4 +182,4 @@ bool DashboardSnapshot::isStale(const QDateTime &now) const
     return m_generatedAt.addSecs(m_staleAfterSeconds) < now.toUTC();
 }
 
-} // namespace CodexBar
+} // namespace Kodometer

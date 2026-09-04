@@ -1,5 +1,6 @@
 #include <kodometer/usage_controller.hpp>
 
+#include <kodometer/claude_provider_adapter.hpp>
 #include <kodometer/codex_provider_adapter.hpp>
 
 #include <QDateTime>
@@ -21,7 +22,8 @@ QString displayName(const QString &providerId)
 
 // GCOVR_EXCL_BR_START -- Qt container allocation branches
 UsageController::UsageController(QObject *parent)
-    : UsageController(QList<ProviderAdapter *>{new CodexProviderAdapter}, parent)
+    : UsageController(QList<ProviderAdapter *>{new CodexProviderAdapter, new ClaudeProviderAdapter},
+                      parent)
 {}
 // GCOVR_EXCL_BR_STOP
 

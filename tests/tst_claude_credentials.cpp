@@ -1,5 +1,6 @@
 #include <kodometer/claude_credentials.hpp>
 
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -71,6 +72,11 @@ void ClaudeCredentialsTest::resolvesCredentialPaths()
                  {{QStringLiteral("CLAUDE_CONFIG_DIR"), QStringLiteral("relative/profile")}},
                  QStringLiteral("/home/test"), QStringLiteral("/work")),
              QStringLiteral("/work/relative/profile/.credentials.json"));
+    QCOMPARE(ClaudeCredentialStore::authenticationFilePath(
+                 {{QStringLiteral("CLAUDE_CONFIG_DIR"), QStringLiteral("relative/profile")}},
+                 QStringLiteral("/home/test")),
+             QDir::cleanPath(
+                 QDir::current().filePath(QStringLiteral("relative/profile/.credentials.json"))));
     QCOMPARE(
         ClaudeCredentialStore::authenticationFilePath(
             {{QStringLiteral("CLAUDE_CONFIG_DIR"), QStringLiteral("/profiles/claude")},
@@ -123,6 +129,9 @@ void ClaudeCredentialsTest::rejectsInvalidDocuments()
     QVERIFY(!ClaudeCredentialStore::parse(
         R"({"claudeAiOauth":{"accessToken":"token","expiresAt":-1}})", &error));
     QCOMPARE(error, QStringLiteral("Claude OAuth expiry is invalid"));
+    QVERIFY(!ClaudeCredentialStore::parse(
+        R"({"claudeAiOauth":{"accessToken":"token","expiresAt":"later"}})", &error));
+    QCOMPARE(error, QStringLiteral("Claude OAuth expiry is invalid"));
     QVERIFY(!ClaudeCredentialStore::parse("{", nullptr));
 }
 
@@ -135,6 +144,8 @@ void ClaudeCredentialsTest::enforcesPrivateFiles()
 
     QVERIFY(!ClaudeCredentialStore::load(path, &error));
     QCOMPARE(error, QStringLiteral("Claude credentials were not found"));
+    QVERIFY(!ClaudeCredentialStore::load(directory.path(), &error));
+    QCOMPARE(error, QStringLiteral("Claude credential path is not a regular file"));
     QVERIFY(writePrivateFile(path, credentialDocument()));
     QVERIFY(QFile::setPermissions(path, QFileDevice::ReadOwner | QFileDevice::WriteOwner |
                                             QFileDevice::ReadGroup));
@@ -182,6 +193,21 @@ void ClaudeCredentialsTest::savesRotatedCredentialsAtomically()
     QCOMPARE(file.permissions() & (QFileDevice::ReadGroup | QFileDevice::WriteGroup |
                                    QFileDevice::ReadOther | QFileDevice::WriteOther),
              QFileDevice::Permissions{});
+    file.close();
+
+    credentials->refreshToken.clear();
+    credentials->expiresAt = {};
+    credentials->rateLimitTier.clear();
+    credentials->subscriptionType.clear();
+    QVERIFY2(ClaudeCredentialStore::save(path, *credentials, &error), qPrintable(error));
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const QJsonObject cleared = QJsonDocument::fromJson(file.readAll())
+                                    .object()
+                                    .value(QStringLiteral("claudeAiOauth"))
+                                    .toObject();
+    QVERIFY(!cleared.contains(QStringLiteral("refreshToken")));
+    QVERIFY(!cleared.contains(QStringLiteral("expiresAt")));
+    file.close();
 
     QVERIFY(!ClaudeCredentialStore::save(directory.filePath(QStringLiteral("missing")),
                                          *credentials, &error));

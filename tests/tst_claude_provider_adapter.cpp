@@ -162,6 +162,7 @@ class ClaudeProviderAdapterTest final : public QObject
     void refreshesExpiringTokenBeforeUsage();
     void retriesUnauthorizedUsageOnce();
     void reportsCredentialAndResponseFailures();
+    void reportsTokenAndNetworkFailures();
     void rejectsConcurrentRefreshAndTimesOut();
     void limitsResponseSize();
 };
@@ -296,6 +297,77 @@ void ClaudeProviderAdapterTest::reportsCredentialAndResponseFailures()
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 4);
     QCOMPARE(adapter.error(), QStringLiteral("Claude OAuth refresh token is missing"));
+}
+
+void ClaudeProviderAdapterTest::reportsTokenAndNetworkFailures()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(QStringLiteral(".credentials.json"));
+    QVERIFY(writeCredentials(path, 1));
+    HttpServer server;
+    QNetworkAccessManager network;
+    ClaudeProviderAdapter adapter(&network);
+    adapter.setCredentialPath(path);
+    adapter.setTokenEndpoint(server.url(QStringLiteral("/token")));
+    adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
+    QSignalSpy finished(&adapter, &ClaudeProviderAdapter::refreshFinished);
+
+    server.enqueue({400, R"({"error":"invalid_grant"})"});
+    adapter.refresh();
+    QVERIFY(finished.wait());
+    QCOMPARE(adapter.error(), QStringLiteral("Claude token request failed with HTTP 400"));
+
+    server.enqueue({200, "{"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 2);
+    QCOMPARE(adapter.error(), QStringLiteral("Claude token endpoint returned invalid JSON"));
+
+    server.enqueue({200, R"({"access_token":"","expires_in":3600})"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 3);
+    QCOMPARE(adapter.error(), QStringLiteral("Claude token endpoint returned invalid credentials"));
+
+    server.enqueue({200, R"({"access_token":"token","expires_in":"later"})"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 4);
+    QCOMPARE(adapter.error(), QStringLiteral("Claude token endpoint returned invalid credentials"));
+
+    adapter.setTimeoutMilliseconds(20);
+    server.enqueue({200, "{}", {}, false});
+    adapter.refresh();
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 5, 1000);
+    QCOMPARE(adapter.error(), QStringLiteral("Claude token request timed out"));
+
+    adapter.setTimeoutMilliseconds(1000);
+    server.enqueue({200, QByteArray(ClaudeProviderAdapter::MaximumResponseSize + 1, 'x')});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 6);
+    QCOMPARE(adapter.error(), QStringLiteral("Claude token response exceeds the 1 MiB limit"));
+
+    adapter.setTokenEndpoint(QUrl(QStringLiteral("http://127.0.0.1:1/token")));
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 7);
+    QVERIFY(
+        adapter.error().startsWith(QStringLiteral("Claude token request failed: network error")));
+
+    QVERIFY(writeCredentials(path, 2'000'000'000'000));
+    adapter.setUsageEndpoint(QUrl(QStringLiteral("http://127.0.0.1:1/usage")));
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 8);
+    QVERIFY(
+        adapter.error().startsWith(QStringLiteral("Claude usage request failed: network error")));
+
+    adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
+    server.enqueue({500, "{}"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 9);
+    QCOMPARE(adapter.error(), QStringLiteral("Claude usage request failed with HTTP 500"));
+
+    server.enqueue({200, usagePayload()});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 10);
+    QVERIFY(adapter.error().isEmpty());
 }
 
 void ClaudeProviderAdapterTest::rejectsConcurrentRefreshAndTimesOut()

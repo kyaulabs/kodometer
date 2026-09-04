@@ -37,7 +37,9 @@ void ClaudeUsageParserTest::mapsUsageResponse()
             {"kind":"weekly_scoped","group":"weekly","percent":19,
              "scope":{"model":{"id":"all-models","display_name":"All Models"}}},
             {"kind":"daily","group":"daily","percent":20,
-             "scope":{"model":{"id":"ignored","display_name":"Ignored"}}}
+             "scope":{"model":{"id":"ignored","display_name":"Ignored"}}},
+            {"kind":"weekly_scoped","group":"weekly","percent":20,
+             "scope":{"model":{"id":"promotion-all-models","display_name":"Everything"}}}
         ],
         "extra_usage":{"is_enabled":true,"monthly_limit":5000,"used_credits":1250,
                        "utilization":25,"currency":"USD"}
@@ -92,7 +94,7 @@ void ClaudeUsageParserTest::mapsSpendLimitWithoutSession()
 {
     const QByteArray payload = R"({
         "extra_usage":{"is_enabled":true,"monthly_limit":"2000","used_credits":"500",
-                       "utilization":25,"currency":" usd "}
+                       "utilization":25}
     })";
     ClaudeCredentials credentials;
     credentials.subscriptionType = QStringLiteral("enterprise");
@@ -119,9 +121,18 @@ void ClaudeUsageParserTest::toleratesOptionalAndMalformedWindows()
         "seven_day":{"utilization":"bad"},
         "seven_day_oauth_apps":{"utilization":-5},
         "routines":{"utilization":2},
-        "limits":[4,{"kind":"weekly_scoped","group":"weekly","percent":2,
-                     "scope":{"model":{"display_name":"---"}}}],
-        "extra_usage":{"is_enabled":false,"monthly_limit":100,"used_credits":20}
+        "limits":[
+            4,
+            {"kind":"weekly_scoped","group":"weekly","percent":2,
+             "scope":{"model":{"display_name":"---"}}},
+            {"kind":"weekly_scoped","group":"daily","percent":2,
+             "scope":{"model":{"display_name":"Ignored"}}},
+            {"kind":"weekly_scoped","group":"weekly",
+             "scope":{"model":{"display_name":"Ignored"}}},
+            {"kind":"weekly_scoped","group":"weekly","percent":4,
+             "scope":{"model":{"display_name":"Haiku"}}}
+        ],
+        "extra_usage":{"is_enabled":true}
     })";
     ClaudeCredentials credentials;
     credentials.rateLimitTier = QStringLiteral("pro");
@@ -132,13 +143,15 @@ void ClaudeUsageParserTest::toleratesOptionalAndMalformedWindows()
 
     QVERIFY2(provider.has_value(), qPrintable(error));
     const QVariantList windows = provider->value(QStringLiteral("windows")).toList();
-    QCOMPARE(windows.size(), 3);
+    QCOMPARE(windows.size(), 4);
     QCOMPARE(windows.at(0).toMap().value(QStringLiteral("usedPercent")).toDouble(), 100.0);
     QVERIFY(!windows.at(0).toMap().contains(QStringLiteral("resetAt")));
     QCOMPARE(windows.at(1).toMap().value(QStringLiteral("kind")).toString(),
              QStringLiteral("oauth-apps-weekly"));
     QCOMPARE(windows.at(1).toMap().value(QStringLiteral("usedPercent")).toDouble(), 0.0);
     QCOMPARE(windows.at(2).toMap().value(QStringLiteral("kind")).toString(),
+             QStringLiteral("model-haiku-weekly"));
+    QCOMPARE(windows.at(3).toMap().value(QStringLiteral("kind")).toString(),
              QStringLiteral("claude-routines"));
     QVERIFY(provider->value(QStringLiteral("cost")).isNull());
 }
@@ -155,6 +168,10 @@ void ClaudeUsageParserTest::rejectsInvalidResponses()
     QCOMPARE(error, QStringLiteral("Claude usage API returned an invalid object"));
     QVERIFY(!ClaudeUsageParser::parse("{}", credentials, now, &error));
     QCOMPARE(error, QStringLiteral("Claude usage API returned no usable limits"));
+    const auto unknownPlan =
+        ClaudeUsageParser::parse(R"({"five_hour":{"utilization":1}})", credentials, now, &error);
+    QVERIFY2(unknownPlan.has_value(), qPrintable(error));
+    QVERIFY(unknownPlan->value(QStringLiteral("identity")).toMap().isEmpty());
     QVERIFY(!ClaudeUsageParser::parse("{", credentials, now, nullptr));
 }
 
@@ -165,6 +182,7 @@ void ClaudeUsageParserTest::formatsPlans_data()
     QTest::addColumn<QString>("expected");
 
     QTest::newRow("max multiplier") << "max" << "default_claude_max_5x" << "Claude Max 5x";
+    QTest::newRow("max without multiplier") << "max" << "unknown" << "Claude Max";
     QTest::newRow("pro subscription") << "pro" << "unknown" << "Claude Pro";
     QTest::newRow("team tier") << "" << "team_rate_limit" << "Claude Team";
     QTest::newRow("enterprise") << "enterprise" << "" << "Claude Enterprise";

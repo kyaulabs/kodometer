@@ -59,6 +59,9 @@ target_sources(kodometer-core
         src/codex_credentials.cpp
         src/codex_provider_adapter.cpp
         src/codex_usage_parser.cpp
+        src/claude_credentials.cpp
+        src/claude_provider_adapter.cpp
+        src/claude_usage_parser.cpp
         src/presentation_formatter.cpp
         src/provider_selection_model.cpp
         src/usage_controller.cpp
@@ -69,6 +72,9 @@ target_sources(kodometer-core
             include/kodometer/codex_credentials.hpp
             include/kodometer/codex_provider_adapter.hpp
             include/kodometer/codex_usage_parser.hpp
+            include/kodometer/claude_credentials.hpp
+            include/kodometer/claude_provider_adapter.hpp
+            include/kodometer/claude_usage_parser.hpp
             include/kodometer/presentation_formatter.hpp
             include/kodometer/provider_adapter.hpp
             include/kodometer/provider_selection_model.hpp

@@ -145,9 +145,9 @@ void KimiUsageParserTest::handlesOptionalRateLimitMetadata()
     QVERIFY(missing.has_value());
     QCOMPARE(missing->value(QStringLiteral("windows")).toList().size(), 1);
 
-    const auto malformed =
-        KimiUsageParser::parse(R"({"usage":{"limit":"100","used":"25"},"limits":[{"detail":{}}]})",
-                               KimiCredentialSource::ApiKey, QDateTime::currentDateTimeUtc());
+    const auto malformed = KimiUsageParser::parse(
+        R"({"usage":{"limit":"100","used":"25"},"limits":["invalid",{"detail":[]},{"detail":{}}]})",
+        KimiCredentialSource::ApiKey, QDateTime::currentDateTimeUtc());
     QVERIFY(malformed.has_value());
     QCOMPARE(malformed->value(QStringLiteral("windows")).toList().size(), 1);
 
@@ -173,6 +173,33 @@ void KimiUsageParserTest::handlesOptionalRateLimitMetadata()
                  .toMap()
                  .value(QStringLiteral("windowSeconds")),
              24 * 60 * 60);
+
+    const auto minutes = KimiUsageParser::parse(
+        R"({"usage":{"limit":"100","used":"25","resetTime":"invalid"},"limits":[{
+          "window":{"duration":30,"timeUnit":"TIME_UNIT_MINUTE"},
+          "detail":{"limit":"20","used":"5"}}]})",
+        KimiCredentialSource::ApiKey, QDateTime::currentDateTimeUtc());
+    QVERIFY(minutes.has_value());
+    const QVariantList minuteWindows = minutes->value(QStringLiteral("windows")).toList();
+    QVERIFY(!minuteWindows.first().toMap().contains(QStringLiteral("resetAt")));
+    QCOMPARE(minuteWindows.at(1).toMap().value(QStringLiteral("label")),
+             QStringLiteral("30-minute usage"));
+
+    for (const QByteArray &duration :
+         {QByteArray("0"), QByteArray("1.5"), QByteArray("999999999999")}) {
+        const QByteArray payload = QByteArray(R"({"usage":{"limit":"100","used":"25"},"limits":[{
+              "window":{"duration":)") +
+                                   duration + QByteArray(R"(,"timeUnit":"TIME_UNIT_MINUTE"},
+              "detail":{"limit":"20","used":"5"}}]})");
+        const auto invalidDuration = KimiUsageParser::parse(payload, KimiCredentialSource::ApiKey,
+                                                            QDateTime::currentDateTimeUtc());
+        QVERIFY(invalidDuration.has_value());
+        QVERIFY(!invalidDuration->value(QStringLiteral("windows"))
+                     .toList()
+                     .at(1)
+                     .toMap()
+                     .contains(QStringLiteral("windowSeconds")));
+    }
 }
 
 void KimiUsageParserTest::rejectsMalformedUsage()

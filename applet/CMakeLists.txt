@@ -18,6 +18,9 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../include/kodometer/gemini_credentials.hpp
         ../include/kodometer/gemini_provider_adapter.hpp
         ../include/kodometer/gemini_usage_parser.hpp
+        ../include/kodometer/kimi_credentials.hpp
+        ../include/kodometer/kimi_provider_adapter.hpp
+        ../include/kodometer/kimi_usage_parser.hpp
         ../include/kodometer/xai_credentials.hpp
         ../include/kodometer/xai_provider_adapter.hpp
         ../include/kodometer/xai_usage_parser.hpp
@@ -34,6 +37,9 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../src/gemini_credentials.cpp
         ../src/gemini_provider_adapter.cpp
         ../src/gemini_usage_parser.cpp
+        ../src/kimi_credentials.cpp
+        ../src/kimi_provider_adapter.cpp
+        ../src/kimi_usage_parser.cpp
         ../src/xai_credentials.cpp
         ../src/xai_provider_adapter.cpp
         ../src/xai_usage_parser.cpp
@@ -47,5 +53,6 @@ target_include_directories(org.kyaulabs.kodometer PRIVATE ../include ../include/
 target_link_libraries(
     org.kyaulabs.kodometer PRIVATE Qt6::Core Qt6::Network Qt6::Qml Plasma::Plasma
 )
+target_compile_definitions(org.kyaulabs.kodometer PRIVATE KODOMETER_VERSION="${PROJECT_VERSION}")
 target_compile_features(org.kyaulabs.kodometer PRIVATE cxx_std_20)
 kodometer_enable_warnings(org.kyaulabs.kodometer)

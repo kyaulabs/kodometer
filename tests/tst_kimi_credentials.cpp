@@ -104,6 +104,12 @@ void KimiCredentialsTest::rejectsMalformedCredentials()
          QStringLiteral("Kimi Code CLI expiry is missing or invalid")},
         {R"({"access_token":"token","expires_at":-1})",
          QStringLiteral("Kimi Code CLI expiry is missing or invalid")},
+        {R"({"access_token":"token","expires_at":92233720368547760})",
+         QStringLiteral("Kimi Code CLI expiry is missing or invalid")},
+        {R"({"access_token":"token","expires_at":[]})",
+         QStringLiteral("Kimi Code CLI expiry is missing or invalid")},
+        {R"({"access_token":"line\nbreak","expires_at":1800003600})",
+         QStringLiteral("Kimi Code CLI access token contains invalid characters")},
     };
 
     for (const auto &[data, expected] : cases) {
@@ -126,6 +132,12 @@ void KimiCredentialsTest::prefersExplicitApiKey()
     QCOMPARE(resolved->accessToken, QStringLiteral("api-key"));
     QVERIFY(resolved->deviceId.isEmpty());
     QVERIFY(error.isEmpty());
+
+    QVERIFY(!KimiCredentialStore::resolve(
+                 {{QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral("line\nbreak")}}, {}, {},
+                 QDateTime::fromSecsSinceEpoch(1'800'000'000, QTimeZone::UTC), &error)
+                 .has_value());
+    QCOMPARE(error, QStringLiteral("Kimi Code API key contains invalid characters"));
 }
 
 void KimiCredentialsTest::securelyLoadsCliCredentialAndCreatesDeviceId()
@@ -203,6 +215,54 @@ void KimiCredentialsTest::rejectsExpiredAndInsecureFiles()
     QCOMPARE(error, QStringLiteral("Kimi Code credentials were not found"));
     QVERIFY(!KimiCredentialStore::load(temporary.path(), &error).has_value());
     QCOMPARE(error, QStringLiteral("Kimi Code credential path is not a regular file"));
+
+    const auto resolveWithDevice = [&](const QString &name, const QByteArray &deviceData,
+                                       QFileDevice::Permissions permissions) {
+        const QString home = temporary.path() + QLatin1Char('/') + name;
+        if (writeCredential(home, credential()).isEmpty()) {
+            return std::optional<KimiCredentials>{};
+        }
+        QFile device(home + QStringLiteral("/device_id"));
+        if (!device.open(QIODevice::WriteOnly) || device.write(deviceData) != deviceData.size()) {
+            return std::optional<KimiCredentials>{};
+        }
+        device.close();
+        QFile::setPermissions(device.fileName(), permissions);
+        return KimiCredentialStore::resolve({{QStringLiteral("KIMI_CODE_HOME"), home}}, {}, {}, now,
+                                            &error);
+    };
+    const auto privatePermissions = QFileDevice::ReadOwner | QFileDevice::WriteOwner;
+    QVERIFY(!resolveWithDevice(QStringLiteral("public-device"), "device",
+                               privatePermissions | QFileDevice::ReadGroup)
+                 .has_value());
+    QCOMPARE(error, QStringLiteral("Kimi Code device ID permissions are not private"));
+    QVERIFY(!resolveWithDevice(QStringLiteral("empty-device"), {}, privatePermissions).has_value());
+    QCOMPARE(error, QStringLiteral("Kimi Code device ID is empty"));
+    QVERIFY(!resolveWithDevice(QStringLiteral("large-device"), QByteArray(4097, 'x'),
+                               privatePermissions)
+                 .has_value());
+    QCOMPARE(error, QStringLiteral("Kimi Code device ID is too large"));
+
+    const QString directoryHome = temporary.path() + QStringLiteral("/directory-device");
+    QVERIFY(!writeCredential(directoryHome, credential()).isEmpty());
+    QVERIFY(QDir().mkpath(directoryHome + QStringLiteral("/device_id")));
+    QVERIFY(!KimiCredentialStore::resolve({{QStringLiteral("KIMI_CODE_HOME"), directoryHome}}, {},
+                                          {}, now, &error)
+                 .has_value());
+    QCOMPARE(error, QStringLiteral("Kimi Code device ID path is not a regular file"));
+
+    const QString linkHome = temporary.path() + QStringLiteral("/linked-device");
+    QVERIFY(!writeCredential(linkHome, credential()).isEmpty());
+    const QString deviceTarget = temporary.path() + QStringLiteral("/device-target");
+    QFile targetFile(deviceTarget);
+    QVERIFY(targetFile.open(QIODevice::WriteOnly));
+    QCOMPARE(targetFile.write("device"), 6);
+    targetFile.close();
+    QVERIFY(QFile::link(deviceTarget, linkHome + QStringLiteral("/device_id")));
+    QVERIFY(!KimiCredentialStore::resolve({{QStringLiteral("KIMI_CODE_HOME"), linkHome}}, {}, {},
+                                          now, &error)
+                 .has_value());
+    QCOMPARE(error, QStringLiteral("Kimi Code device ID path is not a regular file"));
 }
 
 QTEST_GUILESS_MAIN(KimiCredentialsTest)

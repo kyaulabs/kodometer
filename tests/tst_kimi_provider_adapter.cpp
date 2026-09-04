@@ -139,9 +139,12 @@ class KimiProviderAdapterTest final : public QObject
   private slots:
     void fetchesUsageWithApiKey();
     void reusesCliCredentialWithDeviceIdentity();
+    void fallsBackToCliAfterRejectedApiKey();
     void reportsCredentialFailures();
     void classifiesHttpFailures_data();
     void classifiesHttpFailures();
+    void normalizesUsageEndpoint_data();
+    void normalizesUsageEndpoint();
     void reportsParseAndNetworkFailures();
     void boundsResponsesAndTimeouts();
     void ignoresConcurrentRefresh();
@@ -192,6 +195,7 @@ void KimiProviderAdapterTest::reusesCliCredentialWithDeviceIdentity()
 
     HttpServer server;
     server.enqueue({200, validUsage()});
+    server.enqueue({401, "{}"});
     QNetworkAccessManager network;
     KimiProviderAdapter adapter(&network);
     adapter.setBaseEndpoint(server.baseUrl());
@@ -211,6 +215,40 @@ void KimiProviderAdapterTest::reusesCliCredentialWithDeviceIdentity()
 
     QVERIFY(credentialFile.open(QIODevice::ReadOnly));
     QCOMPARE(credentialFile.readAll(), original);
+    credentialFile.close();
+
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 2);
+    QCOMPARE(finished.at(1).first().toBool(), false);
+    QCOMPARE(adapter.error(),
+             QStringLiteral("Kimi Code CLI credential is invalid or expired; sign in again or set "
+                            "KIMI_CODE_API_KEY"));
+}
+
+void KimiProviderAdapterTest::fallsBackToCliAfterRejectedApiKey()
+{
+    QTemporaryDir temporary;
+    QVERIFY(temporary.isValid());
+    const QString home = temporary.path() + QStringLiteral("/kimi");
+    QVERIFY(!writeCliCredential(home, 1'800'003'600.0).isEmpty());
+    HttpServer server;
+    server.enqueue({401, "{}"});
+    server.enqueue({200, validUsage()});
+    QNetworkAccessManager network;
+    KimiProviderAdapter adapter(&network);
+    adapter.setBaseEndpoint(server.baseUrl());
+    adapter.setEnvironment({{QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral("bad-key")},
+                            {QStringLiteral("KIMI_CODE_HOME"), home}});
+    adapter.setCurrentDateTime(QDateTime::fromSecsSinceEpoch(1'800'000'000, QTimeZone::UTC));
+    QSignalSpy finished(&adapter, &KimiProviderAdapter::refreshFinished);
+
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 1);
+    QCOMPARE(finished.first().first().toBool(), true);
+    QCOMPARE(adapter.provider().value(QStringLiteral("source")), QStringLiteral("cli-oauth"));
+    QCOMPARE(server.requests().size(), 2);
+    QVERIFY(server.requests().at(0).contains("Authorization: Bearer bad-key\r\n"));
+    QVERIFY(server.requests().at(1).contains("Authorization: Bearer cli-token\r\n"));
 }
 
 void KimiProviderAdapterTest::reportsCredentialFailures()
@@ -261,6 +299,37 @@ void KimiProviderAdapterTest::classifiesHttpFailures()
     QCOMPARE(finished.first().first().toBool(), false);
     QCOMPARE(adapter.error(), message);
     QCOMPARE(server.requests().size(), 1);
+}
+
+void KimiProviderAdapterTest::normalizesUsageEndpoint_data()
+{
+    QTest::addColumn<QString>("basePath");
+    QTest::addColumn<QByteArray>("requestPath");
+    QTest::newRow("root") << QString{} << QByteArray("/coding/v1/usages");
+    QTest::newRow("coding") << QStringLiteral("/proxy/coding")
+                            << QByteArray("/proxy/coding/v1/usages");
+    QTest::newRow("coding-v1") << QStringLiteral("/proxy/coding/v1/")
+                               << QByteArray("/proxy/coding/v1/usages");
+}
+
+void KimiProviderAdapterTest::normalizesUsageEndpoint()
+{
+    QFETCH(QString, basePath);
+    QFETCH(QByteArray, requestPath);
+    HttpServer server;
+    server.enqueue({200, validUsage()});
+    QUrl endpoint = server.baseUrl();
+    endpoint.setPath(basePath);
+    QNetworkAccessManager network;
+    KimiProviderAdapter adapter(&network);
+    adapter.setBaseEndpoint(endpoint);
+    adapter.setEnvironment({{QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral("key")}});
+    QSignalSpy finished(&adapter, &KimiProviderAdapter::refreshFinished);
+
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 1);
+    QCOMPARE(finished.first().first().toBool(), true);
+    QVERIFY(server.requests().first().startsWith("GET " + requestPath + " HTTP/1.1\r\n"));
 }
 
 void KimiProviderAdapterTest::reportsParseAndNetworkFailures()

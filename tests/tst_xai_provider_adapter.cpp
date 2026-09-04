@@ -302,6 +302,8 @@ void XaiProviderAdapterTest::rejectsUnauthorizedHistory()
     HttpServer server;
     server.enqueue({200, R"({"total":{"val":"-1000"}})"});
     server.enqueue({401, "{}"});
+    server.enqueue({200, R"({"total":{"val":"-1000"}})"});
+    server.enqueue({403, "{}"});
     QNetworkAccessManager network;
     XaiProviderAdapter adapter(&network);
     configure(adapter, server);
@@ -311,6 +313,11 @@ void XaiProviderAdapterTest::rejectsUnauthorizedHistory()
 
     QVERIFY(finished.wait());
     QCOMPARE(finished.first().first().toBool(), false);
+    QCOMPARE(adapter.error(), QStringLiteral("xAI rejected the Management API key"));
+
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 2);
+    QCOMPARE(finished.at(1).first().toBool(), false);
     QCOMPARE(adapter.error(), QStringLiteral("xAI rejected the Management API key"));
 }
 

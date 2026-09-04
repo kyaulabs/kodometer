@@ -2,6 +2,8 @@
 
 #include <QtTest>
 
+#include <limits>
+
 using CodexBar::PresentationFormatter;
 
 class PresentationFormatterTest final : public QObject
@@ -48,6 +50,9 @@ void PresentationFormatterTest::formatsRemaining_data()
     QTest::newRow("whole") << QVariant(72) << QStringLiteral("72% left");
     QTest::newRow("fraction") << QVariant(72.4) << QStringLiteral("72.4% left");
     QTest::newRow("clamped") << QVariant(140) << QStringLiteral("100% left");
+    QTest::newRow("not-number") << QVariant(QStringLiteral("unknown")) << QStringLiteral("—");
+    QTest::newRow("infinite") << QVariant(std::numeric_limits<double>::infinity())
+                              << QStringLiteral("—");
 }
 
 void PresentationFormatterTest::formatsRemaining()
@@ -65,7 +70,11 @@ void PresentationFormatterTest::formatsResetTime_data()
     QTest::newRow("past") << QStringLiteral("2026-01-01T11:59:00Z") << QStringLiteral("now");
     QTest::newRow("seconds") << QStringLiteral("2026-01-01T12:00:45Z") << QStringLiteral("in 45s");
     QTest::newRow("minutes") << QStringLiteral("2026-01-01T12:02:05Z") << QStringLiteral("in 2m");
+    QTest::newRow("exact-hour") << QStringLiteral("2026-01-01T14:00:00Z")
+                                << QStringLiteral("in 2h");
     QTest::newRow("hours") << QStringLiteral("2026-01-01T14:05:00Z") << QStringLiteral("in 2h 5m");
+    QTest::newRow("exact-days") << QStringLiteral("2026-01-03T12:00:00Z")
+                                << QStringLiteral("in 2d");
     QTest::newRow("days") << QStringLiteral("2026-01-03T15:00:00Z") << QStringLiteral("in 2d 3h");
 }
 
@@ -87,6 +96,10 @@ void PresentationFormatterTest::rejectsInvalidResetTime()
     QVERIFY(PresentationFormatter::resetLabelAt(QStringLiteral("tomorrow"), now).isEmpty());
     QVERIFY(PresentationFormatter::resetLabelAt(QStringLiteral("2026-01-01T12:00:00Z"), QDateTime())
                 .isEmpty());
+
+    const QString liveLabel = PresentationFormatter::resetLabel(
+        QDateTime::currentDateTimeUtc().addSecs(30).toString(Qt::ISODate));
+    QVERIFY(liveLabel.startsWith(QStringLiteral("in ")));
 }
 
 void PresentationFormatterTest::choosesWindowTitle_data()

@@ -147,6 +147,10 @@ std::optional<QString> loadOrCreateDeviceId(const QString &path, QString *error)
             setError(error, QStringLiteral("Kimi Code device ID is empty"));
             return std::nullopt;
         }
+        if (containsHeaderBreak(deviceId)) {
+            setError(error, QStringLiteral("Kimi Code device ID contains invalid characters"));
+            return std::nullopt;
+        }
         return deviceId;
     }
 

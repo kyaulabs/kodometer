@@ -238,6 +238,9 @@ void KimiCredentialsTest::rejectsExpiredAndInsecureFiles()
     QCOMPARE(error, QStringLiteral("Kimi Code device ID permissions are not private"));
     QVERIFY(!resolveWithDevice(QStringLiteral("empty-device"), {}, privatePermissions).has_value());
     QCOMPARE(error, QStringLiteral("Kimi Code device ID is empty"));
+    QVERIFY(!resolveWithDevice(QStringLiteral("broken-device"), "line\nbreak", privatePermissions)
+                 .has_value());
+    QCOMPARE(error, QStringLiteral("Kimi Code device ID contains invalid characters"));
     QVERIFY(!resolveWithDevice(QStringLiteral("large-device"), QByteArray(4097, 'x'),
                                privatePermissions)
                  .has_value());

@@ -4,6 +4,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
+#include <QTimeZone>
 #include <QtTest>
 
 using Kodometer::CodexCredentials;
@@ -85,7 +86,7 @@ void CodexCredentialsTest::parsesOAuthCredentials()
     QCOMPARE(credentials->idToken, idToken);
     QCOMPARE(credentials->accountId, QStringLiteral("explicit-account"));
     QCOMPARE(credentials->email, QStringLiteral("person@example.com"));
-    QCOMPARE(credentials->expiresAt, QDateTime::fromSecsSinceEpoch(1'800'000'000, Qt::UTC));
+    QCOMPARE(credentials->expiresAt, QDateTime::fromSecsSinceEpoch(1'800'000'000, QTimeZone::UTC));
     QCOMPARE(credentials->lastRefresh,
              QDateTime::fromString(QStringLiteral("2026-09-03T12:30:00Z"), Qt::ISODate));
     QCOMPARE(credentials->document.value(QStringLiteral("unknown")).toInt(), 42);
@@ -228,7 +229,7 @@ void CodexCredentialsTest::savesRotatedCredentialsAtomically()
 
 void CodexCredentialsTest::calculatesRefreshNeed()
 {
-    const QDateTime now = QDateTime::fromSecsSinceEpoch(1'700'000'000, Qt::UTC);
+    const QDateTime now = QDateTime::fromSecsSinceEpoch(1'700'000'000, QTimeZone::UTC);
     CodexCredentials credentials;
 
     credentials.apiKey = true;

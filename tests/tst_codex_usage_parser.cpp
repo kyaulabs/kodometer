@@ -1,5 +1,6 @@
 #include <kodometer/codex_usage_parser.hpp>
 
+#include <QTimeZone>
 #include <QtTest>
 
 using Kodometer::CodexCredentials;
@@ -112,7 +113,7 @@ void CodexUsageParserTest::toleratesOptionalAndMalformedWindows()
     CodexCredentials credentials;
     credentials.apiKey = true;
     credentials.accountId = QStringLiteral("fallback-account");
-    const QDateTime now = QDateTime::fromSecsSinceEpoch(1'700'000'000, Qt::UTC);
+    const QDateTime now = QDateTime::fromSecsSinceEpoch(1'700'000'000, QTimeZone::UTC);
     QString error;
 
     const auto provider = CodexUsageParser::parse(payload, credentials, now, &error);

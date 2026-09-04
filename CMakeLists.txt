@@ -38,7 +38,7 @@ if(KODOMETER_BUILD_APPLET)
     find_package(Plasma 6.0 REQUIRED)
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Qml)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Network Qml)
 
 function(kodometer_enable_warnings target)
     target_compile_options(
@@ -57,23 +57,28 @@ add_library(kodometer-core STATIC)
 target_sources(kodometer-core
     PRIVATE
         src/codex_credentials.cpp
+        src/codex_provider_adapter.cpp
         src/codex_usage_parser.cpp
         src/dashboard_controller.cpp
         src/dashboard_snapshot.cpp
         src/presentation_formatter.cpp
         src/provider_selection_model.cpp
+        src/usage_controller.cpp
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
         FILES
             include/kodometer/codex_credentials.hpp
+            include/kodometer/codex_provider_adapter.hpp
             include/kodometer/codex_usage_parser.hpp
             include/kodometer/dashboard_controller.hpp
             include/kodometer/dashboard_snapshot.hpp
             include/kodometer/presentation_formatter.hpp
+            include/kodometer/provider_adapter.hpp
             include/kodometer/provider_selection_model.hpp
+            include/kodometer/usage_controller.hpp
 )
-target_link_libraries(kodometer-core PUBLIC Qt6::Core Qt6::Qml)
+target_link_libraries(kodometer-core PUBLIC Qt6::Core Qt6::Network Qt6::Qml)
 target_compile_features(kodometer-core PUBLIC cxx_std_20)
 kodometer_enable_warnings(kodometer-core)
 

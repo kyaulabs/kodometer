@@ -21,6 +21,11 @@ target_link_libraries(codex-credentials-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(codex-credentials-test)
 add_test(NAME codex-credentials COMMAND codex-credentials-test)
 
+add_executable(codex-provider-adapter-test tst_codex_provider_adapter.cpp)
+target_link_libraries(codex-provider-adapter-test PRIVATE kodometer-core Qt6::Network Qt6::Test)
+kodometer_enable_warnings(codex-provider-adapter-test)
+add_test(NAME codex-provider-adapter COMMAND codex-provider-adapter-test)
+
 add_executable(codex-usage-parser-test tst_codex_usage_parser.cpp)
 target_link_libraries(codex-usage-parser-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(codex-usage-parser-test)
@@ -35,6 +40,11 @@ add_executable(provider-selection-model-test tst_provider_selection_model.cpp)
 target_link_libraries(provider-selection-model-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(provider-selection-model-test)
 add_test(NAME provider-selection-model COMMAND provider-selection-model-test)
+
+add_executable(usage-controller-test tst_usage_controller.cpp)
+target_link_libraries(usage-controller-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(usage-controller-test)
+add_test(NAME usage-controller COMMAND usage-controller-test)
 
 add_executable(dashboard-snapshot-test tst_dashboard_snapshot.cpp)
 target_link_libraries(dashboard-snapshot-test PRIVATE kodometer-core Qt6::Test)

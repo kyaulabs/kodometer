@@ -253,9 +253,12 @@ void KimiProviderAdapterTest::fallsBackToCliAfterRejectedApiKey()
 
 void KimiProviderAdapterTest::reportsCredentialFailures()
 {
+    QTemporaryDir temporary;
+    QVERIFY(temporary.isValid());
     QNetworkAccessManager network;
     KimiProviderAdapter adapter(&network);
-    adapter.setEnvironment({});
+    adapter.setEnvironment(
+        {{QStringLiteral("KIMI_CODE_HOME"), temporary.path() + QStringLiteral("/missing")}});
     QSignalSpy finished(&adapter, &KimiProviderAdapter::refreshFinished);
     QSignalSpy failed(&adapter, &ProviderAdapter::refreshFailed);
 
@@ -288,10 +291,14 @@ void KimiProviderAdapterTest::classifiesHttpFailures()
     QFETCH(QString, message);
     HttpServer server;
     server.enqueue({status, "{}"});
+    QTemporaryDir temporary;
+    QVERIFY(temporary.isValid());
     QNetworkAccessManager network;
     KimiProviderAdapter adapter(&network);
     adapter.setBaseEndpoint(server.baseUrl());
-    adapter.setEnvironment({{QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral("key")}});
+    adapter.setEnvironment(
+        {{QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral("key")},
+         {QStringLiteral("KIMI_CODE_HOME"), temporary.path() + QStringLiteral("/missing")}});
     QSignalSpy finished(&adapter, &KimiProviderAdapter::refreshFinished);
 
     adapter.refresh();

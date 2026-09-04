@@ -26,7 +26,9 @@ The xAI adapter uses a Management API key and explicit team ID from the process 
 
 The Kimi adapter targets Kimi For Coding rather than the Moonshot/Kimi Open Platform. It prefers `KIMI_CODE_API_KEY`, then securely reads a fresh access token and stable device identity from the official Kimi Code CLI home. CLI credentials remain read-only because Kodometer neither invokes the CLI nor uses its refresh token. A rejected explicit key receives one retry with a fresh CLI credential. The adapter maps the Code API's 7-day request allowance and first short-window rate limit; it does not inspect browser cookies or accept `KIMI_AUTH_TOKEN`.
 
-All network adapters must use fixed HTTPS endpoints in production, disable automatic redirects, impose request timeouts and response-size limits, avoid logging credentials, and test success, authentication renewal, malformed data, network failure, timeout, and oversized-response paths against local servers.
+The DeepSeek adapter reads `DEEPSEEK_API_KEY`, with `DEEPSEEK_KEY` as a compatibility alias, and calls the documented `/user/balance` endpoint. It maps total, paid, and granted credits in the currency reported by DeepSeek, preferring a funded USD row without hiding a funded non-USD row behind an empty USD balance. Browser sessions and private dashboard usage or cost endpoints are outside the security boundary and are not used.
+
+All network adapters must use fixed HTTPS endpoints in production, disable automatic redirects, impose request timeouts and response-size limits, avoid logging credentials, and test success, authentication failure or renewal where applicable, malformed data, network failure, timeout, and oversized-response paths against local servers.
 
 ## Consequences
 
@@ -36,4 +38,4 @@ All network adapters must use fixed HTTPS endpoints in production, disable autom
 - Credential-file compatibility can change when upstream tools change their formats.
 - Native networking keeps refreshes asynchronous and works equally under Wayland and X11.
 - KWallet becomes a required integration before the settings UI can accept manually entered secrets.
-- New adapters can be introduced without changing QML as long as they produce the normalized provider map.
+- New adapters can reuse the normalized provider map and extend generic presentation fields when a provider exposes a new billing shape.

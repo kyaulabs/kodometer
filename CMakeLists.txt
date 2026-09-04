@@ -65,6 +65,9 @@ target_sources(kodometer-core
         src/gemini_credentials.cpp
         src/gemini_provider_adapter.cpp
         src/gemini_usage_parser.cpp
+        src/kimi_credentials.cpp
+        src/kimi_provider_adapter.cpp
+        src/kimi_usage_parser.cpp
         src/xai_credentials.cpp
         src/xai_provider_adapter.cpp
         src/xai_usage_parser.cpp
@@ -84,6 +87,9 @@ target_sources(kodometer-core
             include/kodometer/gemini_credentials.hpp
             include/kodometer/gemini_provider_adapter.hpp
             include/kodometer/gemini_usage_parser.hpp
+            include/kodometer/kimi_credentials.hpp
+            include/kodometer/kimi_provider_adapter.hpp
+            include/kodometer/kimi_usage_parser.hpp
             include/kodometer/xai_credentials.hpp
             include/kodometer/xai_provider_adapter.hpp
             include/kodometer/xai_usage_parser.hpp
@@ -93,6 +99,7 @@ target_sources(kodometer-core
             include/kodometer/usage_controller.hpp
 )
 target_link_libraries(kodometer-core PUBLIC Qt6::Core Qt6::Network Qt6::Qml)
+target_compile_definitions(kodometer-core PUBLIC KODOMETER_VERSION="${PROJECT_VERSION}")
 target_compile_features(kodometer-core PUBLIC cxx_std_20)
 kodometer_enable_warnings(kodometer-core)
 

@@ -12,11 +12,12 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 Kodometer is under active development. The current release foundation includes:
 
 - a compiled Plasma 6 applet for Wayland and X11;
-- native Codex, Claude, and Gemini OAuth requests plus xAI Management API billing through Qt Network;
+- native Codex, Claude, Gemini, Kimi Code, and xAI requests through Qt Network;
 - secure loading and atomic rotation of provider credentials;
 - session, weekly, model-specific, routines, spend-limit, and Gemini tier windows;
 - Claude monthly-cap and plan presentation;
 - xAI prepaid balance and 30-day platform spend summaries;
+- Kimi Code 7-day and short-window request quotas;
 - provider tabs, an overview, reset countdowns, and account and plan labels;
 - last-good data retention when a refresh fails;
 - redacted account identity by default;
@@ -24,7 +25,7 @@ Kodometer is under active development. The current release foundation includes:
 - C++ and QML tests with line, function, and branch coverage gates above 95%;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-Codex, Claude, Gemini, and xAI are available as native providers. Planned adapters include Kimi, DeepSeek, z.AI, and OpenRouter. KWallet-backed manual credential entry, settings, multi-account controls, expanded cost history, notifications, and provider actions will follow in reviewable branches.
+Codex, Claude, Gemini, Kimi Code, and xAI are available as native providers. Planned adapters include DeepSeek, z.AI, and OpenRouter. KWallet-backed manual credential entry, settings, multi-account controls, expanded cost history, notifications, and provider actions will follow in reviewable branches.
 
 ## Requirements
 
@@ -35,6 +36,7 @@ Runtime:
 - a Codex login at `~/.codex/auth.json`, or under `$CODEX_HOME/auth.json`;
 - a Claude login at `~/.claude/.credentials.json`;
 - a Gemini CLI OAuth login at `~/.gemini/oauth_creds.json`;
+- a Kimi Code API key exported as `KIMI_CODE_API_KEY`, or a fresh Kimi Code CLI login at `~/.kimi-code/credentials/kimi-code.json`;
 - an xAI Management API key and team ID exported as `XAI_MANAGEMENT_API_KEY` and `XAI_TEAM_ID`.
 
 Kodometer accepts OAuth credentials written by Codex, Claude, and Gemini CLI. Codex's `OPENAI_API_KEY` file form is also supported. Claude profile roots set through `CLAUDE_CONFIG_DIR` are honored, as is `CLAUDE_SECURESTORAGE_CONFIG_DIR`; relative profile paths resolve from Kodometer's working directory, matching Claude Code's literal-path behavior.
@@ -50,11 +52,14 @@ export XAI_TEAM_ID="team-id"
 
 Kodometer requests the posted prepaid ledger balance and a best-effort 30-day daily USD spend series. A history failure does not hide a valid balance. The key remains in the process environment and is never written to disk; KWallet-backed entry will replace this environment-only setup in a later settings branch.
 
+Kimi support targets [Kimi For Coding](https://www.kimi.com/code), not the separate Moonshot/Kimi Open Platform. Export `KIMI_CODE_API_KEY` for the recommended API-key flow. Without that variable, Kodometer reuses a fresh access token from the official Kimi Code CLI and sends the CLI device identity headers. `KIMI_CODE_HOME` selects a non-default CLI home. Kodometer does not use the stored refresh token or rewrite the credential file; an expired login must be renewed with Kimi Code CLI. If an explicit API key is rejected and a fresh CLI login exists, Kodometer retries once with the CLI credential. Browser cookies and `KIMI_AUTH_TOKEN` are not used.
+
 Credential files must be regular files owned by the current user. Kodometer rejects symbolic links, files larger than 1 MiB, and files that grant group or other users read or write access. To secure the default files:
 
 ```bash
 chmod 600 "$HOME/.codex/auth.json" "$HOME/.claude/.credentials.json" \
-  "$HOME/.gemini/oauth_creds.json"
+  "$HOME/.gemini/oauth_creds.json" \
+  "$HOME/.kimi-code/credentials/kimi-code.json"
 ```
 
 Build requirements:
@@ -138,7 +143,7 @@ Development follows Git Flow and Conventional Commits.
 
 ## Security and privacy
 
-Kodometer reads OAuth credentials only from the expected Codex, Claude, and Gemini authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state. The xAI Management API key is read from `XAI_MANAGEMENT_API_KEY` and is not persisted by Kodometer.
+Kodometer reads OAuth credentials only from the expected Codex, Claude, Gemini, and Kimi Code authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state. Kimi Code credentials remain read-only; Kodometer creates only a missing owner-only device ID required by the official API. The Kimi Code and xAI API keys are read from their provider-specific environment variables and are not persisted by Kodometer.
 
 Network requests use fixed provider endpoints, bounded response buffers, explicit timeouts, and disabled automatic redirects. Account email addresses are redacted before data reaches QML. Tokens are never added to the presentation model or logs.
 

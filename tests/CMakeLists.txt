@@ -43,6 +43,21 @@ target_link_libraries(gemini-usage-parser-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(gemini-usage-parser-test)
 add_test(NAME gemini-usage-parser COMMAND gemini-usage-parser-test)
 
+add_executable(kimi-credentials-test tst_kimi_credentials.cpp)
+target_link_libraries(kimi-credentials-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(kimi-credentials-test)
+add_test(NAME kimi-credentials COMMAND kimi-credentials-test)
+
+add_executable(kimi-provider-adapter-test tst_kimi_provider_adapter.cpp)
+target_link_libraries(kimi-provider-adapter-test PRIVATE kodometer-core Qt6::Network Qt6::Test)
+kodometer_enable_warnings(kimi-provider-adapter-test)
+add_test(NAME kimi-provider-adapter COMMAND kimi-provider-adapter-test)
+
+add_executable(kimi-usage-parser-test tst_kimi_usage_parser.cpp)
+target_link_libraries(kimi-usage-parser-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(kimi-usage-parser-test)
+add_test(NAME kimi-usage-parser COMMAND kimi-usage-parser-test)
+
 add_executable(xai-credentials-test tst_xai_credentials.cpp)
 target_link_libraries(xai-credentials-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(xai-credentials-test)

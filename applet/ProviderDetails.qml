@@ -27,6 +27,7 @@ Flickable {
                                                                                  || "")
     readonly property bool hasCredits: credits.remaining !== undefined && credits.remaining !== null
     readonly property bool hasCost: cost.todayUSD !== undefined || cost.last30DaysUSD !== undefined
+                                    || cost.usedUSD !== undefined
 
     contentWidth: width
     contentHeight: details.implicitHeight + Kirigami.Units.largeSpacing
@@ -172,6 +173,13 @@ Flickable {
                 text: qsTr("Cost")
                 font.bold: true
                 font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.08
+            }
+            QQC2.Label {
+                visible: root.cost.usedUSD !== undefined && root.cost.limitUSD !== undefined
+                text: qsTr("%1: %2 / %3").arg(root.cost.period || qsTr("Monthly cap")).arg(
+                          Private.PresentationFormatter.usdLabel(Number(root.cost.usedUSD
+                                                                        || 0))).arg(
+                          Private.PresentationFormatter.usdLabel(Number(root.cost.limitUSD || 0)))
             }
             QQC2.Label {
                 visible: root.cost.todayUSD !== undefined

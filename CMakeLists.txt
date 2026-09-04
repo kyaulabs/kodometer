@@ -56,6 +56,8 @@ endfunction()
 add_library(kodometer-core STATIC)
 target_sources(kodometer-core
     PRIVATE
+        src/codex_credentials.cpp
+        src/codex_usage_parser.cpp
         src/dashboard_controller.cpp
         src/dashboard_snapshot.cpp
         src/presentation_formatter.cpp
@@ -64,6 +66,8 @@ target_sources(kodometer-core
         FILE_SET HEADERS
         BASE_DIRS include
         FILES
+            include/kodometer/codex_credentials.hpp
+            include/kodometer/codex_usage_parser.hpp
             include/kodometer/dashboard_controller.hpp
             include/kodometer/dashboard_snapshot.hpp
             include/kodometer/presentation_formatter.hpp

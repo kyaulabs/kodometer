@@ -16,6 +16,16 @@ target_compile_definitions(
 add_dependencies(dashboard-controller-test fake-codexbar)
 add_test(NAME dashboard-controller COMMAND dashboard-controller-test)
 
+add_executable(codex-credentials-test tst_codex_credentials.cpp)
+target_link_libraries(codex-credentials-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(codex-credentials-test)
+add_test(NAME codex-credentials COMMAND codex-credentials-test)
+
+add_executable(codex-usage-parser-test tst_codex_usage_parser.cpp)
+target_link_libraries(codex-usage-parser-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(codex-usage-parser-test)
+add_test(NAME codex-usage-parser COMMAND codex-usage-parser-test)
+
 add_executable(presentation-formatter-test tst_presentation_formatter.cpp)
 target_link_libraries(presentation-formatter-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(presentation-formatter-test)

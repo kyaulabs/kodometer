@@ -1,6 +1,8 @@
 #include <kodometer/gemini_credentials.hpp>
 
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
@@ -8,8 +10,8 @@
 #include <QtTest>
 
 using Kodometer::GeminiAuthType;
-using Kodometer::GeminiCredentialStore;
 using Kodometer::GeminiCredentials;
+using Kodometer::GeminiCredentialStore;
 using Kodometer::GeminiOAuthConfig;
 
 namespace {
@@ -26,9 +28,10 @@ bool writePrivateFile(const QString &path, const QByteArray &data)
 
 QString tokenFor(const QJsonObject &claims)
 {
-    const QByteArray payload = QJsonDocument(claims).toJson(QJsonDocument::Compact)
-                                   .toBase64(QByteArray::Base64UrlEncoding |
-                                             QByteArray::OmitTrailingEquals);
+    const QByteArray payload =
+        QJsonDocument(claims)
+            .toJson(QJsonDocument::Compact)
+            .toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals);
     return QStringLiteral("header.%1.signature").arg(QString::fromLatin1(payload));
 }
 
@@ -75,14 +78,21 @@ void GeminiCredentialsTest::resolvesPathsAndAuthentication()
     QCOMPARE(GeminiCredentialStore::selectedAuthentication(settings), GeminiAuthType::Unknown);
     QVERIFY(writePrivateFile(settings, "{"));
     QCOMPARE(GeminiCredentialStore::selectedAuthentication(settings), GeminiAuthType::Unknown);
-    QVERIFY(writePrivateFile(settings, R"({"security":{"auth":{"selectedType":"oauth-personal"}}})"));
+    QVERIFY(
+        writePrivateFile(settings, R"({"security":{"auth":{"selectedType":"oauth-personal"}}})"));
     QCOMPARE(GeminiCredentialStore::selectedAuthentication(settings),
              GeminiAuthType::OAuthPersonal);
     QVERIFY(writePrivateFile(settings, R"({"security":{"auth":{"selectedType":"api-key"}}})"));
     QCOMPARE(GeminiCredentialStore::selectedAuthentication(settings), GeminiAuthType::ApiKey);
+    QVERIFY(
+        writePrivateFile(settings, R"({"security":{"auth":{"selectedType":"gemini-api-key"}}})"));
+    QCOMPARE(GeminiCredentialStore::selectedAuthentication(settings), GeminiAuthType::ApiKey);
     QVERIFY(writePrivateFile(settings, R"({"security":{"auth":{"selectedType":"vertex-ai"}}})"));
     QCOMPARE(GeminiCredentialStore::selectedAuthentication(settings), GeminiAuthType::VertexAi);
     QVERIFY(writePrivateFile(settings, R"({"security":{"auth":{"selectedType":"future"}}})"));
+    QCOMPARE(GeminiCredentialStore::selectedAuthentication(settings), GeminiAuthType::Unknown);
+    QVERIFY(
+        writePrivateFile(settings, QByteArray(GeminiCredentialStore::MaximumFileSize + 1, 'x')));
     QCOMPARE(GeminiCredentialStore::selectedAuthentication(settings), GeminiAuthType::Unknown);
 }
 
@@ -108,6 +118,20 @@ void GeminiCredentialsTest::parsesOAuthCredentialsAndClaims()
     QCOMPARE(refreshOnly->refreshToken, QStringLiteral("refresh"));
     QVERIFY(refreshOnly->email.isEmpty());
     QVERIFY(refreshOnly->redactedEmail().isEmpty());
+
+    const QString arrayToken =
+        QStringLiteral("header.%1.signature")
+            .arg(QString::fromLatin1(QByteArray("[]").toBase64(QByteArray::Base64UrlEncoding |
+                                                               QByteArray::OmitTrailingEquals)));
+    const auto arrayClaims = GeminiCredentialStore::parse(
+        QStringLiteral(R"({"access_token":"token","id_token":"%1"})").arg(arrayToken).toUtf8(),
+        &error);
+    QVERIFY(arrayClaims.has_value());
+    QVERIFY(arrayClaims->email.isEmpty());
+
+    GeminiCredentials redacted;
+    redacted.email = QStringLiteral("local-name");
+    QCOMPARE(redacted.redactedEmail(), QStringLiteral("redacted"));
 }
 
 void GeminiCredentialsTest::rejectsInvalidDocuments()
@@ -119,11 +143,10 @@ void GeminiCredentialsTest::rejectsInvalidDocuments()
     QCOMPARE(error, QStringLiteral("Gemini credentials must contain a JSON object"));
     QVERIFY(!GeminiCredentialStore::parse(R"({"expiry_date":1})", &error));
     QCOMPARE(error, QStringLiteral("Gemini OAuth tokens are missing"));
-    QVERIFY(!GeminiCredentialStore::parse(
-        R"({"access_token":"token","expiry_date":"later"})", &error));
+    QVERIFY(
+        !GeminiCredentialStore::parse(R"({"access_token":"token","expiry_date":"later"})", &error));
     QCOMPARE(error, QStringLiteral("Gemini OAuth expiry is invalid"));
-    QVERIFY(!GeminiCredentialStore::parse(R"({"access_token":"token","expiry_date":-1})",
-                                          &error));
+    QVERIFY(!GeminiCredentialStore::parse(R"({"access_token":"token","expiry_date":-1})", &error));
     QCOMPARE(error, QStringLiteral("Gemini OAuth expiry is invalid"));
     QVERIFY(!GeminiCredentialStore::parse("{", nullptr));
 }
@@ -176,11 +199,9 @@ void GeminiCredentialsTest::savesRotatedCredentialsAtomically()
     QVERIFY(file.open(QIODevice::ReadOnly));
     const QJsonObject root = QJsonDocument::fromJson(file.readAll()).object();
     QCOMPARE(root.value(QStringLiteral("access_token")).toString(), QStringLiteral("new-access"));
-    QCOMPARE(root.value(QStringLiteral("refresh_token")).toString(),
-             QStringLiteral("new-refresh"));
+    QCOMPARE(root.value(QStringLiteral("refresh_token")).toString(), QStringLiteral("new-refresh"));
     QCOMPARE(root.value(QStringLiteral("id_token")).toString(), QStringLiteral("new-id"));
-    QCOMPARE(root.value(QStringLiteral("expiry_date")).toVariant().toLongLong(),
-             1'900'000'000'000);
+    QCOMPARE(root.value(QStringLiteral("expiry_date")).toVariant().toLongLong(), 1'900'000'000'000);
     QCOMPARE(root.value(QStringLiteral("preserved")).toInt(), 7);
     QCOMPARE(file.permissions() & (QFileDevice::ReadGroup | QFileDevice::WriteGroup |
                                    QFileDevice::ReadOther | QFileDevice::WriteOther),
@@ -214,19 +235,45 @@ void GeminiCredentialsTest::resolvesOAuthClientConfiguration()
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     const QString script = directory.filePath(QStringLiteral("oauth2.js"));
-    QVERIFY(writePrivateFile(script,
-                             "const OAUTH_CLIENT_ID = 'js-id.apps.googleusercontent.com';\n"
-                             "const OAUTH_CLIENT_SECRET = \"js-secret\";\n"));
+    QVERIFY(writePrivateFile(script, "const OAUTH_CLIENT_ID = 'js-id.apps.googleusercontent.com';\n"
+                                     "const OAUTH_CLIENT_SECRET = \"js-secret\";\n"));
     const auto scriptClient = GeminiOAuthConfig::resolve(
         {{QStringLiteral("GEMINI_OAUTH_CLIENT_ID"), QStringLiteral("incomplete")},
          {QStringLiteral("GEMINI_OAUTH2_JS_PATH"), script}});
     QCOMPARE(scriptClient.clientId, QStringLiteral("js-id.apps.googleusercontent.com"));
     QCOMPARE(scriptClient.clientSecret, QStringLiteral("js-secret"));
 
-    const auto fallback = GeminiOAuthConfig::resolve(
-        {{QStringLiteral("GEMINI_OAUTH2_JS_PATH"), directory.filePath(QStringLiteral("missing"))}});
-    QVERIFY(fallback.clientId.endsWith(QStringLiteral(".apps.googleusercontent.com")));
-    QVERIFY(!fallback.clientSecret.isEmpty());
+    QVERIFY(writePrivateFile(script, "const unrelated = true;"));
+    const QMap<QString, QString> isolatedEnvironment{
+        {QStringLiteral("GEMINI_OAUTH2_JS_PATH"), script},
+        {QStringLiteral("PATH"), directory.filePath(QStringLiteral("empty-bin"))},
+        {QStringLiteral("HOME"), directory.path()},
+    };
+    const auto invalidScript = GeminiOAuthConfig::resolve(isolatedEnvironment);
+    QVERIFY(invalidScript.clientId.isEmpty());
+    QVERIFY(writePrivateFile(script, QByteArray(GeminiCredentialStore::MaximumFileSize + 1, 'x')));
+    const auto oversizedScript = GeminiOAuthConfig::resolve(isolatedEnvironment);
+    QVERIFY(oversizedScript.clientId.isEmpty());
+
+    const QString cliScript =
+        directory.filePath(QStringLiteral("lib/node_modules/@google/gemini-cli/dist/index.js"));
+    const QString coreScript = directory.filePath(
+        QStringLiteral("lib/node_modules/@google/gemini-cli-core/dist/src/code_assist/oauth2.js"));
+    const QString executable = directory.filePath(QStringLiteral("bin/gemini"));
+    QVERIFY(QDir().mkpath(QFileInfo(cliScript).absolutePath()));
+    QVERIFY(QDir().mkpath(QFileInfo(coreScript).absolutePath()));
+    QVERIFY(QDir().mkpath(QFileInfo(executable).absolutePath()));
+    QVERIFY(writePrivateFile(cliScript, "#!/usr/bin/env node\n"));
+    QVERIFY(QFile::setPermissions(cliScript, QFileDevice::ReadOwner | QFileDevice::WriteOwner |
+                                                 QFileDevice::ExeOwner));
+    QVERIFY(QFile::link(cliScript, executable));
+    QVERIFY(writePrivateFile(coreScript, "const OAUTH_CLIENT_ID = 'discovered-id';\n"
+                                         "const OAUTH_CLIENT_SECRET = 'discovered-secret';\n"));
+    const auto discovered =
+        GeminiOAuthConfig::resolve({{QStringLiteral("PATH"), QFileInfo(executable).absolutePath()},
+                                    {QStringLiteral("HOME"), directory.path()}});
+    QCOMPARE(discovered.clientId, QStringLiteral("discovered-id"));
+    QCOMPARE(discovered.clientSecret, QStringLiteral("discovered-secret"));
 }
 
 void GeminiCredentialsTest::calculatesRefreshNeed()

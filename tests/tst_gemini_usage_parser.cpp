@@ -68,9 +68,9 @@ void GeminiUsageParserTest::mapsModelQuotaTiersAndIdentity()
     QCOMPARE(windows.at(2).toMap().value(QStringLiteral("kind")).toString(),
              QStringLiteral("model-flash-lite-daily"));
     QVERIFY(!windows.at(2).toMap().contains(QStringLiteral("resetAt")));
-    QCOMPARE(provider->value(QStringLiteral("display")).toMap().value(QStringLiteral("sortKey"))
-                 .toInt(),
-             20);
+    QCOMPARE(
+        provider->value(QStringLiteral("display")).toMap().value(QStringLiteral("sortKey")).toInt(),
+        20);
 }
 
 void GeminiUsageParserTest::keepsMostConstrainedModelPerTier()
@@ -83,7 +83,7 @@ void GeminiUsageParserTest::keepsMostConstrainedModelPerTier()
           {"modelId":"gemini-2.5-pro","remainingFraction":0.8,"resetTime":"2026-09-06T00:00:00Z"},
           {"modelId":"gemini-2.5-pro","remainingFraction":0.2,"resetTime":"2026-09-05T00:00:00Z"},
           {"modelId":"gemini-3-pro-preview","remainingFraction":1.4},
-          {"modelId":"gemini-3-flash","remainingFraction":-0.2}
+          {"modelId":"gemini-3-flash","remainingFraction":-0.2,"resetTime":"not-a-time"}
         ]})",
         credentials, status, QDateTime::currentDateTimeUtc(), &error);
 
@@ -114,33 +114,32 @@ void GeminiUsageParserTest::mapsCodeAssistStatusAndPlans()
     QVERIFY(status.has_value());
     QCOMPARE(status->plan, QStringLiteral("Workspace"));
 
-    status = GeminiUsageParser::parseCodeAssist(R"({"currentTier":{"id":"free-tier"}})", {},
-                                                &error);
+    status =
+        GeminiUsageParser::parseCodeAssist(R"({"currentTier":{"id":"free-tier"}})", {}, &error);
     QCOMPARE(status->plan, QStringLiteral("Free"));
-    status = GeminiUsageParser::parseCodeAssist(
-        R"({"currentTier":{"id":"standard-tier"}})", {}, &error);
+    status =
+        GeminiUsageParser::parseCodeAssist(R"({"currentTier":{"id":"standard-tier"}})", {}, &error);
     QCOMPARE(status->plan, QStringLiteral("Paid"));
-    status = GeminiUsageParser::parseCodeAssist(R"({"currentTier":{"id":"legacy-tier"}})", {},
-                                                &error);
+    status =
+        GeminiUsageParser::parseCodeAssist(R"({"currentTier":{"id":"legacy-tier"}})", {}, &error);
     QCOMPARE(status->plan, QStringLiteral("Legacy"));
-    status = GeminiUsageParser::parseCodeAssist(R"({"currentTier":{"id":"future-tier"}})", {},
-                                                &error);
+    status =
+        GeminiUsageParser::parseCodeAssist(R"({"currentTier":{"id":"future-tier"}})", {}, &error);
     QVERIFY(status->plan.isEmpty());
 }
 
 void GeminiUsageParserTest::detectsMigrationAndProjects()
 {
-    QVERIFY(GeminiUsageParser::isConsumerTierDeprecation(
-        R"({"error":"unsupported_client"})"));
+    QVERIFY(GeminiUsageParser::isConsumerTierDeprecation(R"({"error":"unsupported_client"})"));
     QVERIFY(GeminiUsageParser::isConsumerTierDeprecation(
         "Gemini Code Assist is no longer supported for this account"));
-    QVERIFY(GeminiUsageParser::isConsumerTierDeprecation(
-        "Migrate Gemini usage to Antigravity"));
+    QVERIFY(GeminiUsageParser::isConsumerTierDeprecation("IneligibleTierError"));
+    QVERIFY(GeminiUsageParser::isConsumerTierDeprecation("Migrate Gemini usage to Antigravity"));
     QVERIFY(!GeminiUsageParser::isConsumerTierDeprecation("permission denied"));
 
     QString error;
     const auto unsupported = GeminiUsageParser::parseCodeAssist(
-        R"({"ineligibleTiers":[{"reasonCode":"UNSUPPORTED_CLIENT"}]})", {}, &error);
+        R"({"ineligibleTiers":["ignored",{"reasonCode":"UNSUPPORTED_CLIENT"}]})", {}, &error);
     QVERIFY2(unsupported.has_value(), qPrintable(error));
     QVERIFY(unsupported->consumerClientUnsupported);
     const auto workspace = GeminiUsageParser::parseCodeAssist(
@@ -151,13 +150,22 @@ void GeminiUsageParserTest::detectsMigrationAndProjects()
         R"({"paidTier":{"name":"Enterprise"},"ineligibleTiers":[{"reasonCode":"UNSUPPORTED_CLIENT"}]})",
         {}, &error);
     QVERIFY(!paid->consumerClientUnsupported);
+    const auto eligible = GeminiUsageParser::parseCodeAssist(
+        R"({"ineligibleTiers":[{"reasonCode":"PERMISSION_DENIED"}]})", {}, &error);
+    QVERIFY(!eligible->consumerClientUnsupported);
 
-    QCOMPARE(GeminiUsageParser::discoverProject(
-                 R"({"projects":[{"projectId":"other"},{"projectId":"gen-lang-client-123"}]})"),
-             QStringLiteral("gen-lang-client-123"));
-    QCOMPARE(GeminiUsageParser::discoverProject(
-                 R"({"projects":[{"projectId":"labelled","labels":{"generative-language":"yes"}}]})"),
-             QStringLiteral("labelled"));
+    QCOMPARE(
+        GeminiUsageParser::discoverProject(
+            R"({"projects":["ignored",{"projectId":"other"},{"projectId":"gen-lang-client-123"}]})"),
+        QStringLiteral("gen-lang-client-123"));
+    QCOMPARE(
+        GeminiUsageParser::discoverProject(
+            R"({"projects":[{"projectId":"labelled","labels":{"generative-language":"yes"}}]})"),
+        QStringLiteral("labelled"));
+    QVERIFY(
+        GeminiUsageParser::discoverProject(
+            R"({"projects":[{"labels":{"other":"yes"}},{"projectId":"other","labels":{"other":"yes"}}]})")
+            .isEmpty());
     QVERIFY(GeminiUsageParser::discoverProject("{").isEmpty());
 }
 
@@ -177,7 +185,7 @@ void GeminiUsageParserTest::rejectsInvalidResponses()
                                            QDateTime::currentDateTimeUtc(), &error));
     QCOMPARE(error, QStringLiteral("Gemini quota API returned no usable model limits"));
     QVERIFY(!GeminiUsageParser::parseQuota(
-        R"({"buckets":[{}, {"modelId":"gemini-pro","remainingFraction":"many"}, {"modelId":"other","remainingFraction":0.5}]})",
+        R"({"buckets":["ignored", {}, {"modelId":"gemini-pro","remainingFraction":"many"}, {"modelId":"other","remainingFraction":0.5}]})",
         credentials, status, QDateTime::currentDateTimeUtc(), &error));
     QCOMPARE(error, QStringLiteral("Gemini quota API returned no usable model limits"));
 

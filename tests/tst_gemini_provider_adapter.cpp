@@ -144,8 +144,7 @@ bool writeCredentials(const QString &path, qint64 expiresAt,
                            {QStringLiteral("expiry_date"), expiresAt},
                            {QStringLiteral("preserved"), 7}};
     QFile file(path);
-    if (!file.open(QIODevice::WriteOnly) ||
-        file.write(QJsonDocument(root).toJson()) <= 0) {
+    if (!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(root).toJson()) <= 0) {
         return false;
     }
     file.close();
@@ -158,10 +157,10 @@ bool writeSettings(const QString &path, const QString &selectedType)
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         return false;
     }
-    const QJsonObject root{{QStringLiteral("security"),
-                            QJsonObject{{QStringLiteral("auth"),
-                                         QJsonObject{{QStringLiteral("selectedType"),
-                                                      selectedType}}}}}};
+    const QJsonObject root{
+        {QStringLiteral("security"),
+         QJsonObject{{QStringLiteral("auth"),
+                      QJsonObject{{QStringLiteral("selectedType"), selectedType}}}}}};
     return file.write(QJsonDocument(root).toJson()) > 0;
 }
 
@@ -170,8 +169,8 @@ QByteArray quotaPayload()
     return R"({"buckets":[{"modelId":"gemini-2.5-pro","remainingFraction":0.75,"resetTime":"2026-09-06T00:00:00Z"}]})";
 }
 
-void configure(GeminiProviderAdapter &adapter, const QString &credentials,
-               const QString &settings, const HttpServer &server)
+void configure(GeminiProviderAdapter &adapter, const QString &credentials, const QString &settings,
+               const HttpServer &server)
 {
     adapter.setCredentialPath(credentials);
     adapter.setSettingsPath(settings);
@@ -195,6 +194,7 @@ class GeminiProviderAdapterTest final : public QObject
     void refreshesExpiringTokenAndPersistsRotation();
     void discoversProjectWhenCodeAssistHasNone();
     void retriesUnauthorizedQuotaOnce();
+    void retriesUnauthorizedCodeAssistOnce();
     void reportsAuthenticationAndMigrationFailures();
     void reportsTokenAndQuotaFailures();
     void handlesOptionalProbeFailuresAndLimitsResponses();
@@ -210,7 +210,8 @@ void GeminiProviderAdapterTest::fetchesCodeAssistAndQuotaWithExistingToken()
     QVERIFY(writeCredentials(credentials, 2'000'000'000'000));
     QVERIFY(writeSettings(settings, QStringLiteral("oauth-personal")));
     HttpServer server;
-    server.enqueue({200, R"({"cloudaicompanionProject":"project-1","currentTier":{"id":"standard-tier"}})"});
+    server.enqueue(
+        {200, R"({"cloudaicompanionProject":"project-1","currentTier":{"id":"standard-tier"}})"});
     server.enqueue({200, quotaPayload()});
     QNetworkAccessManager network;
     GeminiProviderAdapter adapter(&network);
@@ -252,9 +253,12 @@ void GeminiProviderAdapterTest::refreshesExpiringTokenAndPersistsRotation()
     const QString settings = directory.filePath(QStringLiteral("settings.json"));
     QVERIFY(writeCredentials(credentials, 1));
     HttpServer server;
-    server.enqueue({200,
-                    R"({"access_token":"new-access","id_token":"new-id","expires_in":3600,"token_type":"Bearer"})"});
-    server.enqueue({200, R"({"cloudaicompanionProject":{"id":"project-2"},"currentTier":{"id":"free-tier"}})"});
+    server.enqueue(
+        {200,
+         R"({"access_token":"new-access","refresh_token":"new-refresh","id_token":"new-id","expires_in":3600,"token_type":"Bearer"})"});
+    server.enqueue(
+        {200,
+         R"({"cloudaicompanionProject":{"id":"project-2"},"currentTier":{"id":"free-tier"}})"});
     server.enqueue({200, quotaPayload()});
     QNetworkAccessManager network;
     GeminiProviderAdapter adapter(&network);
@@ -277,8 +281,7 @@ void GeminiProviderAdapterTest::refreshesExpiringTokenAndPersistsRotation()
     QVERIFY(file.open(QIODevice::ReadOnly));
     const QJsonObject root = QJsonDocument::fromJson(file.readAll()).object();
     QCOMPARE(root.value(QStringLiteral("access_token")).toString(), QStringLiteral("new-access"));
-    QCOMPARE(root.value(QStringLiteral("refresh_token")).toString(),
-             QStringLiteral("refresh-token"));
+    QCOMPARE(root.value(QStringLiteral("refresh_token")).toString(), QStringLiteral("new-refresh"));
     QCOMPARE(root.value(QStringLiteral("id_token")).toString(), QStringLiteral("new-id"));
     QCOMPARE(root.value(QStringLiteral("preserved")).toInt(), 7);
     QVERIFY(root.value(QStringLiteral("expiry_date")).toVariant().toLongLong() >
@@ -340,6 +343,31 @@ void GeminiProviderAdapterTest::retriesUnauthorizedQuotaOnce()
     QCOMPARE(server.requests.at(4).headers.value("authorization"), QByteArray("Bearer retried"));
 }
 
+void GeminiProviderAdapterTest::retriesUnauthorizedCodeAssistOnce()
+{
+    QTemporaryDir directory;
+    const QString credentials = directory.filePath(QStringLiteral("oauth_creds.json"));
+    const QString settings = directory.filePath(QStringLiteral("settings.json"));
+    QVERIFY(writeCredentials(credentials, 2'000'000'000'000));
+    HttpServer server;
+    server.enqueue({401, "{}"});
+    server.enqueue({200, R"({"access_token":"retried-code-assist","expires_in":3600})"});
+    server.enqueue({200, R"({"cloudaicompanionProject":"project"})"});
+    server.enqueue({200, quotaPayload()});
+    QNetworkAccessManager network;
+    GeminiProviderAdapter adapter(&network);
+    configure(adapter, credentials, settings, server);
+    QSignalSpy finished(&adapter, &GeminiProviderAdapter::refreshFinished);
+
+    adapter.refresh();
+
+    QVERIFY(finished.wait());
+    QCOMPARE(finished.first().first().toBool(), true);
+    QCOMPARE(server.requests.size(), 4);
+    QCOMPARE(server.requests.at(2).headers.value("authorization"),
+             QByteArray("Bearer retried-code-assist"));
+}
+
 void GeminiProviderAdapterTest::reportsAuthenticationAndMigrationFailures()
 {
     QTemporaryDir directory;
@@ -375,9 +403,46 @@ void GeminiProviderAdapterTest::reportsAuthenticationAndMigrationFailures()
     QVERIFY(adapter.error().contains(QStringLiteral("June 2026")));
     QVERIFY(adapter.error().contains(QStringLiteral("Antigravity")));
 
+    server.enqueue({403, R"({"error":"unsupported_client"})"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 5);
+    QVERIFY(adapter.error().contains(QStringLiteral("June 2026")));
+
+    QVERIFY(writeCredentials(credentials, 1));
+    server.enqueue({400, R"({"error":"unsupported_client"})"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 6);
+    QVERIFY(adapter.error().contains(QStringLiteral("June 2026")));
+
+    QVERIFY(writeCredentials(credentials, 2'000'000'000'000));
+    server.enqueue(
+        {200,
+         R"({"cloudaicompanionProject":"project","currentTier":{"id":"free-tier"},"ineligibleTiers":[{"reasonCode":"UNSUPPORTED_CLIENT"}]})"});
+    server.enqueue({403, "{}"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 7);
+    QVERIFY(adapter.error().contains(QStringLiteral("June 2026")));
+
+    server.enqueue({200, R"({"cloudaicompanionProject":"project"})"});
+    server.enqueue({403, "Gemini Code Assist is no longer supported"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 8);
+    QVERIFY(adapter.error().contains(QStringLiteral("June 2026")));
+
+    QVERIFY(writeCredentials(credentials, 1));
+    adapter.setOAuthEnvironment(
+        {{QStringLiteral("PATH"), directory.path()}, {QStringLiteral("HOME"), directory.path()}});
+    adapter.refresh();
+    QCOMPARE(finished.count(), 9);
+    QVERIFY(adapter.error().startsWith(
+        QStringLiteral("Gemini OAuth client configuration could not be resolved")));
+
+    adapter.setOAuthEnvironment(
+        {{QStringLiteral("GEMINI_OAUTH_CLIENT_ID"), QStringLiteral("test-client")},
+         {QStringLiteral("GEMINI_OAUTH_CLIENT_SECRET"), QStringLiteral("test-secret")}});
     QVERIFY(writeCredentials(credentials, 1, {}));
     adapter.refresh();
-    QCOMPARE(finished.count(), 5);
+    QCOMPARE(finished.count(), 10);
     QCOMPARE(adapter.error(), QStringLiteral("Gemini OAuth refresh token is missing"));
 }
 
@@ -408,33 +473,66 @@ void GeminiProviderAdapterTest::reportsTokenAndQuotaFailures()
     QTRY_COMPARE(finished.count(), 3);
     QCOMPARE(adapter.error(), QStringLiteral("Gemini token endpoint returned invalid credentials"));
 
+    server.enqueue({200, R"({"access_token":"token","expires_in":"later"})"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 4);
+    QCOMPARE(adapter.error(), QStringLiteral("Gemini token endpoint returned invalid credentials"));
+
+    adapter.setTokenEndpoint(QUrl(QStringLiteral("http://127.0.0.1:1/token")));
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 5);
+    QVERIFY(
+        adapter.error().startsWith(QStringLiteral("Gemini token request failed: network error")));
+
+    adapter.setTokenEndpoint(server.url(QStringLiteral("/token")));
+    adapter.setTimeoutMilliseconds(20);
+    server.enqueue({200, "{}", {}, false});
+    adapter.refresh();
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 6, 1000);
+    QCOMPARE(adapter.error(), QStringLiteral("Gemini token request timed out"));
+
+    adapter.setTimeoutMilliseconds(1000);
+    server.enqueue({200, QByteArray(GeminiProviderAdapter::MaximumResponseSize + 1, 'x')});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 7);
+    QCOMPARE(adapter.error(), QStringLiteral("Gemini token response exceeds the 1 MiB limit"));
+
     QVERIFY(writeCredentials(credentials, 2'000'000'000'000));
     const QByteArray status =
         R"({"cloudaicompanionProject":"project","currentTier":{"id":"standard-tier"}})";
     server.enqueue({200, status});
     server.enqueue({429, "{}"});
     adapter.refresh();
-    QTRY_COMPARE(finished.count(), 4);
+    QTRY_COMPARE(finished.count(), 8);
     QCOMPARE(adapter.error(), QStringLiteral("Gemini quota request was rate limited"));
 
     server.enqueue({200, status});
     server.enqueue({500, "{}"});
     adapter.refresh();
-    QTRY_COMPARE(finished.count(), 5);
+    QTRY_COMPARE(finished.count(), 9);
     QCOMPARE(adapter.error(), QStringLiteral("Gemini quota request failed with HTTP 500"));
+
+    server.enqueue(
+        {200,
+         R"({"cloudaicompanionProject":"project","currentTier":{"id":"standard-tier"},"ineligibleTiers":[{"reasonCode":"UNSUPPORTED_CLIENT"}]})"});
+    server.enqueue({403, "{}"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 10);
+    QCOMPARE(adapter.error(), QStringLiteral("Gemini quota request failed with HTTP 403"));
 
     server.enqueue({200, status});
     server.enqueue({200, "{"});
     adapter.refresh();
-    QTRY_COMPARE(finished.count(), 6);
+    QTRY_COMPARE(finished.count(), 11);
     QCOMPARE(adapter.error(), QStringLiteral("Gemini quota API returned invalid JSON"));
 
     adapter.setCodeAssistEndpoint(QUrl(QStringLiteral("http://127.0.0.1:1/code")));
     adapter.setProjectsEndpoint(QUrl(QStringLiteral("http://127.0.0.1:1/projects")));
     adapter.setQuotaEndpoint(QUrl(QStringLiteral("http://127.0.0.1:1/quota")));
     adapter.refresh();
-    QTRY_COMPARE(finished.count(), 7);
-    QVERIFY(adapter.error().startsWith(QStringLiteral("Gemini quota request failed: network error")));
+    QTRY_COMPARE(finished.count(), 12);
+    QVERIFY(
+        adapter.error().startsWith(QStringLiteral("Gemini quota request failed: network error")));
 }
 
 void GeminiProviderAdapterTest::handlesOptionalProbeFailuresAndLimitsResponses()
@@ -458,17 +556,25 @@ void GeminiProviderAdapterTest::handlesOptionalProbeFailuresAndLimitsResponses()
     QCOMPARE(server.requests.size(), 3);
     QCOMPARE(server.requests.at(2).body, QByteArray("{}"));
 
+    server.enqueue({200, "{"});
     server.enqueue({200, QByteArray(GeminiProviderAdapter::MaximumResponseSize + 1, 'x')});
     server.enqueue({200, quotaPayload()});
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 2);
     QCOMPARE(finished.at(1).first().toBool(), true);
 
+    server.enqueue({200, QByteArray(GeminiProviderAdapter::MaximumResponseSize + 1, 'x')});
+    server.enqueue({500, "{}"});
+    server.enqueue({200, quotaPayload()});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 3);
+    QCOMPARE(finished.at(2).first().toBool(), true);
+
     const QByteArray status = R"({"cloudaicompanionProject":"project"})";
     server.enqueue({200, status});
     server.enqueue({200, QByteArray(GeminiProviderAdapter::MaximumResponseSize + 1, 'x')});
     adapter.refresh();
-    QTRY_COMPARE(finished.count(), 3);
+    QTRY_COMPARE(finished.count(), 4);
     QCOMPARE(adapter.error(), QStringLiteral("Gemini quota response exceeds the 1 MiB limit"));
 }
 

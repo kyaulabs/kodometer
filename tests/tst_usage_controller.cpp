@@ -2,6 +2,7 @@
 #include <kodometer/provider_adapter.hpp>
 #include <kodometer/usage_controller.hpp>
 
+#include <QTimer>
 #include <QtTest>
 
 using Kodometer::CredentialBackend;
@@ -108,6 +109,10 @@ class UsageControllerTest final : public QObject
     void handlesRegistrationEdges();
     void refreshesAfterCredentialChanges();
     void handlesCredentialStoreLifecycle();
+    void schedulesRefreshWithoutOverlap();
+    void filtersDisabledProviders();
+    void changesProvidersDuringRefresh();
+    void handlesSynchronousCompletion();
 };
 
 void UsageControllerTest::aggregatesProvidersInRegistrationOrder()
@@ -263,6 +268,132 @@ void UsageControllerTest::handlesNoProviders()
     QCOMPARE(finished.count(), 1);
     QCOMPARE(finished.first().first().toBool(), true);
     QVERIFY(controller.providers().isEmpty());
+}
+
+void UsageControllerTest::schedulesRefreshWithoutOverlap()
+{
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("codex"));
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    QSignalSpy settings(&controller, &UsageController::refreshSettingsChanged);
+    auto *timer = controller.findChild<QTimer *>(QStringLiteral("refreshTimer"));
+    QVERIFY(timer);
+    QVERIFY(controller.autoRefresh());
+    QCOMPARE(controller.refreshIntervalMinutes(), 5);
+    QVERIFY(!timer->isActive());
+    controller.setRefreshIntervalMinutes(0);
+    QCOMPARE(controller.refreshIntervalMinutes(), 1);
+    controller.setRefreshIntervalMinutes(-100);
+    QCOMPARE(settings.count(), 1);
+    controller.setRefreshIntervalMinutes(2000);
+    QCOMPARE(controller.refreshIntervalMinutes(), 1440);
+    controller.setAutoRefresh(true);
+    controller.refresh();
+    QVERIFY(!timer->isActive());
+    adapter->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    QVERIFY(timer->isActive());
+    QVERIFY(timer->isSingleShot());
+    QCOMPARE(timer->interval(), 86400000);
+    controller.setRefreshIntervalMinutes(2);
+    QCOMPARE(timer->interval(), 120000);
+    QVERIFY(QMetaObject::invokeMethod(timer, "timeout"));
+    QCOMPARE(adapter->refreshCount, 2);
+    QVERIFY(!timer->isActive());
+    controller.refresh();
+    QCOMPARE(adapter->refreshCount, 2);
+    adapter->fail(QStringLiteral("Unavailable"));
+    QVERIFY(timer->isActive());
+    controller.setAutoRefresh(false);
+    QVERIFY(!timer->isActive());
+    controller.setAutoRefresh(false);
+    controller.refresh();
+    adapter->fail(QStringLiteral("Unavailable"));
+    QVERIFY(!timer->isActive());
+    controller.setAutoRefresh(true);
+    QVERIFY(timer->isActive());
+}
+
+void UsageControllerTest::filtersDisabledProviders()
+{
+    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
+    UsageController controller({codex, claude});
+    QSignalSpy changed(&controller, &UsageController::disabledProvidersChanged);
+    QSignalSpy finished(&controller, &UsageController::refreshFinished);
+    QVERIFY(controller.disabledProviders().isEmpty());
+    controller.setDisabledProviders({QStringLiteral("claude"), QStringLiteral("claude")});
+    QCOMPARE(controller.disabledProviders(), QStringList{QStringLiteral("claude")});
+    controller.setDisabledProviders({QStringLiteral("claude")});
+    QCOMPARE(changed.count(), 1);
+    QCOMPARE(codex->refreshCount, 0); // Applying startup settings must not start networking.
+    controller.refresh();
+    QCOMPARE(codex->refreshCount, 1);
+    QCOMPARE(claude->refreshCount, 0);
+    codex->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    QCOMPARE(controller.providers().size(), 1);
+    controller.setDisabledProviders({QStringLiteral("codex"), QStringLiteral("claude")});
+    QVERIFY(controller.providers().isEmpty());
+    QVERIFY(controller.snapshot().value(QStringLiteral("providers")).toList().isEmpty());
+    QVERIFY(!controller.busy());
+    QVERIFY(controller.error().isEmpty());
+    QVERIFY(!controller.findChild<QTimer *>()->isActive());
+    QCOMPARE(finished.count(), 2);
+    controller.setDisabledProviders({QStringLiteral("unknown")});
+    QCOMPARE(codex->refreshCount, 2);
+    QCOMPARE(claude->refreshCount, 1);
+    codex->fail(QStringLiteral("Unavailable"));
+    claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
+    QCOMPARE(controller.providers().size(), 2); // Last-good Codex retained.
+}
+
+void UsageControllerTest::changesProvidersDuringRefresh()
+{
+    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
+    UsageController controller({codex, claude});
+    controller.refresh();
+    codex->fail(QStringLiteral("Old error"));
+    controller.setDisabledProviders({QStringLiteral("codex")});
+    controller.setDisabledProviders({QStringLiteral("claude"), QStringLiteral("codex")});
+    claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
+    QCoreApplication::processEvents();
+    QVERIFY(!controller.busy());
+    QVERIFY(controller.error().isEmpty());
+    QVERIFY(controller.providers().isEmpty());
+    QCOMPARE(codex->refreshCount, 1);
+    QCOMPARE(claude->refreshCount, 1);
+    // Unsolicited late completions must not republish disabled providers or corrupt counts.
+    claude->fail(QStringLiteral("Late error"));
+    codex->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    QVERIFY(controller.error().isEmpty());
+    QVERIFY(controller.providers().isEmpty());
+    controller.setDisabledProviders({QStringLiteral("claude")});
+    QCOMPARE(codex->refreshCount, 2);
+    codex->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    QCOMPARE(controller.providers().size(), 1);
+}
+
+void UsageControllerTest::handlesSynchronousCompletion()
+{
+    class ImmediateAdapter : public ProviderAdapter
+    {
+      public:
+        QString providerId() const override
+        {
+            return QStringLiteral("immediate");
+        }
+        void refresh() override
+        {
+            emit refreshFailed(QStringLiteral("No credential"));
+        }
+    };
+    auto *immediate = new ImmediateAdapter;
+    auto *slow = new FakeProviderAdapter(QStringLiteral("slow"));
+    UsageController controller({immediate, slow});
+    controller.refresh();
+    QVERIFY(controller.busy());
+    slow->succeed({{QStringLiteral("id"), QStringLiteral("slow")}});
+    QVERIFY(!controller.busy());
+    QCOMPARE(controller.error(), QStringLiteral("Immediate: No credential"));
 }
 
 QTEST_GUILESS_MAIN(UsageControllerTest)

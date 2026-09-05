@@ -58,6 +58,7 @@ void ZaiUsageParserTest::mapsQuotaWindowsAndDetails()
     QVERIFY(error.isEmpty());
     QCOMPARE(provider->value(QStringLiteral("id")), QStringLiteral("zai"));
     QCOMPARE(provider->value(QStringLiteral("name")), QStringLiteral("z.ai / GLM"));
+    QCOMPARE(provider->value(QStringLiteral("region")), QStringLiteral("global"));
     QCOMPARE(provider->value(QStringLiteral("source")), QStringLiteral("api-key"));
     QCOMPARE(provider->value(QStringLiteral("identity")).toMap().value(QStringLiteral("plan")),
              QStringLiteral("Pro"));
@@ -119,6 +120,7 @@ void ZaiUsageParserTest::derivesPercentagesFromCounts()
              0.0);
     QCOMPARE(provider->value(QStringLiteral("identity")).toMap().value(QStringLiteral("region")),
              QStringLiteral("BigModel CN · Team"));
+    QCOMPARE(provider->value(QStringLiteral("region")), QStringLiteral("bigmodel-cn"));
 }
 
 void ZaiUsageParserTest::mapsCreditQuotaRate()
@@ -188,6 +190,7 @@ void ZaiUsageParserTest::handlesTimeOnlyAndUnknownLimits()
              QStringLiteral("Max"));
     QCOMPARE(provider->value(QStringLiteral("identity")).toMap().value(QStringLiteral("region")),
              QStringLiteral("BigModel CN"));
+    QCOMPARE(provider->value(QStringLiteral("region")), QStringLiteral("bigmodel-cn"));
     const QVariantMap monthly = windowByKind(*provider, QStringLiteral("tertiary"));
     QCOMPARE(monthly.value(QStringLiteral("label")), QStringLiteral("30-day usage"));
     QCOMPARE(monthly.value(QStringLiteral("windowSeconds")).toInt(), 30 * 24 * 60 * 60);

@@ -30,6 +30,8 @@ The DeepSeek adapter reads `DEEPSEEK_API_KEY`, with `DEEPSEEK_KEY` as a compatib
 
 The z.ai adapter supports the global and BigModel CN Coding Plan APIs with explicit regional credential boundaries. China-mainland aliases and provider key files are ignored for the global route. BigModel team requests require organization and project selectors. Quota is authoritative; hourly and daily model-token requests and the China account-balance request are best effort. Production routing is fixed to the selected provider hosts, and browser cookies or environment endpoint overrides are not accepted.
 
+The OpenRouter adapter reads `OPENROUTER_API_KEY` and calculates prepaid balance from the documented credits endpoint. Key metadata is optional enrichment: a failure or one-second timeout preserves credits while recording a diagnostic. Configured key limits are treated as spending caps rather than account balances. `OPENROUTER_MANAGEMENT_API_KEY` enables best-effort Activity requests for spend and token totals across the last 30 completed UTC days. Management credentials use a fixed production endpoint and are never sent to an override or reused for ordinary API calls.
+
 All network adapters must use fixed HTTPS endpoints in production, disable automatic redirects, impose request timeouts and response-size limits, avoid logging credentials, and test success, authentication failure or renewal where applicable, malformed data, network failure, timeout, and oversized-response paths against local servers.
 
 ## Consequences

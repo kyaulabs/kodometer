@@ -103,6 +103,21 @@ target_link_libraries(zai-usage-parser-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(zai-usage-parser-test)
 add_test(NAME zai-usage-parser COMMAND zai-usage-parser-test)
 
+add_executable(openrouter-credentials-test tst_openrouter_credentials.cpp)
+target_link_libraries(openrouter-credentials-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(openrouter-credentials-test)
+add_test(NAME openrouter-credentials COMMAND openrouter-credentials-test)
+
+add_executable(openrouter-provider-adapter-test tst_openrouter_provider_adapter.cpp)
+target_link_libraries(openrouter-provider-adapter-test PRIVATE kodometer-core Qt6::Network Qt6::Test)
+kodometer_enable_warnings(openrouter-provider-adapter-test)
+add_test(NAME openrouter-provider-adapter COMMAND openrouter-provider-adapter-test)
+
+add_executable(openrouter-usage-parser-test tst_openrouter_usage_parser.cpp)
+target_link_libraries(openrouter-usage-parser-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(openrouter-usage-parser-test)
+add_test(NAME openrouter-usage-parser COMMAND openrouter-usage-parser-test)
+
 add_executable(presentation-formatter-test tst_presentation_formatter.cpp)
 target_link_libraries(presentation-formatter-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(presentation-formatter-test)

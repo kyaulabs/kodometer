@@ -71,6 +71,9 @@ target_sources(kodometer-core
         src/kimi_credentials.cpp
         src/kimi_provider_adapter.cpp
         src/kimi_usage_parser.cpp
+        src/openrouter_credentials.cpp
+        src/openrouter_provider_adapter.cpp
+        src/openrouter_usage_parser.cpp
         src/xai_credentials.cpp
         src/xai_provider_adapter.cpp
         src/xai_usage_parser.cpp
@@ -99,6 +102,9 @@ target_sources(kodometer-core
             include/kodometer/kimi_credentials.hpp
             include/kodometer/kimi_provider_adapter.hpp
             include/kodometer/kimi_usage_parser.hpp
+            include/kodometer/openrouter_credentials.hpp
+            include/kodometer/openrouter_provider_adapter.hpp
+            include/kodometer/openrouter_usage_parser.hpp
             include/kodometer/xai_credentials.hpp
             include/kodometer/xai_provider_adapter.hpp
             include/kodometer/xai_usage_parser.hpp

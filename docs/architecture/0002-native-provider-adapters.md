@@ -32,6 +32,8 @@ The z.ai adapter supports the global and BigModel CN Coding Plan APIs with expli
 
 The OpenRouter adapter reads `OPENROUTER_API_KEY` and calculates prepaid balance from the documented credits endpoint. Key metadata is optional enrichment: a failure or one-second timeout preserves credits while recording a diagnostic. Configured key limits are treated as spending caps rather than account balances. `OPENROUTER_MANAGEMENT_API_KEY` enables best-effort Activity requests for spend and token totals across the last 30 completed UTC days. Management credentials use a fixed production endpoint and are never sent to an override or reused for ordinary API calls.
 
+Nonsecret widget preferences use a KConfig schema embedded in the compiled applet. `UsageController` owns a single-shot refresh timer, bounded to 1–1440 minutes and armed only after a cycle completes. Disabled providers are excluded from future cycles, presentation, and error summaries. Existing requests may finish, but their results remain hidden while the provider is disabled. A pending-adapter set rejects duplicate or unsolicited completion signals. Changing provider enablement during a cycle queues one follow-up refresh.
+
 All network adapters must use fixed HTTPS endpoints in production, disable automatic redirects, impose request timeouts and response-size limits, avoid logging credentials, and test success, authentication failure or renewal where applicable, malformed data, network failure, timeout, and oversized-response paths against local servers.
 
 ## Consequences

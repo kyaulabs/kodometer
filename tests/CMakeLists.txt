@@ -1,3 +1,8 @@
+add_executable(quota-alert-policy-test tst_quota_alert_policy.cpp)
+target_link_libraries(quota-alert-policy-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(quota-alert-policy-test)
+add_test(NAME quota-alert-policy COMMAND quota-alert-policy-test)
+
 add_executable(provider-actions-test tst_provider_actions.cpp)
 target_link_libraries(provider-actions-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(provider-actions-test)

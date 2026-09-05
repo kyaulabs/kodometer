@@ -14,7 +14,7 @@ Kodometer needs provider support that is native to Linux, independently testable
 
 Implement each provider as a C++ `ProviderAdapter`. Adapters authenticate, make bounded asynchronous requests through Qt Network, and normalize results into the existing provider presentation map. `UsageController` refreshes registered adapters, preserves each adapter's last successful result, and publishes providers in registration order.
 
-Do not invoke provider CLIs or retain a subprocess fallback. Existing provider credential files are accepted only after provider-specific ownership, type, size, and permission checks. Future manually entered secrets will be stored through KWallet rather than plaintext configuration files.
+Do not invoke provider CLIs or retain a subprocess fallback. Existing provider credential files are accepted only after provider-specific ownership, type, size, and permission checks. Manually entered API keys are stored in a dedicated folder of KDE's network wallet rather than plaintext configuration files. Wallet opening is asynchronous, values are validated before storage, and QML receives only configured-key names—not secret values. Non-empty process-environment credentials retain precedence.
 
 The Codex adapter reads `auth.json` from `$CODEX_HOME`, or `~/.codex` by default; extracts identity and expiry claims from OAuth tokens; refreshes expiring tokens; persists rotations atomically with owner-only permissions; and maps usage windows directly into the applet schema. Account identity is redacted before publication to QML.
 
@@ -22,7 +22,7 @@ The Claude adapter reads the selected Claude Code `.credentials.json`, including
 
 The Gemini adapter reads Gemini CLI's `oauth_creds.json` and authentication selection. It resolves the CLI's public installed-app OAuth client from environment overrides or installed JavaScript, without starting Gemini or another process. The adapter renews and atomically persists access tokens, loads Code Assist tier and project metadata, optionally discovers a suitable Cloud project, and maps the most constrained Pro, Flash, and Flash Lite quota buckets. It identifies Google's June 2026 consumer-tier shutdown while leaving Workspace, education, and licensed Code Assist accounts enabled.
 
-The xAI adapter uses a Management API key and explicit team ID from the process environment until KWallet-backed provider settings are available. It reads the team's posted prepaid balance and requests a best-effort 30-day daily spend series. Billing authentication failures invalidate the refresh, while analytics, parse, network, timeout, and size failures preserve a valid balance. The adapter does not treat prepaid balance as spend or share credentials with the separate Grok consumer service.
+The xAI adapter uses a Management API key from KWallet or the process environment and an explicit team ID from the process environment. It reads the team's posted prepaid balance and requests a best-effort 30-day daily spend series. Billing authentication failures invalidate the refresh, while analytics, parse, network, timeout, and size failures preserve a valid balance. The adapter does not treat prepaid balance as spend or share credentials with the separate Grok consumer service.
 
 The Kimi adapter targets Kimi For Coding rather than the Moonshot/Kimi Open Platform. It prefers `KIMI_CODE_API_KEY`, then securely reads a fresh access token and stable device identity from the official Kimi Code CLI home. CLI credentials remain read-only because Kodometer neither invokes the CLI nor uses its refresh token. A rejected explicit key receives one retry with a fresh CLI credential. The adapter maps the Code API's 7-day request allowance and first short-window rate limit; it does not inspect browser cookies or accept `KIMI_AUTH_TOKEN`.
 
@@ -41,5 +41,6 @@ All network adapters must use fixed HTTPS endpoints in production, disable autom
 - Each provider requires dedicated authentication, parsing, security review, and maintenance.
 - Credential-file compatibility can change when upstream tools change their formats.
 - Native networking keeps refreshes asynchronous and works equally under Wayland and X11.
-- KWallet becomes a required integration before the settings UI can accept manually entered secrets.
+- KWallet is a runtime and build dependency for the compiled applet.
+- Credential changes reload adapters and queue one follow-up refresh when a request is already active.
 - New adapters can reuse the normalized provider map and extend generic presentation fields when a provider exposes a new billing shape.

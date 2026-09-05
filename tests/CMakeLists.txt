@@ -1,3 +1,8 @@
+add_executable(credential-store-test tst_credential_store.cpp)
+target_link_libraries(credential-store-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(credential-store-test)
+add_test(NAME credential-store COMMAND credential-store-test)
+
 add_executable(codex-credentials-test tst_codex_credentials.cpp)
 target_link_libraries(codex-credentials-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(codex-credentials-test)

@@ -114,8 +114,12 @@ void DeepSeekProviderAdapterTest::fetchesBalance()
     server.enqueue({200, validBalance()});
     QNetworkAccessManager network;
     DeepSeekProviderAdapter adapter(&network);
-    adapter.setBaseEndpoint(server.baseUrl());
-    adapter.setEnvironment({{QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("api-secret")}});
+    QUrl baseEndpoint = server.baseUrl();
+    baseEndpoint.setPath(QStringLiteral("//"));
+    adapter.setBaseEndpoint(baseEndpoint);
+    adapter.setEnvironment({});
+    adapter.setCredentialOverrides(
+        {{QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("api-secret")}});
     adapter.setCurrentDateTime(QDateTime::fromSecsSinceEpoch(1'800'000'000, QTimeZone::UTC));
     QSignalSpy finished(&adapter, &DeepSeekProviderAdapter::refreshFinished);
     QSignalSpy succeeded(&adapter, &ProviderAdapter::refreshSucceeded);

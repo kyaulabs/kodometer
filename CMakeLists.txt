@@ -34,7 +34,7 @@ if(KODOMETER_BUILD_APPLET)
     find_package(ECM 6.0 NO_MODULE REQUIRED)
     list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
     include(KDEInstallDirs6)
-    find_package(KF6 6.0 REQUIRED COMPONENTS Config CoreAddons)
+    find_package(KF6 6.0 REQUIRED COMPONENTS Config CoreAddons Wallet)
     find_package(Plasma 6.0 REQUIRED)
 endif()
 
@@ -59,6 +59,7 @@ target_sources(kodometer-core
         src/codex_credentials.cpp
         src/codex_provider_adapter.cpp
         src/codex_usage_parser.cpp
+        src/credential_store.cpp
         src/claude_credentials.cpp
         src/claude_provider_adapter.cpp
         src/claude_usage_parser.cpp
@@ -81,6 +82,7 @@ target_sources(kodometer-core
         src/zai_provider_adapter.cpp
         src/zai_usage_parser.cpp
         src/presentation_formatter.cpp
+        src/provider_adapter.cpp
         src/provider_selection_model.cpp
         src/usage_controller.cpp
     PUBLIC
@@ -90,6 +92,7 @@ target_sources(kodometer-core
             include/kodometer/codex_credentials.hpp
             include/kodometer/codex_provider_adapter.hpp
             include/kodometer/codex_usage_parser.hpp
+            include/kodometer/credential_store.hpp
             include/kodometer/claude_credentials.hpp
             include/kodometer/claude_provider_adapter.hpp
             include/kodometer/claude_usage_parser.hpp

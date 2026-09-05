@@ -160,6 +160,12 @@ void XaiProviderAdapterTest::fetchesBalanceAndDailyUsage()
     QNetworkAccessManager network;
     XaiProviderAdapter adapter(&network);
     configure(adapter, server);
+    QUrl baseEndpoint = server.baseUrl();
+    baseEndpoint.setPath(QStringLiteral("//"));
+    adapter.setBaseEndpoint(baseEndpoint);
+    adapter.setEnvironment({{QStringLiteral("XAI_TEAM_ID"), QStringLiteral("team-1234")}});
+    adapter.setCredentialOverrides(
+        {{QStringLiteral("XAI_MANAGEMENT_API_KEY"), QStringLiteral("management-key")}});
     QSignalSpy finished(&adapter, &XaiProviderAdapter::refreshFinished);
 
     adapter.refresh();

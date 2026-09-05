@@ -111,7 +111,8 @@ void OpenRouterProviderAdapter::refresh()
     m_activityDiagnostic.clear();
 
     QString credentialError;
-    const auto credentials = OpenRouterCredentialResolver::resolve(m_environment, &credentialError);
+    const auto credentials = OpenRouterCredentialResolver::resolve(
+        environmentWithCredentialOverrides(m_environment), &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;

@@ -34,8 +34,13 @@ PlasmoidItem {
         return remaining === null ? 0 : remaining
     }
 
+    Private.KWalletCredentialStore {
+        id: credentialStore
+    }
+
     Private.UsageController {
         id: backend
+        credentialStore: credentialStore
     }
 
     Private.ProviderSelectionModel {
@@ -185,5 +190,8 @@ PlasmoidItem {
         }
     }
 
-    Component.onCompleted: backend.refresh()
+    Component.onCompleted: {
+        credentialStore.open()
+        backend.refresh()
+    }
 }

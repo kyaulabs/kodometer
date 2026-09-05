@@ -147,7 +147,9 @@ void ZaiProviderAdapterTest::fetchesGlobalQuotaAndModelUsage()
     QNetworkAccessManager network;
     ZaiProviderAdapter adapter(&network);
     configureEndpoints(adapter, server);
-    adapter.setEnvironment({{QStringLiteral("Z_AI_API_KEY"), QStringLiteral("api-secret")}});
+    adapter.setEnvironment({});
+    adapter.setCredentialOverrides(
+        {{QStringLiteral("Z_AI_API_KEY"), QStringLiteral("api-secret")}});
     adapter.setCurrentDateTime(QDateTime::fromSecsSinceEpoch(1'785'816'000, QTimeZone::UTC));
     QSignalSpy finished(&adapter, &ZaiProviderAdapter::refreshFinished);
     QSignalSpy succeeded(&adapter, &ProviderAdapter::refreshSucceeded);

@@ -12,7 +12,7 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 Kodometer is under active development. The current release foundation includes:
 
 - a compiled Plasma 6 applet for Wayland and X11;
-- native Codex, Claude, DeepSeek, Gemini, Kimi Code, xAI, and z.ai requests through Qt Network;
+- native Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
 - secure loading and atomic rotation of provider credentials;
 - session, weekly, model-specific, routines, spend-limit, and Gemini tier windows;
 - Claude monthly-cap and plan presentation;
@@ -20,6 +20,7 @@ Kodometer is under active development. The current release foundation includes:
 - Kimi Code 7-day and short-window request quotas;
 - DeepSeek account balance with paid and granted credit breakdowns;
 - z.ai and BigModel CN Coding Plan, MCP, model-token, and account-balance data;
+- OpenRouter credit balance, API-key spending cap, and optional 30-day activity totals;
 - provider tabs, an overview, reset countdowns, and account and plan labels;
 - last-good data retention when a refresh fails;
 - redacted account identity by default;
@@ -27,7 +28,7 @@ Kodometer is under active development. The current release foundation includes:
 - C++ and QML tests with line, function, and branch coverage gates above 95%;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-Codex, Claude, DeepSeek, Gemini, Kimi Code, xAI, and z.ai are available as native providers. OpenRouter is the remaining planned adapter. KWallet-backed manual credential entry, settings, multi-account controls, expanded cost history, notifications, and provider actions will follow in reviewable branches.
+Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. KWallet-backed manual credential entry, settings, multi-account controls, expanded cost history, notifications, and provider actions will follow in reviewable branches.
 
 ## Requirements
 
@@ -41,7 +42,8 @@ Runtime:
 - a Kimi Code API key exported as `KIMI_CODE_API_KEY`, or a fresh Kimi Code CLI login at `~/.kimi-code/credentials/kimi-code.json`;
 - an xAI Management API key and team ID exported as `XAI_MANAGEMENT_API_KEY` and `XAI_TEAM_ID`;
 - a DeepSeek API key exported as `DEEPSEEK_API_KEY`;
-- a z.ai API key exported as `Z_AI_API_KEY`.
+- a z.ai API key exported as `Z_AI_API_KEY`;
+- an OpenRouter API key exported as `OPENROUTER_API_KEY`.
 
 Kodometer accepts OAuth credentials written by Codex, Claude, and Gemini CLI. Codex's `OPENAI_API_KEY` file form is also supported. Claude profile roots set through `CLAUDE_CONFIG_DIR` are honored, as is `CLAUDE_SECURESTORAGE_CONFIG_DIR`; relative profile paths resolve from Kodometer's working directory, matching Claude Code's literal-path behavior.
 
@@ -83,6 +85,22 @@ export Z_AI_BIGMODEL_PROJECT="project-id"
 ```
 
 Kodometer reads Coding Plan and MCP limits first. Hourly and daily model-token summaries are best effort, as is the BigModel CN account balance; failures in those optional requests do not hide valid quota data. Requests use fixed regional endpoints. Kodometer does not inspect browser cookies or accept endpoint overrides from the environment.
+
+OpenRouter support uses the documented credits and key endpoints. Export a standard API key before starting Plasma:
+
+```bash
+export OPENROUTER_API_KEY="sk-or-v1-..."
+```
+
+Kodometer shows purchased credits, total account usage, remaining balance, API-key spend, and any configured key limit. `OPENROUTER_HTTP_REFERER` and `OPENROUTER_X_TITLE` set the optional application-identification headers. Key metadata is best effort and has a one-second deadline, so a slow or malformed response does not hide a valid credit balance.
+
+For exact spend across the last 30 completed UTC days, export a management credential with Activity read access:
+
+```bash
+export OPENROUTER_MANAGEMENT_API_KEY="..."
+```
+
+Activity requests always use OpenRouter's production endpoint. Their failures remain visible as diagnostics without discarding credits or key-limit data. Kodometer ignores endpoint overrides, browser sessions, and OpenRouter website cookies. Both keys remain in the process environment and are not persisted.
 
 Credential files must be regular files owned by the current user. Kodometer rejects symbolic links, files larger than 1 MiB, and files that grant group or other users read or write access. To secure the default files:
 
@@ -174,7 +192,7 @@ Development follows Git Flow and Conventional Commits.
 
 ## Security and privacy
 
-Kodometer reads OAuth credentials only from the expected Codex, Claude, Gemini, and Kimi Code authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state. Kimi Code credentials remain read-only; Kodometer creates only a missing owner-only device ID required by the official API. The DeepSeek, Kimi Code, xAI, and z.ai API keys are read from provider-specific environment variables and are not persisted by Kodometer. BigModel CN and Zhipu key files are read-only inputs.
+Kodometer reads OAuth credentials only from the expected Codex, Claude, Gemini, and Kimi Code authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state. Kimi Code credentials remain read-only; Kodometer creates only a missing owner-only device ID required by the official API. The DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai API keys are read from provider-specific environment variables and are not persisted by Kodometer. BigModel CN and Zhipu key files are read-only inputs.
 
 Network requests use fixed provider endpoints, bounded response buffers, explicit timeouts, and disabled automatic redirects. Account email addresses are redacted before data reaches QML. Tokens are never added to the presentation model or logs.
 

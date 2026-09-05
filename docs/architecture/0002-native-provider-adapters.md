@@ -28,6 +28,8 @@ The Kimi adapter targets Kimi For Coding rather than the Moonshot/Kimi Open Plat
 
 The DeepSeek adapter reads `DEEPSEEK_API_KEY`, with `DEEPSEEK_KEY` as a compatibility alias, and calls the documented `/user/balance` endpoint. It maps total, paid, and granted credits in the currency reported by DeepSeek, preferring a funded USD row without hiding a funded non-USD row behind an empty USD balance. Browser sessions and private dashboard usage or cost endpoints are outside the security boundary and are not used.
 
+The z.ai adapter supports the global and BigModel CN Coding Plan APIs with explicit regional credential boundaries. China-mainland aliases and provider key files are ignored for the global route. BigModel team requests require organization and project selectors. Quota is authoritative; hourly and daily model-token requests and the China account-balance request are best effort. Production routing is fixed to the selected provider hosts, and browser cookies or environment endpoint overrides are not accepted.
+
 All network adapters must use fixed HTTPS endpoints in production, disable automatic redirects, impose request timeouts and response-size limits, avoid logging credentials, and test success, authentication failure or renewal where applicable, malformed data, network failure, timeout, and oversized-response paths against local servers.
 
 ## Consequences

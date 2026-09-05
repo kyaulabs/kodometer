@@ -88,6 +88,21 @@ target_link_libraries(xai-usage-parser-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(xai-usage-parser-test)
 add_test(NAME xai-usage-parser COMMAND xai-usage-parser-test)
 
+add_executable(zai-credentials-test tst_zai_credentials.cpp)
+target_link_libraries(zai-credentials-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(zai-credentials-test)
+add_test(NAME zai-credentials COMMAND zai-credentials-test)
+
+add_executable(zai-provider-adapter-test tst_zai_provider_adapter.cpp)
+target_link_libraries(zai-provider-adapter-test PRIVATE kodometer-core Qt6::Network Qt6::Test)
+kodometer_enable_warnings(zai-provider-adapter-test)
+add_test(NAME zai-provider-adapter COMMAND zai-provider-adapter-test)
+
+add_executable(zai-usage-parser-test tst_zai_usage_parser.cpp)
+target_link_libraries(zai-usage-parser-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(zai-usage-parser-test)
+add_test(NAME zai-usage-parser COMMAND zai-usage-parser-test)
+
 add_executable(presentation-formatter-test tst_presentation_formatter.cpp)
 target_link_libraries(presentation-formatter-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(presentation-formatter-test)

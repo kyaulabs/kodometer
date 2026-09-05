@@ -465,6 +465,10 @@ std::optional<QVariantMap> ZaiUsageParser::parseQuota(const QByteArray &data, Za
                              {QStringLiteral("level"), QStringLiteral("warning")}};
     }
     // GCOVR_EXCL_BR_STOP
+    QString regionCode = QStringLiteral("global");
+    if (region == ZaiRegion::BigModelChina) {
+        regionCode = QStringLiteral("bigmodel-cn");
+    }
     // GCOVR_EXCL_BR_START -- Qt container allocation branches
     const QVariantList details{
         QVariantMap{{QStringLiteral("title"), QStringLiteral("Quota details")},
@@ -473,6 +477,7 @@ std::optional<QVariantMap> ZaiUsageParser::parseQuota(const QByteArray &data, Za
     const QVariantMap provider{
         {QStringLiteral("id"), QStringLiteral("zai")},
         {QStringLiteral("name"), QStringLiteral("z.ai / GLM")},
+        {QStringLiteral("region"), regionCode},
         {QStringLiteral("enabled"), true},
         {QStringLiteral("source"), QStringLiteral("api-key")},
         {QStringLiteral("status"), status},

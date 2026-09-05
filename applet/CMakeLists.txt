@@ -3,6 +3,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         CompactMeter.qml
         DetailSection.qml
         OverviewPage.qml
+        ProviderActionRow.qml
         ProviderDetails.qml
         ProviderSummary.qml
         ProviderTabs.qml
@@ -42,6 +43,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../include/kodometer/zai_provider_adapter.hpp
         ../include/kodometer/zai_usage_parser.hpp
         ../include/kodometer/presentation_formatter.hpp
+        ../include/kodometer/provider_actions.hpp
         ../include/kodometer/provider_adapter.hpp
         ../include/kodometer/provider_selection_model.hpp
         ../include/kodometer/usage_controller.hpp
@@ -72,6 +74,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../src/zai_provider_adapter.cpp
         ../src/zai_usage_parser.cpp
         ../src/presentation_formatter.cpp
+        ../src/provider_actions.cpp
         ../src/provider_adapter.cpp
         ../src/provider_selection_model.cpp
         ../src/usage_controller.cpp
@@ -80,7 +83,7 @@ plasma_add_applet(org.kyaulabs.kodometer
 
 target_include_directories(org.kyaulabs.kodometer PRIVATE ../include ../include/kodometer)
 target_link_libraries(
-    org.kyaulabs.kodometer PRIVATE Qt6::Core Qt6::Network Qt6::Qml KF6::Wallet Plasma::Plasma
+    org.kyaulabs.kodometer PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml KF6::Wallet Plasma::Plasma
 )
 target_compile_definitions(org.kyaulabs.kodometer PRIVATE KODOMETER_VERSION="${PROJECT_VERSION}")
 target_compile_features(org.kyaulabs.kodometer PRIVATE cxx_std_20)

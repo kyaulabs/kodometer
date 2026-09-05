@@ -118,7 +118,7 @@ void configure(OpenRouterProviderAdapter &adapter, const HttpServer &server,
                bool management = false)
 {
     adapter.setApiBaseEndpoint(server.apiUrl());
-    adapter.setActivityEndpoint(server.apiUrl().resolved(QUrl(QStringLiteral("activity"))));
+    adapter.setActivityEndpoint(QUrl(server.apiUrl().toString() + QStringLiteral("/activity")));
     adapter.setEnvironment(credentials(management));
     adapter.setCurrentDateTime(QDateTime::fromSecsSinceEpoch(1'800'000'000, QTimeZone::UTC));
 }
@@ -145,8 +145,12 @@ void OpenRouterProviderAdapterTest::fetchesCreditsKeyQuotaAndActivity()
     HttpServer server;
     server.enqueue({200, credits()});
     server.enqueue({200, keyUsage()});
-    server.enqueue({200, R"({"data":[{"date":"2027-01-13","prompt_tokens":2,"completion_tokens":1,"requests":1,"usage":0.5}]})"});
-    server.enqueue({200, R"({"data":[{"date":"2027-01-14","prompt_tokens":3,"completion_tokens":2,"requests":1,"usage":1.5}]})"});
+    server.enqueue(
+        {200,
+         R"({"data":[{"date":"2027-01-13","prompt_tokens":2,"completion_tokens":1,"requests":1,"usage":0.5}]})"});
+    server.enqueue(
+        {200,
+         R"({"data":[{"date":"2027-01-14","prompt_tokens":3,"completion_tokens":2,"requests":1,"usage":1.5}]})"});
     QNetworkAccessManager network;
     OpenRouterProviderAdapter adapter(&network);
     configure(adapter, server, true);
@@ -202,6 +206,17 @@ void OpenRouterProviderAdapterTest::preservesCreditsWhenOptionalRequestsFail()
     QTRY_COMPARE(finished.count(), 2);
     QCOMPARE(finished.at(1).first().toBool(), true);
     QVERIFY(!adapter.provider().value(QStringLiteral("cost")).toMap().contains("last30DaysUSD"));
+
+    server.enqueue({200, credits()});
+    server.enqueue({200, keyUsage()});
+    server.enqueue(
+        {200,
+         R"({"data":[{"date":"2027-01-13","prompt_tokens":2,"completion_tokens":1,"requests":1,"usage":0.5}]})"});
+    server.enqueue({500, "{}"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 3);
+    QCOMPARE(finished.at(2).first().toBool(), true);
+    QVERIFY(!adapter.provider().value(QStringLiteral("cost")).toMap().contains("last30DaysUSD"));
 }
 
 void OpenRouterProviderAdapterTest::reportsCredentialFailures()
@@ -224,9 +239,10 @@ void OpenRouterProviderAdapterTest::classifiesCreditsHttpFailures_data()
     QTest::addColumn<QString>("message");
     QTest::newRow("unauthorized") << 401 << QStringLiteral("OpenRouter rejected the API key");
     QTest::newRow("forbidden") << 403 << QStringLiteral("OpenRouter rejected the API key");
-    QTest::newRow("limited") << 429 << QStringLiteral("OpenRouter credits request was rate limited");
+    QTest::newRow("limited") << 429
+                             << QStringLiteral("OpenRouter credits request was rate limited");
     QTest::newRow("server") << 503
-                             << QStringLiteral("OpenRouter credits request failed with HTTP 503");
+                            << QStringLiteral("OpenRouter credits request failed with HTTP 503");
 }
 
 void OpenRouterProviderAdapterTest::classifiesCreditsHttpFailures()
@@ -302,6 +318,33 @@ void OpenRouterProviderAdapterTest::boundsResponsesAndTimeouts()
     adapter.refresh();
     QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 4, 1000);
     QCOMPARE(finished.at(3).first().toBool(), true);
+
+    adapter.setEnvironment(credentials(true));
+    adapter.setTimeoutMilliseconds(1000);
+    server.enqueue({200, credits()});
+    server.enqueue({200, keyUsage()});
+    server.enqueue({200, QByteArray(OpenRouterProviderAdapter::MaximumResponseSize + 1, 'x')});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 5);
+    QCOMPARE(finished.at(4).first().toBool(), true);
+
+    server.enqueue({200, credits()});
+    server.enqueue({200, keyUsage()});
+    server.enqueue({403, "{}"});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 6);
+    QCOMPARE(finished.at(5).first().toBool(), true);
+    const QVariantList sections = adapter.provider().value("details").toList();
+    QCOMPARE(sections.last().toMap().value("rows").toList().first().toMap().value("secondaryValue"),
+             QStringLiteral("Management API key required"));
+
+    adapter.setTimeoutMilliseconds(20);
+    server.enqueue({200, credits()});
+    server.enqueue({200, keyUsage()});
+    server.enqueue({200, "{}", false});
+    adapter.refresh();
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 7, 1000);
+    QCOMPARE(finished.at(6).first().toBool(), true);
 }
 
 void OpenRouterProviderAdapterTest::ignoresConcurrentRefreshAndRetainsLastGoodData()

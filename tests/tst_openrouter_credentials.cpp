@@ -3,6 +3,7 @@
 #include <QtTest>
 
 using Kodometer::OpenRouterCredentialResolver;
+using Environment = QMap<QString, QString>;
 
 class OpenRouterCredentialTest final : public QObject
 {
@@ -41,14 +42,14 @@ void OpenRouterCredentialTest::resolvesCredentialsAndHeaders()
 
 void OpenRouterCredentialTest::reportsInvalidCredentials_data()
 {
-    QTest::addColumn<QMap<QString, QString>>("environment");
+    QTest::addColumn<Environment>("environment");
     QTest::addColumn<QString>("message");
 
     QTest::newRow("missing") << QMap<QString, QString>{}
-                              << QStringLiteral("OpenRouter API key is missing");
+                             << QStringLiteral("OpenRouter API key is missing");
     QTest::newRow("api key newline")
         << QMap<QString, QString>{{QStringLiteral("OPENROUTER_API_KEY"),
-                                  QStringLiteral("key\nsecond")}}
+                                   QStringLiteral("key\nsecond")}}
         << QStringLiteral("OpenRouter API key contains invalid characters");
     QTest::newRow("management newline")
         << QMap<QString, QString>{{QStringLiteral("OPENROUTER_API_KEY"), QStringLiteral("key")},
@@ -69,7 +70,7 @@ void OpenRouterCredentialTest::reportsInvalidCredentials_data()
 
 void OpenRouterCredentialTest::reportsInvalidCredentials()
 {
-    QFETCH(QMap<QString, QString>, environment);
+    QFETCH(Environment, environment);
     QFETCH(QString, message);
 
     QString error;

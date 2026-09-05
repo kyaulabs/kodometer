@@ -5,6 +5,7 @@
 #include <kodometer/deepseek_provider_adapter.hpp>
 #include <kodometer/gemini_provider_adapter.hpp>
 #include <kodometer/kimi_provider_adapter.hpp>
+#include <kodometer/openrouter_provider_adapter.hpp>
 #include <kodometer/xai_provider_adapter.hpp>
 #include <kodometer/zai_provider_adapter.hpp>
 
@@ -30,7 +31,8 @@ UsageController::UsageController(QObject *parent)
     : UsageController(QList<ProviderAdapter *>{new CodexProviderAdapter, new ClaudeProviderAdapter,
                                                new GeminiProviderAdapter, new XaiProviderAdapter,
                                                new KimiProviderAdapter, new DeepSeekProviderAdapter,
-                                               new ZaiProviderAdapter},
+                                               new ZaiProviderAdapter,
+                                               new OpenRouterProviderAdapter},
                       parent)
 {}
 // GCOVR_EXCL_BR_STOP

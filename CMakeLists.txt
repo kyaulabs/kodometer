@@ -62,6 +62,9 @@ target_sources(kodometer-core
         src/claude_credentials.cpp
         src/claude_provider_adapter.cpp
         src/claude_usage_parser.cpp
+        src/deepseek_credentials.cpp
+        src/deepseek_provider_adapter.cpp
+        src/deepseek_usage_parser.cpp
         src/gemini_credentials.cpp
         src/gemini_provider_adapter.cpp
         src/gemini_usage_parser.cpp
@@ -84,6 +87,9 @@ target_sources(kodometer-core
             include/kodometer/claude_credentials.hpp
             include/kodometer/claude_provider_adapter.hpp
             include/kodometer/claude_usage_parser.hpp
+            include/kodometer/deepseek_credentials.hpp
+            include/kodometer/deepseek_provider_adapter.hpp
+            include/kodometer/deepseek_usage_parser.hpp
             include/kodometer/gemini_credentials.hpp
             include/kodometer/gemini_provider_adapter.hpp
             include/kodometer/gemini_usage_parser.hpp

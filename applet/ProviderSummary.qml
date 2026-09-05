@@ -20,6 +20,10 @@ QQC2.ItemDelegate {
                                                                                  && provider.error.message
                                                                                  || "")
     readonly property var cost: provider.cost || ({})
+    readonly property bool hasBalance: cost.balance !== undefined || cost.balanceUSD !== undefined
+    readonly property real balance: Number(cost.balance !== undefined ? cost.balance :
+                                                                        cost.balanceUSD)
+    readonly property string balanceCurrency: String(cost.currencyCode || "USD")
     readonly property var windows: {
         const allWindows = provider.windows ? provider.windows.filter(windowData =>
         !windowData.idle) : []
@@ -121,14 +125,12 @@ QQC2.ItemDelegate {
 
             QQC2.Label {
                 visible: root.windows.length === 0 && root.errorText.length === 0
-                text: root.cost.balanceUSD !== undefined ? qsTr("Balance: %1").arg(
-                                                               Private.PresentationFormatter.usdLabel(
-                                                                   Number(root.cost.balanceUSD
-                                                                          || 0))) : (
-                                                               root.provider.status
-                                                               && root.provider.status.label
-                                                               ? root.provider.status.label : qsTr(
-                                                                     "No quota windows"))
+                text: root.provider.status && root.provider.status.label
+                      ? root.provider.status.label : (root.hasBalance ? qsTr("Balance: %1").arg(
+                                                                            Private.PresentationFormatter.creditsLabel(
+                                                                                root.balance,
+                                                                                root.balanceCurrency)) :
+                                                                        qsTr("No quota windows"))
                 color: Kirigami.Theme.disabledTextColor
                 font: Kirigami.Theme.smallFont
             }

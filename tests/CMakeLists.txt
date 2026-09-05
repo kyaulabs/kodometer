@@ -28,6 +28,21 @@ target_link_libraries(claude-usage-parser-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(claude-usage-parser-test)
 add_test(NAME claude-usage-parser COMMAND claude-usage-parser-test)
 
+add_executable(deepseek-credentials-test tst_deepseek_credentials.cpp)
+target_link_libraries(deepseek-credentials-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(deepseek-credentials-test)
+add_test(NAME deepseek-credentials COMMAND deepseek-credentials-test)
+
+add_executable(deepseek-provider-adapter-test tst_deepseek_provider_adapter.cpp)
+target_link_libraries(deepseek-provider-adapter-test PRIVATE kodometer-core Qt6::Network Qt6::Test)
+kodometer_enable_warnings(deepseek-provider-adapter-test)
+add_test(NAME deepseek-provider-adapter COMMAND deepseek-provider-adapter-test)
+
+add_executable(deepseek-usage-parser-test tst_deepseek_usage_parser.cpp)
+target_link_libraries(deepseek-usage-parser-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(deepseek-usage-parser-test)
+add_test(NAME deepseek-usage-parser COMMAND deepseek-usage-parser-test)
+
 add_executable(gemini-credentials-test tst_gemini_credentials.cpp)
 target_link_libraries(gemini-credentials-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(gemini-credentials-test)

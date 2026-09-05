@@ -1,8 +1,11 @@
+#include <kodometer/credential_store.hpp>
 #include <kodometer/provider_adapter.hpp>
 #include <kodometer/usage_controller.hpp>
 
 #include <QtTest>
 
+using Kodometer::CredentialBackend;
+using Kodometer::CredentialStore;
 using Kodometer::ProviderAdapter;
 using Kodometer::UsageController;
 
@@ -35,6 +38,65 @@ class FakeProviderAdapter final : public ProviderAdapter
     QString m_providerId;
 };
 
+class ControllerCredentialBackend final : public CredentialBackend
+{
+  public:
+    using CredentialBackend::CredentialBackend;
+
+    void open() override {}
+
+    std::optional<QMap<QString, QString>> readSecrets(const QStringList &, QString *) override
+    {
+        return values;
+    }
+
+    bool writeSecret(const QString &, const QString &, QString *) override
+    {
+        return false;
+    }
+
+    bool removeSecret(const QString &, QString *) override
+    {
+        return false;
+    }
+
+    void load()
+    {
+        emit openFinished(true, {});
+    }
+
+    void update()
+    {
+        emit changed();
+    }
+
+    QMap<QString, QString> values;
+};
+
+class CredentialAwareAdapter final : public ProviderAdapter
+{
+  public:
+    QString providerId() const override
+    {
+        return QStringLiteral("deepseek");
+    }
+
+    void refresh() override
+    {
+        ++refreshCount;
+        lastEnvironment = credentialEnvironment(baseEnvironment);
+    }
+
+    void succeed()
+    {
+        emit refreshSucceeded({{QStringLiteral("id"), QStringLiteral("deepseek")}});
+    }
+
+    QMap<QString, QString> baseEnvironment;
+    QMap<QString, QString> lastEnvironment;
+    int refreshCount = 0;
+};
+
 class UsageControllerTest final : public QObject
 {
     Q_OBJECT
@@ -44,6 +106,7 @@ class UsageControllerTest final : public QObject
     void retainsLastGoodProviderOnFailure();
     void handlesNoProviders();
     void handlesRegistrationEdges();
+    void refreshesAfterCredentialChanges();
 };
 
 void UsageControllerTest::aggregatesProvidersInRegistrationOrder()
@@ -125,6 +188,39 @@ void UsageControllerTest::handlesRegistrationEdges()
     controller.refresh();
     emptyId->succeed({{QStringLiteral("id"), QStringLiteral("empty")}});
     QCOMPARE(providersChanged.count(), 1);
+}
+
+void UsageControllerTest::refreshesAfterCredentialChanges()
+{
+    auto *adapter = new CredentialAwareAdapter;
+    auto *backend = new ControllerCredentialBackend;
+    CredentialStore store(backend);
+    UsageController controller({adapter});
+    controller.setCredentialStore(&store);
+
+    controller.refresh();
+    QCOMPARE(adapter->refreshCount, 1);
+    backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("wallet-key"));
+    store.open();
+    backend->load();
+    QCOMPARE(adapter->refreshCount, 1);
+
+    adapter->succeed();
+    QTRY_COMPARE(adapter->refreshCount, 2);
+    QCOMPARE(adapter->lastEnvironment.value(QStringLiteral("DEEPSEEK_API_KEY")),
+             QStringLiteral("wallet-key"));
+    adapter->succeed();
+
+    backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("rotated-key"));
+    backend->update();
+    QTRY_COMPARE(adapter->refreshCount, 3);
+    QCOMPARE(adapter->lastEnvironment.value(QStringLiteral("DEEPSEEK_API_KEY")),
+             QStringLiteral("rotated-key"));
+    adapter->succeed();
+
+    controller.setCredentialStore(nullptr);
+    QCOMPARE(adapter->lastEnvironment.value(QStringLiteral("DEEPSEEK_API_KEY")),
+             QStringLiteral("rotated-key"));
 }
 
 void UsageControllerTest::handlesNoProviders()

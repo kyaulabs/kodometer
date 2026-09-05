@@ -18,10 +18,10 @@ class FakeCredentialBackend final : public CredentialBackend
     }
 
     std::optional<QMap<QString, QString>> readSecrets(const QStringList &keys,
-                                                       QString *error) override
+                                                      QString *error) override
     {
         ++readCount;
-        if (!readError.isEmpty()) {
+        if (readFails || !readError.isEmpty()) {
             if (error != nullptr) {
                 *error = readError;
             }
@@ -38,7 +38,7 @@ class FakeCredentialBackend final : public CredentialBackend
 
     bool writeSecret(const QString &key, const QString &value, QString *error) override
     {
-        if (!writeError.isEmpty()) {
+        if (writeFails || !writeError.isEmpty()) {
             if (error != nullptr) {
                 *error = writeError;
             }
@@ -51,7 +51,7 @@ class FakeCredentialBackend final : public CredentialBackend
 
     bool removeSecret(const QString &key, QString *error) override
     {
-        if (!removeError.isEmpty()) {
+        if (removeFails || !removeError.isEmpty()) {
             if (error != nullptr) {
                 *error = removeError;
             }
@@ -81,6 +81,9 @@ class FakeCredentialBackend final : public CredentialBackend
     QString readError;
     QString writeError;
     QString removeError;
+    bool readFails = false;
+    bool writeFails = false;
+    bool removeFails = false;
     int openCount = 0;
     int readCount = 0;
 };
@@ -88,7 +91,7 @@ class FakeCredentialBackend final : public CredentialBackend
 class ExposedProviderAdapter final : public ProviderAdapter
 {
   public:
-    using ProviderAdapter::credentialEnvironment;
+    using ProviderAdapter::environmentWithCredentialOverrides;
 
     QString providerId() const override
     {
@@ -106,8 +109,11 @@ class CredentialStoreTest final : public QObject
     void opensLoadsAndTracksSecrets();
     void validatesWritesAndRemovals();
     void reportsBackendFailures();
+    void rejectsInvalidStoredSecrets_data();
+    void rejectsInvalidStoredSecrets();
     void clearsSecretsWhenWalletCloses();
     void appliesCredentialOverridesWithoutReplacingEnvironment();
+    void preservesBackendOwnership();
 };
 
 void CredentialStoreTest::opensLoadsAndTracksSecrets()
@@ -129,8 +135,7 @@ void CredentialStoreTest::opensLoadsAndTracksSecrets()
     QVERIFY(!store.busy());
     QVERIFY(store.error().isEmpty());
     QCOMPARE(store.configuredKeys(), QStringList{QStringLiteral("DEEPSEEK_API_KEY")});
-    QCOMPARE(store.secrets().value(QStringLiteral("DEEPSEEK_API_KEY")),
-             QStringLiteral("deepseek"));
+    QCOMPARE(store.secrets().value(QStringLiteral("DEEPSEEK_API_KEY")), QStringLiteral("deepseek"));
     QCOMPARE(readyChanged.count(), 1);
     QCOMPARE(secretsChanged.count(), 1);
 
@@ -138,9 +143,8 @@ void CredentialStoreTest::opensLoadsAndTracksSecrets()
     QCOMPARE(backend->openCount, 1);
     backend->values.insert(QStringLiteral("OPENROUTER_API_KEY"), QStringLiteral("router"));
     backend->notifyChanged();
-    QCOMPARE(store.configuredKeys(),
-             (QStringList{QStringLiteral("DEEPSEEK_API_KEY"),
-                          QStringLiteral("OPENROUTER_API_KEY")}));
+    QCOMPARE(store.configuredKeys(), (QStringList{QStringLiteral("DEEPSEEK_API_KEY"),
+                                                  QStringLiteral("OPENROUTER_API_KEY")}));
     QCOMPARE(secretsChanged.count(), 2);
 }
 
@@ -151,20 +155,25 @@ void CredentialStoreTest::validatesWritesAndRemovals()
 
     QVERIFY(!store.saveSecret(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("key")));
     QCOMPARE(store.error(), QStringLiteral("KWallet is not ready"));
+    QVERIFY(!store.removeSecret(QStringLiteral("DEEPSEEK_API_KEY")));
+    QCOMPARE(store.error(), QStringLiteral("KWallet is not ready"));
+    QVERIFY(!store.hasSecret(QStringLiteral("UNKNOWN_KEY")));
 
     store.open();
     backend->finishOpen(true);
     QVERIFY(store.saveSecret(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("  secret  ")));
-    QCOMPARE(backend->values.value(QStringLiteral("DEEPSEEK_API_KEY")),
-             QStringLiteral("secret"));
+    QCOMPARE(backend->values.value(QStringLiteral("DEEPSEEK_API_KEY")), QStringLiteral("secret"));
     QVERIFY(store.hasSecret(QStringLiteral("DEEPSEEK_API_KEY")));
 
     QVERIFY(!store.saveSecret(QStringLiteral("UNKNOWN_KEY"), QStringLiteral("secret")));
     QCOMPARE(store.error(), QStringLiteral("Credential key is not supported"));
     QVERIFY(!store.saveSecret(QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral(" \t ")));
     QCOMPARE(store.error(), QStringLiteral("Credential value is empty"));
-    QVERIFY(!store.saveSecret(QStringLiteral("KIMI_CODE_API_KEY"),
-                              QStringLiteral("first\nsecond")));
+    QVERIFY(
+        !store.saveSecret(QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral("first\nsecond")));
+    QCOMPARE(store.error(), QStringLiteral("Credential value contains invalid characters"));
+    QVERIFY(
+        !store.saveSecret(QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral("first\rsecond")));
     QCOMPARE(store.error(), QStringLiteral("Credential value contains invalid characters"));
     QVERIFY(!store.saveSecret(QStringLiteral("KIMI_CODE_API_KEY"),
                               QString(CredentialStore::MaximumSecretSize + 1, QLatin1Char('x'))));
@@ -182,12 +191,22 @@ void CredentialStoreTest::reportsBackendFailures()
     CredentialStore store(backend);
 
     store.open();
-    backend->finishOpen(false, QStringLiteral("Wallet access was denied"));
+    backend->finishOpen(false);
     QVERIFY(!store.ready());
     QVERIFY(!store.busy());
+    QCOMPARE(store.error(), QStringLiteral("KWallet could not be opened"));
+
+    store.open();
+    backend->finishOpen(false, QStringLiteral("Wallet access was denied"));
     QCOMPARE(store.error(), QStringLiteral("Wallet access was denied"));
 
     store.open();
+    backend->readFails = true;
+    backend->finishOpen(true);
+    QCOMPARE(store.error(), QStringLiteral("KWallet credentials could not be read"));
+
+    store.open();
+    backend->readFails = false;
     backend->readError = QStringLiteral("Could not read wallet entries");
     backend->finishOpen(true);
     QVERIFY(!store.ready());
@@ -198,13 +217,54 @@ void CredentialStoreTest::reportsBackendFailures()
     backend->finishOpen(true);
     QVERIFY(store.ready());
 
+    backend->writeFails = true;
+    QVERIFY(!store.saveSecret(QStringLiteral("Z_AI_API_KEY"), QStringLiteral("secret")));
+    QCOMPARE(store.error(), QStringLiteral("KWallet could not store the credential"));
+    backend->writeFails = false;
     backend->writeError = QStringLiteral("Could not write wallet entry");
     QVERIFY(!store.saveSecret(QStringLiteral("Z_AI_API_KEY"), QStringLiteral("secret")));
     QCOMPARE(store.error(), QStringLiteral("Could not write wallet entry"));
 
+    backend->writeError.clear();
+    QVERIFY(store.saveSecret(QStringLiteral("Z_AI_API_KEY"), QStringLiteral("secret")));
+    backend->removeFails = true;
+    QVERIFY(!store.removeSecret(QStringLiteral("Z_AI_API_KEY")));
+    QCOMPARE(store.error(), QStringLiteral("KWallet could not remove the credential"));
+    backend->removeFails = false;
     backend->removeError = QStringLiteral("Could not remove wallet entry");
     QVERIFY(!store.removeSecret(QStringLiteral("Z_AI_API_KEY")));
     QCOMPARE(store.error(), QStringLiteral("Could not remove wallet entry"));
+
+    backend->removeError.clear();
+    backend->readFails = true;
+    QVERIFY(!store.saveSecret(QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral("secret")));
+    QCOMPARE(store.error(), QStringLiteral("KWallet credentials could not be read"));
+    QVERIFY(!store.removeSecret(QStringLiteral("Z_AI_API_KEY")));
+}
+
+void CredentialStoreTest::rejectsInvalidStoredSecrets_data()
+{
+    QTest::addColumn<QString>("secret");
+    QTest::newRow("empty") << QStringLiteral("  ");
+    QTest::newRow("line-feed") << QStringLiteral("first\nsecond");
+    QTest::newRow("carriage-return") << QStringLiteral("first\rsecond");
+    QTest::newRow("oversized") << QString(CredentialStore::MaximumSecretSize + 1, QLatin1Char('x'));
+}
+
+void CredentialStoreTest::rejectsInvalidStoredSecrets()
+{
+    QFETCH(QString, secret);
+    auto *backend = new FakeCredentialBackend;
+    backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), secret);
+    CredentialStore store(backend);
+
+    store.open();
+    backend->finishOpen(true);
+
+    QVERIFY(!store.ready());
+    QVERIFY(store.secrets().isEmpty());
+    QCOMPARE(store.error(),
+             QStringLiteral("KWallet contains an invalid credential for DEEPSEEK_API_KEY"));
 }
 
 void CredentialStoreTest::clearsSecretsWhenWalletCloses()
@@ -227,6 +287,15 @@ void CredentialStoreTest::clearsSecretsWhenWalletCloses()
     QCOMPARE(secretsChanged.count(), 2);
 }
 
+void CredentialStoreTest::preservesBackendOwnership()
+{
+    QObject owner;
+    FakeCredentialBackend backend(&owner);
+    CredentialStore store(&backend);
+
+    QCOMPARE(backend.parent(), &owner);
+}
+
 void CredentialStoreTest::appliesCredentialOverridesWithoutReplacingEnvironment()
 {
     ExposedProviderAdapter adapter;
@@ -234,7 +303,7 @@ void CredentialStoreTest::appliesCredentialOverridesWithoutReplacingEnvironment(
         {{QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("wallet-key")},
          {QStringLiteral("OPENROUTER_API_KEY"), QStringLiteral("wallet-router")}});
 
-    const QMap<QString, QString> environment = adapter.credentialEnvironment(
+    const QMap<QString, QString> environment = adapter.environmentWithCredentialOverrides(
         {{QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("environment-key")},
          {QStringLiteral("OPENROUTER_API_KEY"), QStringLiteral("  ")},
          {QStringLiteral("UNRELATED"), QStringLiteral("value")}});
@@ -246,7 +315,7 @@ void CredentialStoreTest::appliesCredentialOverridesWithoutReplacingEnvironment(
     QCOMPARE(environment.value(QStringLiteral("UNRELATED")), QStringLiteral("value"));
 
     adapter.setCredentialOverrides({});
-    QCOMPARE(adapter.credentialEnvironment({}), QMap<QString, QString>{});
+    QVERIFY(adapter.environmentWithCredentialOverrides({}).isEmpty());
 }
 
 QTEST_GUILESS_MAIN(CredentialStoreTest)

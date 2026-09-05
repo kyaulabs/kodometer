@@ -157,7 +157,9 @@ void KimiProviderAdapterTest::fetchesUsageWithApiKey()
     QNetworkAccessManager network;
     KimiProviderAdapter adapter(&network);
     adapter.setBaseEndpoint(server.baseUrl());
-    adapter.setEnvironment({{QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral("api-secret")}});
+    adapter.setEnvironment({});
+    adapter.setCredentialOverrides(
+        {{QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral("api-secret")}});
     adapter.setCurrentDateTime(QDateTime::fromSecsSinceEpoch(1'800'000'000, QTimeZone::UTC));
     QSignalSpy finished(&adapter, &KimiProviderAdapter::refreshFinished);
     QSignalSpy succeeded(&adapter, &ProviderAdapter::refreshSucceeded);

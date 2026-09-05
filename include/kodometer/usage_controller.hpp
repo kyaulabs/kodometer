@@ -1,5 +1,6 @@
 #pragma once
 
+#include <kodometer/credential_store.hpp>
 #include <kodometer/provider_adapter.hpp>
 
 #include <QObject>
@@ -18,6 +19,8 @@ class UsageController : public QObject
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(QVariantMap snapshot READ snapshot NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList providers READ providers NOTIFY providersChanged)
+    Q_PROPERTY(Kodometer::CredentialStore *credentialStore READ credentialStore WRITE
+                   setCredentialStore NOTIFY credentialStoreChanged)
 
   public:
     explicit UsageController(QObject *parent = nullptr);
@@ -27,7 +30,9 @@ class UsageController : public QObject
     [[nodiscard]] QString error() const;
     [[nodiscard]] QVariantMap snapshot() const;
     [[nodiscard]] QVariantList providers() const;
+    [[nodiscard]] CredentialStore *credentialStore() const noexcept;
 
+    void setCredentialStore(CredentialStore *store);
     Q_INVOKABLE void refresh();
 
   signals:
@@ -35,6 +40,7 @@ class UsageController : public QObject
     void errorChanged();
     void snapshotChanged();
     void providersChanged();
+    void credentialStoreChanged();
     void refreshFinished(bool success);
 
   private:
@@ -43,6 +49,8 @@ class UsageController : public QObject
     void adapterFailed(ProviderAdapter *adapter, const QString &error);
     void finishAdapter();
     void rebuildProviders();
+    void applyCredentialOverrides();
+    void credentialsChanged();
     void setBusy(bool busy);
     void setError(const QString &error);
 
@@ -52,9 +60,11 @@ class UsageController : public QObject
     QVariantMap m_snapshot;
     QStringList m_refreshErrors;
     QString m_error;
+    CredentialStore *m_credentialStore = nullptr;
     qsizetype m_pendingAdapters = 0;
     bool m_busy = false;
     bool m_anySuccess = false;
+    bool m_refreshAfterCurrent = false;
 };
 
 } // namespace Kodometer

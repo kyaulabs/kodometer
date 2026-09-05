@@ -307,6 +307,10 @@ void OpenRouterUsageParserTest::rejectsMalformedActivity_data()
         << QByteArray(
                R"({"data":[{"date":"2027-01-14","prompt_tokens":1,"completion_tokens":1,"requests":1,"usage":-1}]})")
         << QStringLiteral("OpenRouter activity usage must be a finite nonnegative number");
+    QTest::newRow("cost aggregate")
+        << QByteArray(
+               R"({"data":[{"date":"2027-01-14","prompt_tokens":1,"completion_tokens":1,"requests":1,"usage":1e308,"byok_usage_inference":1e308}]})")
+        << QStringLiteral("OpenRouter activity spend aggregate overflowed");
 }
 
 void OpenRouterUsageParserTest::rejectsMalformedActivity()

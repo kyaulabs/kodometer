@@ -111,7 +111,8 @@ void XaiProviderAdapter::refresh()
     setError({});
 
     QString credentialError;
-    const auto credentials = XaiCredentialResolver::resolve(m_environment, &credentialError);
+    const auto credentials = XaiCredentialResolver::resolve(
+        environmentWithCredentialOverrides(m_environment), &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;

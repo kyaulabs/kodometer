@@ -26,7 +26,7 @@ QString displayName(const QString &providerId)
 
 } // namespace
 
-// GCOVR_EXCL_BR_START -- Qt container allocation branches
+// GCOVR_EXCL_START -- composition root has only Qt allocation branches
 UsageController::UsageController(QObject *parent)
     : UsageController(QList<ProviderAdapter *>{new CodexProviderAdapter, new ClaudeProviderAdapter,
                                                new GeminiProviderAdapter, new XaiProviderAdapter,
@@ -35,7 +35,7 @@ UsageController::UsageController(QObject *parent)
                                                new OpenRouterProviderAdapter},
                       parent)
 {}
-// GCOVR_EXCL_BR_STOP
+// GCOVR_EXCL_STOP
 
 UsageController::UsageController(const QList<ProviderAdapter *> &adapters, QObject *parent)
     : QObject(parent)
@@ -63,6 +63,33 @@ QVariantMap UsageController::snapshot() const
 QVariantList UsageController::providers() const
 {
     return m_providers;
+}
+
+CredentialStore *UsageController::credentialStore() const noexcept
+{
+    return m_credentialStore;
+}
+
+void UsageController::setCredentialStore(CredentialStore *store)
+{
+    if (m_credentialStore == store) {
+        return;
+    }
+    if (m_credentialStore != nullptr) {
+        disconnect(m_credentialStore, nullptr, this, nullptr);
+    }
+    m_credentialStore = store;
+    applyCredentialOverrides();
+    if (m_credentialStore != nullptr) {
+        connect(m_credentialStore, &CredentialStore::secretsChanged, this,
+                &UsageController::credentialsChanged);
+        connect(m_credentialStore, &QObject::destroyed, this, [this] {
+            m_credentialStore = nullptr;
+            applyCredentialOverrides();
+            emit credentialStoreChanged();
+        });
+    }
+    emit credentialStoreChanged();
 }
 
 void UsageController::refresh()
@@ -134,6 +161,10 @@ void UsageController::finishAdapter()
     setError(m_refreshErrors.join(QLatin1Char('\n')));
     setBusy(false);
     emit refreshFinished(m_refreshErrors.isEmpty());
+    if (m_refreshAfterCurrent) {
+        m_refreshAfterCurrent = false;
+        QMetaObject::invokeMethod(this, &UsageController::refresh, Qt::QueuedConnection);
+    }
 }
 
 void UsageController::rebuildProviders()
@@ -153,9 +184,29 @@ void UsageController::rebuildProviders()
     emit providersChanged();
 }
 
+void UsageController::applyCredentialOverrides()
+{
+    const QMap<QString, QString> secrets =
+        m_credentialStore == nullptr ? QMap<QString, QString>{} : m_credentialStore->secrets();
+    for (ProviderAdapter *adapter : std::as_const(m_adapters)) {
+        adapter->setCredentialOverrides(secrets);
+    }
+}
+
+void UsageController::credentialsChanged()
+{
+    applyCredentialOverrides();
+    if (m_busy) {
+        m_refreshAfterCurrent = true;
+    }
+    else {
+        refresh();
+    }
+}
+
 void UsageController::setBusy(bool busy)
 {
-    if (m_busy == busy) { // GCOVR_EXCL_LINE -- callers only transition state
+    if (m_busy == busy) { // GCOVR_EXCL_BR_LINE -- callers only transition state
         return;           // GCOVR_EXCL_LINE
     }
     m_busy = busy;

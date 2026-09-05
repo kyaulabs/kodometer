@@ -133,7 +133,8 @@ void KimiProviderAdapter::refresh()
     setError({});
     QString credentialError;
     const auto credentials =
-        KimiCredentialStore::resolve(m_environment, {}, {}, currentDateTime(), &credentialError);
+        KimiCredentialStore::resolve(environmentWithCredentialOverrides(m_environment), {}, {},
+                                     currentDateTime(), &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;
@@ -200,7 +201,7 @@ bool KimiProviderAdapter::tryCliFallback()
         m_triedCliFallback) { // GCOVR_EXCL_BR_LINE -- API and CLI rejection paths are tested
         return false;
     }
-    QMap<QString, QString> environment = m_environment;
+    QMap<QString, QString> environment = environmentWithCredentialOverrides(m_environment);
     environment.remove(QStringLiteral("KIMI_CODE_API_KEY"));
     const auto credentials = KimiCredentialStore::resolve(environment, {}, {}, currentDateTime());
     if (!credentials || credentials->source != KimiCredentialSource::Cli) { // GCOVR_EXCL_BR_LINE

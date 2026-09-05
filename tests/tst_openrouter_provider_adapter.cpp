@@ -154,6 +154,15 @@ void OpenRouterProviderAdapterTest::fetchesCreditsKeyQuotaAndActivity()
     QNetworkAccessManager network;
     OpenRouterProviderAdapter adapter(&network);
     configure(adapter, server, true);
+    QUrl apiEndpoint = server.apiUrl();
+    apiEndpoint.setPath(apiEndpoint.path() + QStringLiteral("//"));
+    adapter.setApiBaseEndpoint(apiEndpoint);
+    adapter.setEnvironment(
+        {{QStringLiteral("OPENROUTER_HTTP_REFERER"), QStringLiteral("https://kodometer.test")},
+         {QStringLiteral("OPENROUTER_X_TITLE"), QStringLiteral("Kodometer Test")}});
+    adapter.setCredentialOverrides(
+        {{QStringLiteral("OPENROUTER_API_KEY"), QStringLiteral("user-key")},
+         {QStringLiteral("OPENROUTER_MANAGEMENT_API_KEY"), QStringLiteral("management-key")}});
     QSignalSpy finished(&adapter, &OpenRouterProviderAdapter::refreshFinished);
 
     adapter.refresh();

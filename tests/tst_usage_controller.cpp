@@ -84,7 +84,7 @@ class CredentialAwareAdapter final : public ProviderAdapter
     void refresh() override
     {
         ++refreshCount;
-        lastEnvironment = credentialEnvironment(baseEnvironment);
+        lastEnvironment = environmentWithCredentialOverrides(baseEnvironment);
     }
 
     void succeed()
@@ -107,6 +107,7 @@ class UsageControllerTest final : public QObject
     void handlesNoProviders();
     void handlesRegistrationEdges();
     void refreshesAfterCredentialChanges();
+    void handlesCredentialStoreLifecycle();
 };
 
 void UsageControllerTest::aggregatesProvidersInRegistrationOrder()
@@ -195,11 +196,18 @@ void UsageControllerTest::refreshesAfterCredentialChanges()
     auto *adapter = new CredentialAwareAdapter;
     auto *backend = new ControllerCredentialBackend;
     CredentialStore store(backend);
-    UsageController controller({adapter});
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setCredentialStore(&store);
+    QCOMPARE(controller.credentialStore(), &store);
     controller.setCredentialStore(&store);
 
+    adapter->baseEnvironment.insert(QStringLiteral("DEEPSEEK_API_KEY"),
+                                    QStringLiteral("environment-key"));
     controller.refresh();
     QCOMPARE(adapter->refreshCount, 1);
+    QCOMPARE(adapter->lastEnvironment.value(QStringLiteral("DEEPSEEK_API_KEY")),
+             QStringLiteral("environment-key"));
+    adapter->baseEnvironment.clear();
     backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("wallet-key"));
     store.open();
     backend->load();
@@ -219,8 +227,29 @@ void UsageControllerTest::refreshesAfterCredentialChanges()
     adapter->succeed();
 
     controller.setCredentialStore(nullptr);
-    QCOMPARE(adapter->lastEnvironment.value(QStringLiteral("DEEPSEEK_API_KEY")),
-             QStringLiteral("rotated-key"));
+    QCOMPARE(controller.credentialStore(), nullptr);
+    controller.refresh();
+    QCOMPARE(adapter->refreshCount, 4);
+    QVERIFY(adapter->lastEnvironment.value(QStringLiteral("DEEPSEEK_API_KEY")).isEmpty());
+}
+
+void UsageControllerTest::handlesCredentialStoreLifecycle()
+{
+    auto *adapter = new CredentialAwareAdapter;
+    auto *firstBackend = new ControllerCredentialBackend;
+    auto *firstStore = new CredentialStore(firstBackend);
+    auto *secondBackend = new ControllerCredentialBackend;
+    CredentialStore secondStore(secondBackend);
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+
+    controller.setCredentialStore(firstStore);
+    controller.setCredentialStore(&secondStore);
+    firstBackend->update();
+    QCOMPARE(adapter->refreshCount, 0);
+
+    controller.setCredentialStore(firstStore);
+    delete firstStore;
+    QCOMPARE(controller.credentialStore(), nullptr);
 }
 
 void UsageControllerTest::handlesNoProviders()

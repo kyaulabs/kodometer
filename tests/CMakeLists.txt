@@ -138,6 +138,17 @@ target_link_libraries(usage-controller-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(usage-controller-test)
 add_test(NAME usage-controller COMMAND usage-controller-test)
 
+if(KODOMETER_BUILD_APPLET)
+    add_executable(applet-configuration-test tst_applet_configuration.cpp)
+    target_link_libraries(applet-configuration-test PRIVATE Qt6::Test Qt6::Quick Qt6::Qml KF6::ConfigCore KF6::ConfigGui)
+    target_compile_definitions(applet-configuration-test PRIVATE
+        KODOMETER_APPLET_LIBRARY="$<TARGET_FILE:org.kyaulabs.kodometer>")
+    add_dependencies(applet-configuration-test org.kyaulabs.kodometer)
+    kodometer_enable_warnings(applet-configuration-test)
+    add_test(NAME applet-configuration COMMAND applet-configuration-test)
+    set_tests_properties(applet-configuration PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
+
 find_program(QMLTESTRUNNER_EXECUTABLE qmltestrunner HINTS "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_BINS}")
 if(QMLTESTRUNNER_EXECUTABLE)
     add_test(

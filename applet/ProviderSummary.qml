@@ -11,6 +11,7 @@ QQC2.ItemDelegate {
 
     required property var provider
     property int windowLimit: 2
+    property bool showIdleWindows: false
     property string badgeText
     readonly property color accentColor: provider.display && provider.display.accentColor
                                          ? provider.display.accentColor :
@@ -25,8 +26,9 @@ QQC2.ItemDelegate {
                                                                         cost.balanceUSD)
     readonly property string balanceCurrency: String(cost.currencyCode || "USD")
     readonly property var windows: {
-        const allWindows = provider.windows ? provider.windows.filter(windowData =>
-        !windowData.idle) : []
+        const allWindows = provider.windows ? provider.windows.filter(windowData
+                                                                      => root.showIdleWindows ||
+                                                                         !windowData.idle) : []
         return windowLimit > 0 ? allWindows.slice(0, windowLimit) : allWindows
     }
 

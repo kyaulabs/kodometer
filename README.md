@@ -22,6 +22,7 @@ Kodometer is under active development. The current release foundation includes:
 - z.ai and BigModel CN Coding Plan, MCP, model-token, and account-balance data;
 - OpenRouter credit balance, API-key spending cap, and optional 30-day activity totals;
 - provider tabs, an overview, reset countdowns, and account and plan labels;
+- per-widget automatic refresh, provider switches, and idle-window preferences;
 - last-good data retention when a refresh fails;
 - redacted account identity by default;
 - request timeouts, response-size limits, and manual redirect handling;
@@ -156,6 +157,17 @@ sha256sum -c kodometer-X.Y.Z-linux-x86_64.tar.gz.sha256
 sudo tar -xzf kodometer-X.Y.Z-linux-x86_64.tar.gz -C /
 ```
 
+## Widget settings
+
+Open **Configure Kodometer… → General** to choose which providers run and how often they refresh.
+
+- **Refresh automatically** is on by default. Kodometer waits five minutes after each completed cycle, including failed cycles, before starting another. Choose an interval from 1 to 1440 minutes. Polling continues while the popup is closed, but requests never overlap.
+- Turn automatic refresh off for startup and manual refresh only. Credential changes and provider switches still trigger a refresh; changes during an active cycle queue one follow-up cycle.
+- Uncheck a provider to hide its data and errors and skip it on future refreshes. Requests already in progress may finish. KWallet entries and last-good data are retained so the provider can be re-enabled. Disabling all providers stops polling.
+- **Show idle quota windows** is off by default. Enable it to include windows marked idle in the overview, provider details, and account summaries.
+
+These preferences use Plasma's per-widget configuration and its Apply, Cancel, and Defaults controls. The separate **Credentials** page writes directly to KWallet when you press Save, Replace, or Remove; Cancel does not undo wallet changes. OAuth credentials and API keys are never stored in the general settings file.
+
 ## Development
 
 Build and run all tests:
@@ -175,7 +187,7 @@ shellcheck scripts/*.sh
 scripts/coverage.sh
 ```
 
-The coverage command writes reports to `coverage/` and fails below 96% for line, function, or branch coverage. QML visual primitives run through Qt Quick Test in an offscreen session.
+The coverage command writes reports to `coverage/` and fails below 96% for line, function, or branch coverage. QML primitives and general settings controls run through Qt Quick Test in an offscreen session. Applet-enabled builds also test the compiled configuration resources, KConfig persistence, and idle-window presentation without opening a wallet or calling provider APIs.
 
 Build the release archive and checksum:
 

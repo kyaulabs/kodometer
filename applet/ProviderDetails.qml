@@ -11,11 +11,14 @@ Flickable {
 
     required property var provider
     property int clockTick: 0
+    property bool showIdleWindows: false
     readonly property color accentColor: provider.display && provider.display.accentColor
                                          ? provider.display.accentColor :
                                            Kirigami.Theme.highlightColor
-    readonly property var windows: provider.windows ? provider.windows.filter(windowData =>
-    !windowData.idle) : []
+    readonly property var windows: provider.windows ? provider.windows.filter(windowData
+                                                                              => root.showIdleWindows
+                                                                                 || !windowData.idle) :
+                                                      []
     readonly property var identity: provider.identity || ({})
     readonly property var statusData: provider.status || ({})
     readonly property var credits: provider.credits || ({})
@@ -64,7 +67,7 @@ Flickable {
                 }
 
                 QQC2.Label {
-                    visible: root.provider.updatedAt
+                    visible: Boolean(root.provider.updatedAt)
                     text: qsTr("Updated %1").arg(root.provider.updatedAt || "")
                     color: Kirigami.Theme.disabledTextColor
                     font: Kirigami.Theme.smallFont
@@ -72,7 +75,7 @@ Flickable {
             }
 
             Rectangle {
-                visible: root.statusData.label
+                visible: Boolean(root.statusData.label)
                 radius: height / 2
                 color: root.statusData.level === "critical"
                        ? Kirigami.Theme.negativeBackgroundColor :
@@ -91,12 +94,12 @@ Flickable {
 
         Kirigami.Separator {
             Layout.fillWidth: true
-            visible: root.identity.accountEmail || root.identity.plan
+            visible: Boolean(root.identity.accountEmail || root.identity.plan)
         }
 
         RowLayout {
             Layout.fillWidth: true
-            visible: root.identity.accountEmail || root.identity.plan
+            visible: Boolean(root.identity.accountEmail || root.identity.plan)
 
             QQC2.Label {
                 Layout.fillWidth: true
@@ -155,6 +158,7 @@ Flickable {
                     Layout.fillWidth: true
                     provider: modelData
                     windowLimit: 0
+                    showIdleWindows: root.showIdleWindows
                     badgeText: modelData.active ? qsTr("Active") : ""
                 }
             }
@@ -240,14 +244,14 @@ Flickable {
 
         Kirigami.InlineMessage {
             Layout.fillWidth: true
-            visible: root.errorText.length > 0 || root.provider.accountsError
+            visible: root.errorText.length > 0 || Boolean(root.provider.accountsError)
             type: Kirigami.MessageType.Error
             text: root.errorText || root.provider.accountsError || ""
         }
 
         QQC2.Label {
             Layout.fillWidth: true
-            visible: root.provider.source
+            visible: Boolean(root.provider.source)
             text: root.provider.source || ""
             horizontalAlignment: Text.AlignRight
             color: Kirigami.Theme.disabledTextColor

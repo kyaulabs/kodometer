@@ -41,6 +41,9 @@ PlasmoidItem {
     Private.UsageController {
         id: backend
         credentialStore: credentialStore
+        autoRefresh: Plasmoid.configuration.autoRefresh
+        refreshIntervalMinutes: Plasmoid.configuration.refreshIntervalMinutes
+        disabledProviders: Plasmoid.configuration.disabledProviders
     }
 
     Private.ProviderSelectionModel {
@@ -128,6 +131,11 @@ PlasmoidItem {
                     Layout.alignment: Qt.AlignHCenter
                     text: backend.busy ? qsTr("Loading provider usage…") : qsTr("No provider data")
                 }
+                QQC2.Button {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: qsTr("Configure providers…")
+                    onClicked: Plasmoid.internalAction("configure").trigger()
+                }
                 Item {
                     Layout.fillHeight: true
                 }
@@ -177,6 +185,7 @@ PlasmoidItem {
 
         OverviewPage {
             providers: backend.providers
+            showIdleWindows: Plasmoid.configuration.showIdleWindows
             onProviderSelected: providerId => navigation.selectProvider(providerId)
         }
     }
@@ -187,6 +196,7 @@ PlasmoidItem {
         ProviderDetails {
             provider: navigation.selectedProvider
             clockTick: root.clockTick
+            showIdleWindows: Plasmoid.configuration.showIdleWindows
         }
     }
 

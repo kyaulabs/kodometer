@@ -50,8 +50,40 @@ class AppletConfigurationTest final : public QObject
         }
     }
 
+    void persistsOnlyNonsecretPreferences()
+    {
+        QTemporaryDir temporary;
+        const QString path = temporary.filePath(QStringLiteral("settings"));
+        QFile schema(QStringLiteral(":/qt/qml/plasma/applet/org/kyaulabs/kodometer/main.xml"));
+        {
+            KConfig config(path, KConfig::SimpleConfig);
+            KConfigLoader loader(KConfigGroup(&config, "Widget"), &schema);
+            QCOMPARE(loader.items().size(), 4);
+            const QVariantMap preferences{
+                {QStringLiteral("autoRefresh"), false},
+                {QStringLiteral("refreshIntervalMinutes"), 15},
+                {QStringLiteral("disabledProviders"), QStringList{QStringLiteral("codex")}},
+                {QStringLiteral("showIdleWindows"), true}};
+            for (auto it = preferences.cbegin(); it != preferences.cend(); ++it) {
+                auto *item = loader.findItemByName(it.key());
+                QVERIFY(item);
+                item->setProperty(it.value());
+            }
+            QVERIFY(loader.save());
+        }
+        schema.close();
+        KConfig config(path, KConfig::SimpleConfig);
+        KConfigLoader reloaded(KConfigGroup(&config, "Widget"), &schema);
+        QCOMPARE(reloaded.property("autoRefresh").toBool(), false);
+        QCOMPARE(reloaded.property("refreshIntervalMinutes").toInt(), 15);
+        QCOMPARE(reloaded.property("disabledProviders").toStringList(),
+                 QStringList{QStringLiteral("codex")});
+        QCOMPARE(reloaded.property("showIdleWindows").toBool(), true);
+    }
+
     void propagatesIdleWindowPreference()
     {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
         QQmlEngine engine;
         const QVariantMap provider{
             {QStringLiteral("id"), QStringLiteral("codex")},

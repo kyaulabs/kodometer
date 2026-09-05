@@ -5,6 +5,8 @@
 
 #include <QObject>
 #include <QQmlEngine>
+#include <QSet>
+#include <QTimer>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -19,6 +21,11 @@ class UsageController : public QObject
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(QVariantMap snapshot READ snapshot NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList providers READ providers NOTIFY providersChanged)
+    Q_PROPERTY(bool autoRefresh READ autoRefresh WRITE setAutoRefresh NOTIFY refreshSettingsChanged)
+    Q_PROPERTY(int refreshIntervalMinutes READ refreshIntervalMinutes WRITE
+                   setRefreshIntervalMinutes NOTIFY refreshSettingsChanged)
+    Q_PROPERTY(QStringList disabledProviders READ disabledProviders WRITE setDisabledProviders
+                   NOTIFY disabledProvidersChanged)
     Q_PROPERTY(Kodometer::CredentialStore *credentialStore READ credentialStore WRITE
                    setCredentialStore NOTIFY credentialStoreChanged)
 
@@ -32,6 +39,12 @@ class UsageController : public QObject
     [[nodiscard]] QVariantList providers() const;
     [[nodiscard]] CredentialStore *credentialStore() const noexcept;
 
+    [[nodiscard]] bool autoRefresh() const noexcept;
+    [[nodiscard]] int refreshIntervalMinutes() const noexcept;
+    [[nodiscard]] QStringList disabledProviders() const;
+    void setAutoRefresh(bool enabled);
+    void setRefreshIntervalMinutes(int minutes);
+    void setDisabledProviders(const QStringList &providers);
     void setCredentialStore(CredentialStore *store);
     Q_INVOKABLE void refresh();
 
@@ -42,6 +55,8 @@ class UsageController : public QObject
     void providersChanged();
     void credentialStoreChanged();
     void refreshFinished(bool success);
+    void refreshSettingsChanged();
+    void disabledProvidersChanged();
 
   private:
     void registerAdapter(ProviderAdapter *adapter);
@@ -49,6 +64,9 @@ class UsageController : public QObject
     void adapterFailed(ProviderAdapter *adapter, const QString &error);
     void finishAdapter();
     void rebuildProviders();
+    void rebuildErrors();
+    void scheduleRefresh();
+    [[nodiscard]] QList<ProviderAdapter *> enabledAdapters() const;
     void applyCredentialOverrides();
     void credentialsChanged();
     void setBusy(bool busy);
@@ -58,10 +76,15 @@ class UsageController : public QObject
     QMap<QString, QVariantMap> m_providerSnapshots;
     QVariantList m_providers;
     QVariantMap m_snapshot;
-    QStringList m_refreshErrors;
+    QMap<QString, QString> m_refreshErrors;
+    QStringList m_disabledProviders;
+    QTimer m_refreshTimer;
+    int m_refreshIntervalMinutes = 5;
+    bool m_autoRefresh = true;
+    bool m_started = false;
     QString m_error;
     CredentialStore *m_credentialStore = nullptr;
-    qsizetype m_pendingAdapters = 0;
+    QSet<ProviderAdapter *> m_pendingAdapters;
     bool m_busy = false;
     bool m_anySuccess = false;
     bool m_refreshAfterCurrent = false;

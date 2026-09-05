@@ -9,6 +9,7 @@ Flickable {
     id: root
 
     property var providers: []
+    property bool showIdleWindows: false
     readonly property int visibleProviderCount: Math.min(6, providers.length)
 
     signal providerSelected(string providerId)
@@ -45,6 +46,7 @@ Flickable {
 
                 Layout.fillWidth: true
                 provider: modelData
+                showIdleWindows: root.showIdleWindows
                 onClicked: root.providerSelected(modelData.id)
             }
         }

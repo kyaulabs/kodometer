@@ -9,8 +9,11 @@ plasma_add_applet(org.kyaulabs.kodometer
         UsageBar.qml
         WindowRow.qml
         config/ConfigCredentials.qml
-        config/config.qml
+        config/ConfigGeneral.qml
+        config.qml
         main.qml
+    RESOURCES
+        main.xml
     CPP_SOURCES
         ../include/kodometer/codex_credentials.hpp
         ../include/kodometer/codex_provider_adapter.hpp

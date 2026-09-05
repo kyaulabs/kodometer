@@ -128,6 +128,21 @@ void ZaiCredentialsTest::rejectsUnsafeCredentialFiles()
              QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     QVERIFY(!ZaiCredentialResolver::resolve(environment, home.path(), &error).has_value());
     QCOMPARE(error, QStringLiteral("z.ai credential file exceeds the 1 MiB limit"));
+
+    QVERIFY(QFile::remove(path));
+    QVERIFY(QDir().mkpath(path));
+    QVERIFY(!ZaiCredentialResolver::resolve(environment, home.path(), &error).has_value());
+    QCOMPARE(error, QStringLiteral("z.ai credential path is not a regular file"));
+
+    QVERIFY(QDir(path).removeRecursively());
+    writeKey(path, {}, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    QVERIFY(!ZaiCredentialResolver::resolve(environment, home.path(), &error).has_value());
+    QCOMPARE(error, QStringLiteral("z.ai credential file contains no API key"));
+
+    QVERIFY(QFile::remove(path));
+    writeKey(path, "key\rbreak", QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    QVERIFY(!ZaiCredentialResolver::resolve(environment, home.path(), &error).has_value());
+    QCOMPARE(error, QStringLiteral("z.ai API key contains invalid characters"));
 }
 
 void ZaiCredentialsTest::validatesRegionScopeAndTeamContext()

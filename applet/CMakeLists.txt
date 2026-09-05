@@ -1,6 +1,7 @@
 plasma_add_applet(org.kyaulabs.kodometer
     QML_SOURCES
         CompactMeter.qml
+        DetailSection.qml
         OverviewPage.qml
         ProviderDetails.qml
         ProviderSummary.qml
@@ -27,6 +28,9 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../include/kodometer/xai_credentials.hpp
         ../include/kodometer/xai_provider_adapter.hpp
         ../include/kodometer/xai_usage_parser.hpp
+        ../include/kodometer/zai_credentials.hpp
+        ../include/kodometer/zai_provider_adapter.hpp
+        ../include/kodometer/zai_usage_parser.hpp
         ../include/kodometer/presentation_formatter.hpp
         ../include/kodometer/provider_adapter.hpp
         ../include/kodometer/provider_selection_model.hpp
@@ -49,6 +53,9 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../src/xai_credentials.cpp
         ../src/xai_provider_adapter.cpp
         ../src/xai_usage_parser.cpp
+        ../src/zai_credentials.cpp
+        ../src/zai_provider_adapter.cpp
+        ../src/zai_usage_parser.cpp
         ../src/presentation_formatter.cpp
         ../src/provider_selection_model.cpp
         ../src/usage_controller.cpp

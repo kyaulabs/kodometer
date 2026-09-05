@@ -20,6 +20,7 @@ Flickable {
     readonly property var statusData: provider.status || ({})
     readonly property var credits: provider.credits || ({})
     readonly property var cost: provider.cost || ({})
+    readonly property var detailSections: provider.details || []
     readonly property var accounts: provider.accounts || []
     readonly property string errorText: typeof provider.error === "string" ? provider.error : (
                                                                                  provider.error
@@ -121,6 +122,17 @@ Flickable {
             }
         }
 
+        Repeater {
+            model: root.detailSections
+
+            delegate: DetailSection {
+                required property var modelData
+
+                Layout.fillWidth: true
+                section: modelData
+            }
+        }
+
         ColumnLayout {
             Layout.fillWidth: true
             visible: root.accounts.length > 0
@@ -195,6 +207,13 @@ Flickable {
                           Private.PresentationFormatter.creditsLabel(Number(
                                                                          root.cost.grantedBalance
                                                                          || 0), root.balanceCurrency))
+                color: Kirigami.Theme.disabledTextColor
+            }
+            QQC2.Label {
+                visible: root.cost.spent !== undefined
+                text: qsTr("Spent: %1").arg(Private.PresentationFormatter.creditsLabel(Number(
+                                                                                           root.cost.spent
+                                                                                           || 0), root.balanceCurrency))
                 color: Kirigami.Theme.disabledTextColor
             }
             QQC2.Label {

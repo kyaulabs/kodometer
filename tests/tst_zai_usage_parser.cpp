@@ -175,6 +175,31 @@ void ZaiUsageParserTest::handlesTimeOnlyAndUnknownLimits()
     mcp = windowByKind(*provider, QStringLiteral("mcp"));
     QVERIFY(!mcp.contains(QStringLiteral("windowSeconds")));
     QCOMPARE(mcp.value(QStringLiteral("usedPercent")).toDouble(), 20.0);
+
+    provider = ZaiUsageParser::parseQuota(
+        R"({"code":200,"success":true,"data":{"level":"Max","limits":[
+          {"type":"TOKENS_LIMIT","unit":1,"number":30,"percentage":10},
+          {"type":"TOKENS_LIMIT","unit":3,"number":0,"percentage":20},
+          {"type":"TOKENS_LIMIT","unit":1,"number":2147483647,"percentage":30}
+        ]}})",
+        ZaiRegion::BigModelChina, ZaiUsageScope::Personal, QDateTime::currentDateTimeUtc());
+    QVERIFY(provider.has_value());
+    QCOMPARE(provider->value(QStringLiteral("identity")).toMap().value(QStringLiteral("plan")),
+             QStringLiteral("Max"));
+    QCOMPARE(provider->value(QStringLiteral("identity")).toMap().value(QStringLiteral("region")),
+             QStringLiteral("BigModel CN"));
+    const QVariantMap monthly = windowByKind(*provider, QStringLiteral("tertiary"));
+    QCOMPARE(monthly.value(QStringLiteral("label")), QStringLiteral("30-day usage"));
+    QCOMPARE(monthly.value(QStringLiteral("windowSeconds")).toInt(), 30 * 24 * 60 * 60);
+
+    provider = ZaiUsageParser::parseQuota(
+        R"({"code":200,"success":true,"data":{"limits":[
+          {"type":"IGNORED_LIMIT","unit":3,"number":5,"percentage":80}
+        ]}})",
+        ZaiRegion::Global, ZaiUsageScope::Personal, QDateTime::currentDateTimeUtc());
+    QVERIFY(provider.has_value());
+    QCOMPARE(provider->value(QStringLiteral("status")).toMap().value(QStringLiteral("label")),
+             QStringLiteral("No quota limits"));
 }
 
 void ZaiUsageParserTest::rejectsMalformedQuotaResponses()
@@ -199,10 +224,6 @@ void ZaiUsageParserTest::rejectsMalformedQuotaResponses()
         {R"({"code":200,"success":true,"data":{"limits":[{
           "type":"TIME_LIMIT","unit":3,"number":5,"percentage":5,"usageDetails":{}}]}})",
          QStringLiteral("z.ai usageDetails must be an array")},
-        {R"({"code":200,"success":true,"data":{"limits":[{
-          "type":"TIME_LIMIT","unit":3,"number":5,"percentage":5,
-          "usageDetails":[{"modelCode":"model","usage":1.5}]}]}})",
-         QStringLiteral("z.ai usage detail is malformed")},
     };
     for (const auto &[payload, expected] : cases) {
         QString error;
@@ -211,6 +232,21 @@ void ZaiUsageParserTest::rejectsMalformedQuotaResponses()
                      .has_value());
         QCOMPARE(error, expected);
     }
+
+    const auto ignoredDetail = ZaiUsageParser::parseQuota(
+        R"({"code":200,"success":true,"data":{"limits":[{
+          "type":"TIME_LIMIT","unit":3,"number":5,"percentage":5,
+          "usageDetails":[null,{"modelCode":"model","usage":1.5}]}]}})",
+        ZaiRegion::Global, ZaiUsageScope::Personal, QDateTime::currentDateTimeUtc());
+    QVERIFY(ignoredDetail.has_value());
+    QCOMPARE(ignoredDetail->value(QStringLiteral("details"))
+                 .toList()
+                 .first()
+                 .toMap()
+                 .value(QStringLiteral("rows"))
+                 .toList()
+                 .size(),
+             1);
 }
 
 void ZaiUsageParserTest::parsesModelUsage()

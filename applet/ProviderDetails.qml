@@ -92,6 +92,13 @@ Flickable {
             }
         }
 
+        ProviderActionRow {
+            objectName: "providerActionRow"
+            Layout.fillWidth: true
+            providerId: String(root.provider.id || "")
+            region: String(root.provider.region || "")
+        }
+
         Kirigami.Separator {
             Layout.fillWidth: true
             visible: Boolean(root.identity.accountEmail || root.identity.plan)

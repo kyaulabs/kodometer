@@ -1,3 +1,9 @@
+add_executable(provider-actions-test tst_provider_actions.cpp)
+target_link_libraries(provider-actions-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(provider-actions-test)
+add_test(NAME provider-actions COMMAND provider-actions-test)
+set_tests_properties(provider-actions PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(credential-store-test tst_credential_store.cpp)
 target_link_libraries(credential-store-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(credential-store-test)

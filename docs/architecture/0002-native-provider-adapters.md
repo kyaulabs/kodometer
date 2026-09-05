@@ -34,6 +34,8 @@ The OpenRouter adapter reads `OPENROUTER_API_KEY` and calculates prepaid balance
 
 Nonsecret widget preferences use a KConfig schema embedded in the compiled applet. `UsageController` owns a single-shot refresh timer, bounded to 1–1440 minutes and armed only after a cycle completes. Disabled providers are excluded from future cycles, presentation, and error summaries. Existing requests may finish, but their results remain hidden while the provider is disabled. A pending-adapter set rejects duplicate or unsolicited completion signals. Changing provider enablement during a cycle queues one follow-up refresh.
 
+Provider dashboard and documentation actions are separate from data collection. `ProviderActions` resolves provider IDs, action IDs, and normalized z.ai regions against a compiled HTTPS destination catalog. QML cannot pass an arbitrary URL to the opener. Explicit user clicks use `QDesktopServices`; merely loading or refreshing provider data never launches a page. URLs contain no credentials or account selectors, and browser sessions remain outside Kodometer's data sources.
+
 All network adapters must use fixed HTTPS endpoints in production, disable automatic redirects, impose request timeouts and response-size limits, avoid logging credentials, and test success, authentication failure or renewal where applicable, malformed data, network failure, timeout, and oversized-response paths against local servers.
 
 ## Consequences

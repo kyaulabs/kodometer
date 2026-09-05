@@ -22,6 +22,7 @@ Kodometer is under active development. The current release foundation includes:
 - z.ai and BigModel CN Coding Plan, MCP, model-token, and account-balance data;
 - OpenRouter credit balance, API-key spending cap, and optional 30-day activity totals;
 - provider tabs, an overview, reset countdowns, and account and plan labels;
+- official dashboard and documentation links from provider details;
 - per-widget automatic refresh, provider switches, and idle-window preferences;
 - last-good data retention when a refresh fails;
 - redacted account identity by default;
@@ -29,7 +30,7 @@ Kodometer is under active development. The current release foundation includes:
 - C++ and QML tests with line, function, and branch coverage gates above 95%;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Multi-account controls, expanded cost history, notifications, and provider actions will follow in reviewable branches.
+Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Multi-account controls, expanded cost history, and notifications will follow in reviewable branches.
 
 ## Requirements
 
@@ -121,7 +122,7 @@ Build requirements:
 - Ninja;
 - a C++20 compiler;
 - Extra CMake Modules;
-- Qt 6 Core, Network, QML, Quick Test, and development tools;
+- Qt 6 Core, Gui, Network, QML, Quick Test, and development tools;
 - KDE Frameworks 6 Config, CoreAddons, and Wallet;
 - libplasma and Kirigami.
 
@@ -168,6 +169,14 @@ Open **Configure Kodometer… → General** to choose which providers run and ho
 
 These preferences use Plasma's per-widget configuration and its Apply, Cancel, and Defaults controls. The separate **Credentials** page writes directly to KWallet when you press Save, Replace, or Remove; Cancel does not undo wallet changes. OAuth credentials and API keys are never stored in the general settings file.
 
+## Provider actions
+
+Provider details include **Open dashboard** and **Documentation** buttons. They open official pages in your default browser only when clicked. Hover over a button to preview its destination. If the desktop cannot launch the page, Kodometer shows an error without changing the usage snapshot.
+
+Destinations are fixed in the C++ action catalog. Provider response URLs, account IDs, API keys, and OAuth tokens never enter the links. z.ai uses its global or BigModel CN destinations according to the normalized region of the displayed snapshot; unknown regions have no actions. Gemini opens Google Cloud Console rather than the unsupported consumer Gemini dashboard. BigModel CN opens the console home so you can choose the appropriate personal or team view.
+
+Your browser may ask you to sign in. Kodometer does not read the browser session or import credentials from it. These links do not change provider authentication or refresh behavior.
+
 ## Development
 
 Build and run all tests:
@@ -187,7 +196,7 @@ shellcheck scripts/*.sh
 scripts/coverage.sh
 ```
 
-The coverage command writes reports to `coverage/` and fails below 96% for line, function, or branch coverage. QML primitives and general settings controls run through Qt Quick Test in an offscreen session. Applet-enabled builds also test the compiled configuration resources, KConfig persistence, and idle-window presentation without opening a wallet or calling provider APIs.
+The coverage command scans only its freshly instrumented build directory, writes reports to `coverage/`, and fails below 96% for line, function, or branch coverage. QML primitives and general settings controls run through Qt Quick Test in an offscreen session. Applet-enabled builds also test the compiled configuration resources, KConfig persistence, and idle-window presentation without opening a wallet or calling provider APIs.
 
 Build the release archive and checksum:
 

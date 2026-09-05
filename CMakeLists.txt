@@ -38,7 +38,7 @@ if(KODOMETER_BUILD_APPLET)
     find_package(Plasma 6.0 REQUIRED)
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Network Qml)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Network Qml)
 
 function(kodometer_enable_warnings target)
     target_compile_options(
@@ -82,6 +82,7 @@ target_sources(kodometer-core
         src/zai_provider_adapter.cpp
         src/zai_usage_parser.cpp
         src/presentation_formatter.cpp
+        src/provider_actions.cpp
         src/provider_adapter.cpp
         src/provider_selection_model.cpp
         src/usage_controller.cpp
@@ -115,11 +116,12 @@ target_sources(kodometer-core
             include/kodometer/zai_provider_adapter.hpp
             include/kodometer/zai_usage_parser.hpp
             include/kodometer/presentation_formatter.hpp
+            include/kodometer/provider_actions.hpp
             include/kodometer/provider_adapter.hpp
             include/kodometer/provider_selection_model.hpp
             include/kodometer/usage_controller.hpp
 )
-target_link_libraries(kodometer-core PUBLIC Qt6::Core Qt6::Network Qt6::Qml)
+target_link_libraries(kodometer-core PUBLIC Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml)
 target_compile_definitions(kodometer-core PUBLIC KODOMETER_VERSION="${PROJECT_VERSION}")
 target_compile_features(kodometer-core PUBLIC cxx_std_20)
 kodometer_enable_warnings(kodometer-core)

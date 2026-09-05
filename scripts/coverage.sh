@@ -23,5 +23,5 @@ ctest --test-dir "$build_dir" --output-on-failure
 mkdir -p "$repo_root/coverage"
 (
     cd "$repo_root"
-    gcovr
+    gcovr "$build_dir"
 )

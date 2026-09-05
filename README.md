@@ -13,7 +13,7 @@ Kodometer is under active development. The current release foundation includes:
 
 - a compiled Plasma 6 applet for Wayland and X11;
 - native Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
-- secure loading and atomic rotation of provider credentials;
+- secure loading, atomic OAuth rotation, and KWallet-backed API-key entry;
 - session, weekly, model-specific, routines, spend-limit, and Gemini tier windows;
 - Claude monthly-cap and plan presentation;
 - xAI prepaid balance and 30-day platform spend summaries;
@@ -28,7 +28,7 @@ Kodometer is under active development. The current release foundation includes:
 - C++ and QML tests with line, function, and branch coverage gates above 95%;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. KWallet-backed manual credential entry, settings, multi-account controls, expanded cost history, notifications, and provider actions will follow in reviewable branches.
+Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Multi-account controls, expanded cost history, notifications, and provider actions will follow in reviewable branches.
 
 ## Requirements
 
@@ -36,6 +36,7 @@ Runtime:
 
 - KDE Plasma 6.0 or newer;
 - Qt 6.4 or newer;
+- KDE Frameworks 6 Wallet and a configured KDE Wallet service;
 - a Codex login at `~/.codex/auth.json`, or under `$CODEX_HOME/auth.json`;
 - a Claude login at `~/.claude/.credentials.json`;
 - a Gemini CLI OAuth login at `~/.gemini/oauth_creds.json`;
@@ -44,6 +45,8 @@ Runtime:
 - a DeepSeek API key exported as `DEEPSEEK_API_KEY`;
 - a z.ai API key exported as `Z_AI_API_KEY`;
 - an OpenRouter API key exported as `OPENROUTER_API_KEY`.
+
+Open the widget's **Configure Kodometer…** action to store DeepSeek, Kimi Code, OpenRouter, xAI, or z.ai API keys in KDE Wallet. Kodometer stores entries in a `Kodometer` folder of the network wallet and never copies wallet values into Plasma configuration. A non-empty environment credential takes precedence over its wallet counterpart. OpenRouter's ordinary and Management keys are separate entries; `XAI_TEAM_ID` and z.ai region, scope, organization, and project selectors remain environment settings.
 
 Kodometer accepts OAuth credentials written by Codex, Claude, and Gemini CLI. Codex's `OPENAI_API_KEY` file form is also supported. Claude profile roots set through `CLAUDE_CONFIG_DIR` are honored, as is `CLAUDE_SECURESTORAGE_CONFIG_DIR`; relative profile paths resolve from Kodometer's working directory, matching Claude Code's literal-path behavior.
 
@@ -56,7 +59,7 @@ export XAI_MANAGEMENT_API_KEY="..."
 export XAI_TEAM_ID="team-id"
 ```
 
-Kodometer requests the posted prepaid ledger balance and a best-effort 30-day daily USD spend series. A history failure does not hide a valid balance. The key remains in the process environment and is never written to disk; KWallet-backed entry will replace this environment-only setup in a later settings branch.
+Kodometer requests the posted prepaid ledger balance and a best-effort 30-day daily USD spend series. A history failure does not hide a valid balance. The Management API key can instead be stored through Kodometer's credential settings. The team ID remains in the process environment.
 
 Kimi support targets [Kimi For Coding](https://www.kimi.com/code), not the separate Moonshot/Kimi Open Platform. Export `KIMI_CODE_API_KEY` for the recommended API-key flow. Without that variable, Kodometer reuses a fresh access token from the official Kimi Code CLI and sends the CLI device identity headers. `KIMI_CODE_HOME` selects a non-default CLI home. Kodometer does not use the stored refresh token or rewrite the credential file; an expired login must be renewed with Kimi Code CLI. If an explicit API key is rejected and a fresh CLI login exists, Kodometer retries once with the CLI credential. Browser cookies and `KIMI_AUTH_TOKEN` are not used.
 
@@ -66,7 +69,7 @@ DeepSeek support uses the documented account-balance endpoint. Create an API key
 export DEEPSEEK_API_KEY="..."
 ```
 
-`DEEPSEEK_KEY` is accepted as a compatibility alias. Kodometer shows the funded currency's total, paid, and granted balances, preferring a funded USD row when the API returns more than one currency. It does not inspect DeepSeek browser sessions or call private dashboard usage and cost endpoints. The key remains in the process environment and is not persisted.
+`DEEPSEEK_KEY` is accepted as a compatibility alias. Kodometer shows the funded currency's total, paid, and granted balances, preferring a funded USD row when the API returns more than one currency. It does not inspect DeepSeek browser sessions or call private dashboard usage and cost endpoints. The key can instead be stored through Kodometer's credential settings in KDE Wallet.
 
 z.ai support defaults to the global Coding Plan API. Export the API key before starting Plasma:
 
@@ -100,7 +103,7 @@ For exact spend across the last 30 completed UTC days, export a management crede
 export OPENROUTER_MANAGEMENT_API_KEY="..."
 ```
 
-Activity requests always use OpenRouter's production endpoint. Their failures remain visible as diagnostics without discarding credits or key-limit data. Kodometer ignores endpoint overrides, browser sessions, and OpenRouter website cookies. Both keys remain in the process environment and are not persisted.
+Activity requests always use OpenRouter's production endpoint. Their failures remain visible as diagnostics without discarding credits or key-limit data. Kodometer ignores endpoint overrides, browser sessions, and OpenRouter website cookies. Either key can instead be stored through Kodometer's credential settings in KDE Wallet.
 
 Credential files must be regular files owned by the current user. Kodometer rejects symbolic links, files larger than 1 MiB, and files that grant group or other users read or write access. To secure the default files:
 
@@ -118,14 +121,14 @@ Build requirements:
 - a C++20 compiler;
 - Extra CMake Modules;
 - Qt 6 Core, Network, QML, Quick Test, and development tools;
-- KDE Frameworks 6 Config and CoreAddons;
+- KDE Frameworks 6 Config, CoreAddons, and Wallet;
 - libplasma and Kirigami.
 
 On Arch Linux:
 
 ```bash
 sudo pacman -S --needed base-devel cmake extra-cmake-modules \
-  kconfig kcoreaddons kirigami libplasma ninja qt6-declarative
+  kconfig kcoreaddons kirigami kwallet libplasma ninja qt6-declarative
 ```
 
 ## Build and install
@@ -192,7 +195,7 @@ Development follows Git Flow and Conventional Commits.
 
 ## Security and privacy
 
-Kodometer reads OAuth credentials only from the expected Codex, Claude, Gemini, and Kimi Code authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state. Kimi Code credentials remain read-only; Kodometer creates only a missing owner-only device ID required by the official API. The DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai API keys are read from provider-specific environment variables and are not persisted by Kodometer. BigModel CN and Zhipu key files are read-only inputs.
+Kodometer reads OAuth credentials only from the expected Codex, Claude, Gemini, and Kimi Code authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state. Kimi Code credentials remain read-only; Kodometer creates only a missing owner-only device ID required by the official API. Manually entered API keys are held by KDE Wallet, not plaintext Plasma configuration. Environment credentials remain supported and take precedence. BigModel CN and Zhipu key files are read-only inputs.
 
 Network requests use fixed provider endpoints, bounded response buffers, explicit timeouts, and disabled automatic redirects. Account email addresses are redacted before data reaches QML. Tokens are never added to the presentation model or logs.
 

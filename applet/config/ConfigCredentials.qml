@@ -53,7 +53,7 @@ Kirigami.ScrollablePage {
             visible: true
             type: Kirigami.MessageType.Information
             text: qsTr(
-                      "These are Default credentials stored in KDE Wallet. Non-empty matching environment variables take precedence. Configure named DeepSeek and Kimi Code accounts on the KWallet accounts page.")
+                      "These are Default credentials stored in KDE Wallet. Non-empty matching environment variables take precedence. Configure named DeepSeek, Kimi Code, and OpenRouter accounts on the KWallet accounts page.")
         }
 
         Kirigami.InlineMessage {

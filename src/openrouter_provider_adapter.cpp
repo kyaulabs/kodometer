@@ -112,8 +112,14 @@ void OpenRouterProviderAdapter::refresh()
     m_activityDiagnostic.clear();
 
     QString credentialError;
-    const auto credentials = OpenRouterCredentialResolver::resolve(
-        environmentWithCredentialOverrides(m_environment), &credentialError);
+    auto environment = environmentWithCredentialOverrides(m_environment);
+    const auto account = selectedAccountCredential();
+    if (account) {
+        environment.insert(QStringLiteral("OPENROUTER_API_KEY"), *account);
+        environment.insert(QStringLiteral("OPENROUTER_MANAGEMENT_API_KEY"),
+                           selectedAccountManagementCredential());
+    }
+    const auto credentials = OpenRouterCredentialResolver::resolve(environment, &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;

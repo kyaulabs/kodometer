@@ -21,6 +21,8 @@ class UsageController : public QObject
     Q_PROPERTY(Kodometer::OAuthProfiles *profiles READ profiles CONSTANT)
     Q_PROPERTY(QString deepseekAccountId READ deepseekAccountId WRITE setDeepseekAccountId NOTIFY
                    accountSelectionChanged)
+    Q_PROPERTY(QString openrouterAccountId READ openrouterAccountId WRITE setOpenrouterAccountId
+                   NOTIFY accountSelectionChanged)
     Q_PROPERTY(QString kimiAccountId READ kimiAccountId WRITE setKimiAccountId NOTIFY
                    accountSelectionChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
@@ -42,6 +44,8 @@ class UsageController : public QObject
     [[nodiscard]] OAuthProfiles *profiles() noexcept;
     [[nodiscard]] QString deepseekAccountId() const;
     [[nodiscard]] QString kimiAccountId() const;
+    [[nodiscard]] QString openrouterAccountId() const;
+    void setOpenrouterAccountId(const QString &id);
     void setDeepseekAccountId(const QString &id);
     void setKimiAccountId(const QString &id);
     [[nodiscard]] bool busy() const noexcept;
@@ -78,6 +82,7 @@ class UsageController : public QObject
     void setAccountSelection(const QString &provider, const QString &id);
     [[nodiscard]] QString contextKey(const QString &provider) const;
     [[nodiscard]] std::optional<QString> selectedAccountKey(const QString &provider) const;
+    [[nodiscard]] QString selectedAccountManagementKey(const QString &provider) const;
     void queueProfileRefresh();
     void adapterSucceeded(ProviderAdapter *adapter, const QVariantMap &provider);
     void adapterFailed(ProviderAdapter *adapter, const QString &error);

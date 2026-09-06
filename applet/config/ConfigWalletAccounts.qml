@@ -13,6 +13,7 @@ Kirigami.ScrollablePage {
 
     property alias cfg_deepseekAccountId: deepseek.selectedId
     property alias cfg_kimiAccountId: kimi.selectedId
+    property alias cfg_openrouterAccountId: openrouter.selectedId
     // Injectable for offscreen tests; the real store never reveals saved keys to QML.
     property var accountStore: wallet.accounts
 
@@ -33,7 +34,7 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             text: qsTr(
-                      "Choose one account per provider. Named accounts use only their selected KWallet key, without environment or CLI fallback. Default keeps the existing credential discovery.")
+                      "Choose one account per provider. Named accounts use only their selected KWallet keys, without environment or CLI fallback. Default keeps the existing credential discovery.")
         }
         QQC2.Label {
             Layout.fillWidth: true
@@ -70,6 +71,16 @@ Kirigami.ScrollablePage {
             accountStore: root.accountStore
             providerId: "kimi"
             providerName: "Kimi Code"
+        }
+        Kirigami.Separator {
+            Layout.fillWidth: true
+        }
+        WalletAccountEditor {
+            id: openrouter
+            Layout.fillWidth: true
+            accountStore: root.accountStore
+            providerId: "openrouter"
+            providerName: "OpenRouter"
         }
     }
 }

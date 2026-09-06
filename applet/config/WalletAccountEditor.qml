@@ -12,13 +12,14 @@ ColumnLayout {
     required property string providerId
     required property string providerName
     property string selectedId: ""
+    readonly property bool pairedKeys: providerId === "openrouter"
     readonly property var entries: accountStore.providers[providerId] || []
     readonly property bool available: entries.some(entry => entry.id === root.selectedId)
     readonly property var choices: {
         const items = [
                   {
                       id: "",
-                      name: qsTr("Default (environment / wallet)")
+                      name: qsTr("Default (existing credentials)")
                   }
               ].concat(root.entries)
         if (root.selectedId.length > 0 && !root.available)
@@ -29,16 +30,20 @@ ColumnLayout {
         return items
     }
 
-    onSelectedIdChanged: {
+    function clearKeys() {
         if (secret)
             secret.clear()
+        if (management)
+            management.clear()
     }
+
+    onSelectedIdChanged: clearKeys()
 
     Connections {
         target: root.accountStore
         function onChanged() {
             if (!root.accountStore.ready)
-                secret.clear()
+                root.clearKeys()
         }
     }
 
@@ -100,6 +105,27 @@ ColumnLayout {
         Accessible.name: qsTr("%1 API key").arg(root.providerName)
     }
 
+    QQC2.TextField {
+        id: management
+        objectName: root.providerId + "-wallet-management-key"
+        Layout.fillWidth: true
+        visible: root.pairedKeys
+        enabled: root.accountStore.ready
+        maximumLength: 65536
+        echoMode: TextInput.Password
+        inputMethodHints: Qt.ImhHiddenText | Qt.ImhSensitiveData
+        placeholderText: qsTr("Optional Management API key for Activity")
+        Accessible.name: qsTr("OpenRouter Management API key")
+    }
+
+    QQC2.Label {
+        Layout.fillWidth: true
+        visible: root.pairedKeys
+        wrapMode: Text.WordWrap
+        text: qsTr(
+                  "Re-enter both keys to replace the pair. Leaving Management blank removes it and disables Activity for this account.")
+    }
+
     Flow {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
@@ -110,21 +136,23 @@ ColumnLayout {
             text: qsTr("Add account")
             enabled: root.accountStore.ready && name.text.length > 0 && secret.text.length > 0
             onClicked: {
-                const id = root.accountStore.addAccount(root.providerId, name.text, secret.text)
+                const id = root.accountStore.addAccount(root.providerId, name.text, secret.text,
+                                                        management.text)
                 if (id.length > 0) {
                     root.selectedId = id
                     name.clear()
-                    secret.clear()
+                    root.clearKeys()
                 }
             }
         }
         QQC2.Button {
             objectName: root.providerId + "-wallet-replace"
-            text: qsTr("Replace selected key")
+            text: root.pairedKeys ? qsTr("Replace selected keys") : qsTr("Replace selected key")
             enabled: root.accountStore.ready && root.available && secret.text.length > 0
             onClicked: {
-                if (root.accountStore.replaceAccount(root.providerId, root.selectedId, secret.text))
-                    secret.clear()
+                if (root.accountStore.replaceAccount(root.providerId, root.selectedId, secret.text,
+                                                     management.text))
+                    root.clearKeys()
             }
         }
         QQC2.Button {

@@ -95,7 +95,7 @@ class WalletAccountsTest final : public QObject
         store.open();
         QVERIFY(accounts->ready());
         QVERIFY(accounts->error().isEmpty());
-        QCOMPARE(accounts->providers().size(), 2);
+        QCOMPARE(accounts->providers().size(), 3);
         QSignalSpy changed(accounts, &WalletAccounts::changed);
         const QString id = accounts->addAccount("deepseek", " Work ", " key-one ");
         QVERIFY(!id.isEmpty());
@@ -140,7 +140,7 @@ class WalletAccountsTest final : public QObject
         CredentialStore store(backend);
         store.open();
         auto *accounts = store.accounts();
-        QVERIFY(accounts->addAccount("openrouter", "Work", "key").isEmpty());
+        QVERIFY(accounts->addAccount("xai", "Work", "key").isEmpty());
         for (const auto &pair : QList<QPair<QString, QString>>{{"", "key"},
                                                                {QString(65, 'a'), "key"},
                                                                {"Bad\nName", "key"},
@@ -219,7 +219,7 @@ class WalletAccountsTest final : public QObject
         auto *backend = new AccountBackend;
         CredentialStore store(backend);
         store.open();
-        for (int count : {2, 9, 17}) {
+        for (int count : {2, 9, 25}) {
             backend->values.clear();
             for (int i = 0; i < count; ++i) {
                 const QString id =
@@ -235,6 +235,63 @@ class WalletAccountsTest final : public QObject
         backend->values.clear();
         store.open();
         QVERIFY(store.accounts()->ready());
+    }
+
+    void storesOpenRouterKeysAsOneAccount()
+    {
+        auto *backend = new AccountBackend;
+        CredentialStore store(backend);
+        store.open();
+        auto *accounts = store.accounts();
+        QVERIFY(WalletAccounts::isAccountEntry("accounts/openrouter/" + Id));
+        const QString id = accounts->addAccount("openrouter", "Work", "ordinary", "management");
+        QVERIFY(!id.isEmpty());
+        QCOMPARE(backend->values.size(), 1);
+        QCOMPARE(*accounts->key("openrouter", id), QStringLiteral("ordinary"));
+        QCOMPARE(accounts->managementKey("openrouter", id), QStringLiteral("management"));
+        QCOMPARE(accounts->metaObject()->indexOfMethod("managementKey(QString,QString)"), -1);
+        QCOMPARE(accounts->entries("openrouter").first().toMap().size(), 2);
+        QVERIFY(accounts->replaceAccount("openrouter", id, "replacement", ""));
+        QVERIFY(accounts->managementKey("openrouter", id).isEmpty());
+        QVERIFY(!accounts->replaceAccount("openrouter", id, "key", "bad\nkey"));
+        QCOMPARE(*accounts->key("openrouter", id), QStringLiteral("replacement"));
+        QVERIFY(accounts->addAccount("kimi", "Wrong", "key", "management").isEmpty());
+        QVERIFY(accounts->addAccount("openrouter", "Wrong", "", "management").isEmpty());
+        backend->close();
+        QVERIFY(accounts->managementKey("openrouter", id).isEmpty());
+        store.open();
+        QCOMPARE(*accounts->key("openrouter", id), QStringLiteral("replacement"));
+    }
+
+    void boundsPairedKeysAndAcceptsAllThreeProviders()
+    {
+        auto *backend = new AccountBackend;
+        CredentialStore store(backend);
+        store.open();
+        auto *accounts = store.accounts();
+        const QString maximum(65536, '"');
+        const QString id = accounts->addAccount("openrouter", "Maximum", maximum, maximum);
+        QVERIFY(!id.isEmpty());
+        QCOMPARE(*accounts->key("openrouter", id), maximum);
+        QCOMPARE(accounts->managementKey("openrouter", id), maximum);
+        QVERIFY(backend->values.first().toUtf8().size() > 256 * 1024);
+        QVERIFY(!accounts->replaceAccount("openrouter", id, "key", QString(65537, 'x')));
+        QVERIFY(!accounts->replaceAccount("openrouter", id, "key", QStringLiteral("bad\u00e9key")));
+        QVERIFY(accounts->removeAccount("openrouter", id));
+        for (const QString &provider :
+             {QStringLiteral("deepseek"), QStringLiteral("kimi"), QStringLiteral("openrouter")}) {
+            for (int i = 0; i < 8; ++i) {
+                const QString uuid =
+                    QStringLiteral("11111111-1111-4111-8111-%1").arg(i, 12, 10, QLatin1Char('0'));
+                backend->values.insert("accounts/" + provider + "/" + uuid,
+                                       entry(QString::number(i)));
+            }
+        }
+        backend->update();
+        QVERIFY(accounts->ready());
+        QCOMPARE(backend->values.size(), 24);
+        QCOMPARE(accounts->entries("openrouter").size(), 8);
+        QVERIFY(accounts->addAccount("openrouter", "Nine", "key").isEmpty());
     }
 
     void rejectsMalformedStoredAccounts_data()
@@ -253,6 +310,17 @@ class WalletAccountsTest final : public QObject
         QTest::newRow("bad-name") << key << entry("Bad\nName");
         QTest::newRow("large") << key << QString(262145, ' ');
         QTest::newRow("bad-id") << QStringLiteral("accounts/deepseek/default") << entry();
+        const QString router = "accounts/openrouter/" + Id;
+        QTest::newRow("router-large") << router << QString(384 * 1024 + 1, ' ');
+        QTest::newRow("management-type")
+            << router << QStringLiteral(R"({"name":"Work","key":"key","managementKey":2})");
+        QTest::newRow("management-invalid")
+            << router
+            << QStringLiteral(R"({"name":"Work","key":"key","managementKey":"bad\nkey"})");
+        QTest::newRow("management-unsupported")
+            << key << QStringLiteral(R"({"name":"Work","key":"key","managementKey":"management"})");
+        QTest::newRow("router-extra")
+            << router << QStringLiteral(R"({"name":"Work","key":"key","unexpected":true})");
         QTest::newRow("wrong-provider") << ("accounts/other/" + Id) << entry();
         QTest::newRow("wrong-prefix") << ("elsewhere/deepseek/" + Id) << entry();
         QTest::newRow("missing-parts") << QStringLiteral("accounts/deepseek") << entry();

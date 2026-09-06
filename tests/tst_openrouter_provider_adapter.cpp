@@ -131,6 +131,8 @@ class OpenRouterProviderAdapterTest final : public QObject
 
   private slots:
     void fetchesCreditsKeyQuotaAndActivity();
+    void isolatesNamedKeyPairs();
+    void preservesNamedCreditsAfterManagementRejection();
     void preservesCreditsWhenOptionalRequestsFail();
     void reportsCredentialFailures();
     void classifiesCreditsHttpFailures_data();
@@ -199,6 +201,76 @@ void OpenRouterProviderAdapterTest::fetchesCreditsKeyQuotaAndActivity()
              2.0);
     QVERIFY(adapter.error().isEmpty());
     QVERIFY(!adapter.busy());
+}
+
+void OpenRouterProviderAdapterTest::isolatesNamedKeyPairs()
+{
+    HttpServer server;
+    for (int cycle = 0; cycle < 3; ++cycle) {
+        server.enqueue({200, credits()});
+        server.enqueue({200, keyUsage()});
+        if (cycle != 1) {
+            server.enqueue({200, R"({"data":[]})"});
+            server.enqueue({200, R"({"data":[]})"});
+        }
+    }
+    QNetworkAccessManager network;
+    OpenRouterProviderAdapter adapter(&network);
+    configure(adapter, server, true);
+    adapter.setCredentialOverrides({{"OPENROUTER_API_KEY", "default-ordinary"},
+                                    {"OPENROUTER_MANAGEMENT_API_KEY", "default-management"}});
+    QSignalSpy finished(&adapter, &OpenRouterProviderAdapter::refreshFinished);
+    adapter.setAccountCredential(QStringLiteral("named-ordinary"),
+                                 QStringLiteral("named-management"));
+    adapter.refresh();
+    adapter.setAccountCredential(QStringLiteral("next-ordinary"));
+    QTRY_COMPARE(finished.count(), 1);
+    QCOMPARE(server.requests.size(), 4);
+    QCOMPARE(server.requests.at(0).headers.value("authorization"),
+             QByteArray("Bearer named-ordinary"));
+    QCOMPARE(server.requests.at(1).headers.value("authorization"),
+             QByteArray("Bearer named-ordinary"));
+    QCOMPARE(server.requests.at(2).headers.value("authorization"),
+             QByteArray("Bearer named-management"));
+    QCOMPARE(server.requests.at(3).headers.value("authorization"),
+             QByteArray("Bearer named-management"));
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 2);
+    QCOMPARE(server.requests.size(), 6); // No borrowed Management key or Activity requests.
+    QCOMPARE(server.requests.at(4).headers.value("authorization"),
+             QByteArray("Bearer next-ordinary"));
+    adapter.setAccountCredential(QString{}, QStringLiteral("only-management"));
+    adapter.refresh();
+    QCOMPARE(finished.count(), 3);
+    QCOMPARE(finished.last().first().toBool(), false);
+    QCOMPARE(server.requests.size(), 6);
+    adapter.setAccountCredential(std::nullopt);
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 4);
+    QCOMPARE(server.requests.size(), 10);
+    QCOMPARE(server.requests.at(6).headers.value("authorization"), QByteArray("Bearer user-key"));
+    QCOMPARE(server.requests.at(8).headers.value("authorization"),
+             QByteArray("Bearer management-key"));
+}
+
+void OpenRouterProviderAdapterTest::preservesNamedCreditsAfterManagementRejection()
+{
+    HttpServer server;
+    server.enqueue({200, credits()});
+    server.enqueue({200, keyUsage()});
+    server.enqueue({403, "{}"});
+    QNetworkAccessManager network;
+    OpenRouterProviderAdapter adapter(&network);
+    configure(adapter, server, true);
+    adapter.setAccountCredential(QStringLiteral("named"), QStringLiteral("rejected-management"));
+    QSignalSpy finished(&adapter, &OpenRouterProviderAdapter::refreshFinished);
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 1);
+    QCOMPARE(finished.first().first().toBool(), true);
+    QCOMPARE(server.requests.size(), 3);
+    QCOMPARE(server.requests.last().headers.value("authorization"),
+             QByteArray("Bearer rejected-management"));
+    QCOMPARE(adapter.provider().value("cost").toMap().value("balanceUSD").toDouble(), 60.0);
 }
 
 void OpenRouterProviderAdapterTest::preservesCreditsWhenOptionalRequestsFail()

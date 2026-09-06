@@ -40,6 +40,10 @@
             <label>Selected Kimi Code KWallet account UUID; empty uses Default</label>
             <default></default>
         </entry>
+        <entry name="openrouterAccountId" type="String">
+            <label>Selected OpenRouter KWallet account UUID; empty uses Default</label>
+            <default></default>
+        </entry>
         <entry name="oauthProfiles" type="String">
             <label>Named OAuth credential folders and selected profiles</label>
             <default>{}</default>

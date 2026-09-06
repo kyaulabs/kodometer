@@ -26,6 +26,7 @@ class FakeProviderAdapter final : public ProviderAdapter
     {
         ++refreshCount;
         accountAtRefresh = selectedAccountCredential();
+        managementAtRefresh = selectedAccountManagementCredential();
     }
 
     void succeed(const QVariantMap &provider)
@@ -46,6 +47,7 @@ class FakeProviderAdapter final : public ProviderAdapter
     int refreshCount = 0;
     int profileChanges = 0;
     std::optional<QString> accountAtRefresh;
+    QString managementAtRefresh;
     QString profileDirectory;
 
   private:
@@ -137,6 +139,7 @@ class UsageControllerTest final : public QObject
     void blocksMalformedProfilesWithoutBlockingOtherProviders();
     void appliesMultipleContextsAtomicallyAndRenamesWithoutFetching();
     void isolatesNamedWalletSelectionsAndSecretChanges();
+    void isolatesOpenRouterManagementChanges();
     void rejectsReentrantWalletChanges_data();
     void rejectsReentrantWalletChanges();
     void ignoresUnselectedWalletEditsAndRecoversAfterUnlock();
@@ -766,6 +769,55 @@ void UsageControllerTest::ignoresUnselectedWalletEditsAndRecoversAfterUnlock()
     wallet->accountValues.clear();
     wallet->update();
     QCOMPARE(contexts.count(), count);
+}
+
+void UsageControllerTest::isolatesOpenRouterManagementChanges()
+{
+    const QString id = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    auto *wallet = new ControllerCredentialBackend;
+    const QString entry = "accounts/openrouter/" + id;
+    wallet->accountValues = {
+        {entry, R"({"name":"Work","key":"ordinary","managementKey":"management"})"}};
+    CredentialStore store(wallet);
+    store.open();
+    wallet->load();
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("openrouter"));
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setAutoRefresh(false);
+    controller.setCredentialStore(&store);
+    QVERIFY(controller.openrouterAccountId().isEmpty());
+    controller.setOpenrouterAccountId(id);
+    controller.setOpenrouterAccountId(id);
+    QCOMPARE(controller.openrouterAccountId(), id);
+    QCOMPARE(adapter->refreshCount, 0);
+    controller.refresh();
+    QCOMPARE(*adapter->accountAtRefresh, QStringLiteral("ordinary"));
+    QCOMPARE(adapter->managementAtRefresh, QStringLiteral("management"));
+    adapter->succeed({{"id", "openrouter"}, {"cost", QVariantMap{{"balanceUSD", 40}}}});
+    controller.refresh();
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    wallet->accountValues[entry] =
+        R"({"name":"Work","key":"ordinary","managementKey":"replacement"})";
+    wallet->update();
+    QVERIFY(controller.providers().isEmpty());
+    wallet->accountValues[entry] =
+        R"({"name":"Work","key":"ordinary","managementKey":"management"})";
+    wallet->update(); // A -> B -> A still invalidates the pending request.
+    adapter->succeed({{"id", "openrouter"}});
+    QCOMPARE(fresh.count(), 0);
+    QTRY_COMPARE(adapter->refreshCount, 3);
+    QCOMPARE(adapter->managementAtRefresh, QStringLiteral("management"));
+    wallet->accountValues[entry] = R"({"name":"Work","key":"ordinary"})";
+    wallet->update();
+    adapter->fail(QStringLiteral("old Management failure"));
+    QVERIFY(!controller.error().contains("old Management failure"));
+    QTRY_COMPARE(adapter->refreshCount, 4);
+    QVERIFY(adapter->managementAtRefresh.isEmpty());
+    adapter->succeed({{"id", "openrouter"}});
+    controller.setOpenrouterAccountId({});
+    QTRY_COMPARE(adapter->refreshCount, 5);
+    QVERIFY(!adapter->accountAtRefresh);
+    QVERIFY(adapter->managementAtRefresh.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(UsageControllerTest)

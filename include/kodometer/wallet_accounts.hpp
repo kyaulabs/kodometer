@@ -27,14 +27,16 @@ class WalletAccounts : public QObject
     [[nodiscard]] QString name(const QString &provider, const QString &id) const;
     // C++ only: no secret-reading QML API.
     [[nodiscard]] std::optional<QString> key(const QString &provider, const QString &id) const;
+    [[nodiscard]] QString managementKey(const QString &provider, const QString &id) const;
     [[nodiscard]] static bool supportsProvider(const QString &provider);
     [[nodiscard]] static bool isAccountEntry(const QString &entry);
 
     void setAvailable(bool available);
     bool reload();
-    Q_INVOKABLE QString addAccount(const QString &provider, const QString &name,
-                                   const QString &key);
-    Q_INVOKABLE bool replaceAccount(const QString &provider, const QString &id, const QString &key);
+    Q_INVOKABLE QString addAccount(const QString &provider, const QString &name, const QString &key,
+                                   const QString &managementKey = {});
+    Q_INVOKABLE bool replaceAccount(const QString &provider, const QString &id, const QString &key,
+                                    const QString &managementKey = {});
     Q_INVOKABLE bool removeAccount(const QString &provider, const QString &id);
 
   signals:
@@ -45,9 +47,12 @@ class WalletAccounts : public QObject
     {
         QString name;
         QString key;
+        QString managementKey;
         bool operator==(const Account &) const = default;
     };
-    [[nodiscard]] static std::optional<Account> validated(const QString &name, const QString &key);
+    [[nodiscard]] static std::optional<Account> validated(const QString &provider,
+                                                          const QString &name, const QString &key,
+                                                          const QString &managementKey);
     [[nodiscard]] static QString entryName(const QString &provider, const QString &id);
     bool editable();
     bool write(const QString &entry, const Account &account);

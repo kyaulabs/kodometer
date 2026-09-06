@@ -10,7 +10,15 @@
 
 namespace Kodometer {
 namespace {
-const QStringList Providers{QStringLiteral("deepseek"), QStringLiteral("kimi")};
+const QStringList Providers{QStringLiteral("deepseek"), QStringLiteral("kimi"),
+                            QStringLiteral("openrouter")};
+
+bool validKey(const QString &key)
+{
+    return key.size() <= CredentialStore::MaximumSecretSize &&
+           std::all_of(key.cbegin(), key.cend(),
+                       [](QChar ch) { return ch.unicode() >= 0x21 && ch.unicode() <= 0x7e; });
+}
 
 bool validId(const QString &id)
 {
@@ -40,7 +48,8 @@ bool WalletAccounts::supportsProvider(const QString &provider)
 bool WalletAccounts::isAccountEntry(const QString &entry)
 {
     return entry.startsWith(QLatin1String("accounts/deepseek/")) ||
-           entry.startsWith(QLatin1String("accounts/kimi/"));
+           entry.startsWith(QLatin1String("accounts/kimi/")) ||
+           entry.startsWith(QLatin1String("accounts/openrouter/"));
 }
 
 QString WalletAccounts::entryName(const QString &provider, const QString &id)
@@ -87,23 +96,30 @@ std::optional<QString> WalletAccounts::key(const QString &provider, const QStrin
     return it->key;
 }
 
-std::optional<WalletAccounts::Account> WalletAccounts::validated(const QString &name,
-                                                                 const QString &key)
+QString WalletAccounts::managementKey(const QString &provider, const QString &id) const
+{
+    return m_entries.value(entryName(provider, id)).managementKey;
+}
+
+std::optional<WalletAccounts::Account> WalletAccounts::validated(const QString &provider,
+                                                                 const QString &name,
+                                                                 const QString &key,
+                                                                 const QString &managementKey)
 {
     const QString label = name.trimmed();
     const QString secret = key.trimmed();
-    if (label.isEmpty() || label.size() > 64 || secret.isEmpty() ||
-        secret.size() > CredentialStore::MaximumSecretSize)
+    const QString management = managementKey.trimmed();
+    if (label.isEmpty() || label.size() > 64 || secret.isEmpty() || !validKey(secret) ||
+        !validKey(management))
         return std::nullopt;
     const bool badName = std::any_of(label.cbegin(), label.cend(), [](QChar ch) {
         return ch.category() == QChar::Other_Control || ch.category() == QChar::Other_Format;
     });
-    const bool badKey = std::any_of(secret.cbegin(), secret.cend(), [](QChar ch) {
-        return ch.unicode() < 0x21 || ch.unicode() > 0x7e;
-    });
-    if (badName || badKey)
+    const bool unsupportedManagement =
+        provider != QLatin1String("openrouter") && !management.isEmpty();
+    if (badName || unsupportedManagement)
         return std::nullopt;
-    return Account{label, secret};
+    return Account{label, secret, management};
 }
 
 void WalletAccounts::setAvailable(bool available)
@@ -133,7 +149,7 @@ bool WalletAccounts::reload()
     QMap<QString, Account> parsed;
     QMap<QString, int> counts;
     QSet<QString> names;
-    bool valid = loaded->size() <= 16;
+    bool valid = loaded->size() <= 24;
     for (auto it = loaded->cbegin(); valid && it != loaded->cend(); ++it) {
         const QStringList parts = it.key().split(QLatin1Char('/'));
         if (parts.size() != 3 || parts.first() != QLatin1String("accounts")) {
@@ -146,7 +162,8 @@ bool WalletAccounts::reload()
             break;
         }
         const QByteArray payload = it.value().toUtf8();
-        if (payload.size() > 256 * 1024) {
+        const qsizetype maximum = provider == QLatin1String("openrouter") ? 384 * 1024 : 256 * 1024;
+        if (payload.size() > maximum) {
             valid = false;
             break;
         }
@@ -154,11 +171,16 @@ bool WalletAccounts::reload()
         const QJsonObject object = document.object();
         const QJsonValue label = object.value(QStringLiteral("name"));
         const QJsonValue key = object.value(QStringLiteral("key"));
-        if (object.size() != 2 || !label.isString() || !key.isString()) {
+        const QJsonValue management = object.value(QStringLiteral("managementKey"));
+        const bool paired = provider == QLatin1String("openrouter") && !management.isUndefined();
+        const bool validManagement = !paired || management.isString();
+        if (object.size() != (paired ? 3 : 2) || !label.isString() || !key.isString() ||
+            !validManagement) {
             valid = false;
             break;
         }
-        const auto account = validated(label.toString(), key.toString());
+        const auto account =
+            validated(provider, label.toString(), key.toString(), management.toString());
         if (!account) {
             valid = false;
             break;
@@ -194,18 +216,20 @@ bool WalletAccounts::editable()
     return reload(); // Do not edit from an obsolete cached account list.
 }
 
-QString WalletAccounts::addAccount(const QString &provider, const QString &name, const QString &key)
+QString WalletAccounts::addAccount(const QString &provider, const QString &name, const QString &key,
+                                   const QString &managementKey)
 {
     if (!supportsProvider(provider)) {
-        setError(tr("Choose DeepSeek or Kimi Code."));
+        setError(tr("Choose DeepSeek, Kimi Code, or OpenRouter."));
         return {};
     }
     if (!editable())
         return {};
-    const auto account = validated(name, key);
+    const auto account = validated(provider, name, key, managementKey);
     if (!account) {
-        setError(tr("Use a name of 1–64 characters and a nonempty printable ASCII API key of at "
-                    "most 64 KiB."));
+        setError(tr("Use a name of 1–64 characters and a required API key. An optional Management "
+                    "key is supported only for OpenRouter. Keys must be printable ASCII without "
+                    "internal whitespace, at most 64 KiB each."));
         return {};
     }
     const QVariantList existing = entries(provider);
@@ -223,7 +247,8 @@ QString WalletAccounts::addAccount(const QString &provider, const QString &name,
     return write(entryName(provider, id), *account) ? id : QString{};
 }
 
-bool WalletAccounts::replaceAccount(const QString &provider, const QString &id, const QString &key)
+bool WalletAccounts::replaceAccount(const QString &provider, const QString &id, const QString &key,
+                                    const QString &managementKey)
 {
     if (!editable())
         return false;
@@ -233,9 +258,11 @@ bool WalletAccounts::replaceAccount(const QString &provider, const QString &id, 
         setError(tr("Select an available named account."));
         return false;
     }
-    const auto replacement = validated(it->name, key);
+    const auto replacement = validated(provider, it->name, key, managementKey);
     if (!replacement) {
-        setError(tr("Enter a nonempty printable ASCII API key of at most 64 KiB."));
+        setError(
+            tr("Enter the required API key and, optionally, an OpenRouter Management key. Keys "
+               "must be printable ASCII without internal whitespace, at most 64 KiB each."));
         return false;
     }
     return write(entry, *replacement);
@@ -260,8 +287,11 @@ bool WalletAccounts::removeAccount(const QString &provider, const QString &id)
 
 bool WalletAccounts::write(const QString &entry, const Account &account)
 {
-    const QJsonObject object{{QStringLiteral("name"), account.name},
-                             {QStringLiteral("key"), account.key}};
+    QJsonObject object{{QStringLiteral("name"), account.name},
+                       {QStringLiteral("key"), account.key}};
+    if (!account.managementKey.isEmpty()) {
+        object.insert(QStringLiteral("managementKey"), account.managementKey);
+    }
     const QString payload = QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact));
     QString error;
     if (!m_backend->writeSecret(entry, payload, &error)) {

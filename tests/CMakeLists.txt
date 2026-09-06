@@ -1,3 +1,8 @@
+add_executable(wallet-accounts-test tst_wallet_accounts.cpp)
+target_link_libraries(wallet-accounts-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(wallet-accounts-test)
+add_test(NAME wallet-accounts COMMAND wallet-accounts-test)
+
 add_executable(oauth-profiles-test tst_oauth_profiles.cpp)
 target_link_libraries(oauth-profiles-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(oauth-profiles-test)

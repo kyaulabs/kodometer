@@ -25,7 +25,7 @@ Kodometer is under active development. The current release foundation includes:
 - provider tabs, an overview, reset countdowns, and account and plan labels;
 - official dashboard and documentation links from provider details;
 - per-widget automatic refresh, provider switches, and idle-window preferences;
-- named Codex and Claude credential profiles, with only the selected profile polled;
+- named Codex, Claude, and Gemini credential profiles, with only the selected profile polled;
 - named DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai accounts in KWallet, with selected-only polling;
 - opt-in low-quota desktop notifications with duplicate suppression;
 - last-good data retention when a refresh fails;
@@ -34,7 +34,7 @@ Kodometer is under active development. The current release foundation includes:
 - C++ and QML tests with line, function, and branch coverage gates above 95%;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Codex and Claude support named credential profiles; DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai support named KWallet accounts. Gemini still uses one configured account.
+Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Codex, Claude, and Gemini support named credential profiles; DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai support named KWallet accounts.
 
 ## Requirements
 
@@ -45,7 +45,7 @@ Runtime:
 - KDE Frameworks 6 Wallet and Notifications, with a configured KDE Wallet service;
 - a Codex login at `~/.codex/auth.json`, or under `$CODEX_HOME/auth.json`;
 - a Claude login at `~/.claude/.credentials.json`;
-- a Gemini CLI OAuth login at `~/.gemini/oauth_creds.json`;
+- a Gemini CLI OAuth login at `~/.gemini/oauth_creds.json` or in a selected profile folder;
 - a Kimi Code API key exported as `KIMI_CODE_API_KEY`, or a fresh Kimi Code CLI login at `~/.kimi-code/credentials/kimi-code.json`;
 - an xAI Management API key and team ID, either in a named KWallet account or exported as `XAI_MANAGEMENT_API_KEY` and `XAI_TEAM_ID`;
 - a DeepSeek API key exported as `DEEPSEEK_API_KEY`;
@@ -174,15 +174,17 @@ Open **Configure Kodometer… → General** to choose which providers run and ho
 
 These preferences use Plasma's per-widget configuration and its Apply, Cancel, and Defaults controls. The separate **Credentials** page writes directly to KWallet when you press Save, Replace, or Remove; Cancel does not undo wallet changes. OAuth credentials and API keys are never stored in the general settings file.
 
-## Codex and Claude profiles
+## OAuth profiles
 
-Open **Configure Kodometer… → OAuth profiles** to add an existing credential folder and a nonsecret name, such as Work. Codex folders must contain `auth.json`; Claude folders must contain `.credentials.json`. Use **Browse…** or enter an absolute path, then **Add and select** and **Apply**. Kodometer does not sign in, copy credentials, or change the CLI's active login. Codex's existing API-key file form remains supported.
+Open **Configure Kodometer… → OAuth profiles** to add an existing credential folder and a nonsecret name, such as Work. Codex folders must contain `auth.json`; Claude folders must contain `.credentials.json`; Gemini folders must contain `oauth_creds.json`. Use **Browse…** or enter an absolute path, then **Add and select** and **Apply**. Kodometer does not sign in, copy credentials, or change the CLI's active login. Codex's existing API-key file form remains supported.
+
+Gemini reads `settings.json` from the same selected folder when present. API-key and Vertex AI selections remain unsupported; missing settings never cause a lookup in Default's folder. Default restores `~/.gemini/oauth_creds.json` and `~/.gemini/settings.json`. Gemini's public installed-app OAuth client configuration remains shared across profiles, including the `GEMINI_OAUTH_CLIENT_ID`, `GEMINI_OAUTH_CLIENT_SECRET`, and `GEMINI_OAUTH2_JS_PATH` overrides. Settings files are not rewritten. OAuth renewal updates only the request's original credential file, even if another profile is selected while renewal is pending.
 
 Each provider accepts up to eight named profiles plus **Default (environment)**. Default uses the existing environment overrides and standard credential locations. Named profiles override that provider's folder discovery. Names must be unique within a provider and at most 64 characters; paths are limited to 4096 characters. Duplicate named folder paths are rejected after path normalization. Names, paths, generated profile IDs, and selections are stored in per-widget configuration—not tokens or credential contents. Do not put secrets in profile names.
 
 Only the selected profile is refreshed. Applying a selection change clears that provider's displayed data and errors and queues a normal refresh, even with automatic refresh disabled. Existing requests may finish against their original credential file, but their results cannot populate the new selection. Last-good data remains available after failures within the same profile; it is not reused across profile changes, including when switching back. Other enabled providers continue normally.
 
-The page follows Plasma's Apply, Cancel, and Defaults controls. Removing an active profile selects Default without deleting any credential files. Invalid stored profile configuration pauses Codex and Claude rather than silently using another account; restore Defaults to recover. File ownership, permissions, size, and type are still checked before credentials are used. Normal OAuth renewal may update the selected credential file atomically.
+The page follows Plasma's Apply, Cancel, and Defaults controls. Removing an active profile selects Default without deleting any credential files. Invalid stored profile configuration pauses Codex, Claude, and Gemini rather than silently using another account; restore Defaults to recover. File ownership, permissions, size, and type are still checked before credentials are used. Normal OAuth renewal may update the selected credential file atomically. Existing Codex/Claude profile documents remain valid; Gemini starts at Default until a named profile is selected.
 
 ## Named KWallet accounts
 

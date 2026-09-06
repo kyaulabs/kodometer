@@ -130,7 +130,7 @@ Build requirements:
 - Qt 6 Core, Gui, Network, QML, Quick Test, and development tools;
 - KDE Frameworks 6 Config, CoreAddons, Notifications, and Wallet;
 - `dbus-run-session` for isolated notification integration tests;
-- libplasma and Kirigami.
+- libplasma 6.4 or newer (compiled applet support) and Kirigami.
 
 On Arch Linux:
 
@@ -144,25 +144,52 @@ sudo pacman -S --needed base-devel cmake extra-cmake-modules \
 ```bash
 git clone https://github.com/kyaulabs/kodometer.git
 cd kodometer
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --fresh -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/usr
 cmake --build build
-cmake --install build --prefix "$HOME/.local"
-kbuildsycoca6
+sudo cmake --install build
 ```
 
-Restart Plasma Shell after the first install, then add **Kodometer** from the widget browser. On a development machine:
+Log out and back in after installation, then add **Kodometer** from the widget browser. This is a compiled plugin, not a ZIP plasmoid; `kpackagetool6` does not install it. CMake records its installed files in `build/install_manifest.txt`.
+
+### User-local installation
+
+Choose the prefix at configuration time, not just at installation time. `--fresh` also removes cached system-path overrides from older builds:
 
 ```bash
-kquitapp6 plasmashell
-kstart plasmashell
+cmake --fresh -S . -B build-local -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$HOME/.local" \
+  -DKDE_INSTALL_PLUGINDIR=lib/qt6/plugins
+cmake --build build-local
+cmake --install build-local
 ```
 
-Release archives preserve system-relative paths. To install one for all users:
+Plasma must know where to find that local Qt plugin directory. Create `~/.config/plasma-workspace/env/kodometer.sh` with the following contents, creating the directory if necessary. Make the file executable, then log out and back in:
+
+```sh
+#!/bin/sh
+export QT_PLUGIN_PATH="$HOME/.local/lib/qt6/plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
+```
+
+Do not keep both local and system copies installed; plugin search order can load an older copy. Normal `/usr` installations use the distribution's Qt plugin path without this export.
+
+### Release archives and upgrades
+
+Release archives contain system-relative paths and are built in rolling Arch Linux CI. They are not portable across arbitrary Qt, KDE Frameworks, libplasma, or glibc versions. On another distribution, build from source against its installed development packages. Dependencies are not bundled.
+
+Download the archive and its checksum together from the same GitHub release. Inspect the archive before installing it for all users:
 
 ```bash
 sha256sum -c kodometer-X.Y.Z-linux-x86_64.tar.gz.sha256
+tar -tzf kodometer-X.Y.Z-linux-x86_64.tar.gz
 sudo tar -xzf kodometer-X.Y.Z-linux-x86_64.tar.gz -C /
 ```
+
+The payload is the compiled plugin, `kodometer.notifyrc`, LICENSE, and README. A checksum detects corruption; it is not an independent publisher signature. Do not install an archive from an untrusted source.
+
+For upgrades, build or download first, then log out before replacing a plugin already loaded by Plasma. Install from a TTY or SSH session and log back in. Use the same installation method and prefix; do not overwrite a distribution-managed package with a manual install. Widget preferences, OAuth files, and KWallet entries are not installation payloads and need no migration for this update.
+
+To uninstall a manual build, review its install manifest and remove only the listed Kodometer files while Plasma is stopped. Remove any local plugin-path export you added. Keep widget preferences and credentials unless you separately intend to delete them; removing the plugin does not remove wallet entries.
 
 ## Widget settings
 
@@ -212,6 +239,12 @@ Named accounts use only the selected KWallet keys. They ignore environment keys,
 Account names, keys, and provider selectors are stored together in KWallet and shared by widgets using that wallet. Saves, key replacements, and removals take effect immediately; Cancel does not undo them. Each widget stores only its selected account UUIDs in Plasma configuration. Selections made in settings follow Apply/Cancel/Defaults; in-widget switches save immediately. Defaults does not delete wallet entries. The entry fields never reveal saved keys.
 
 A locked or unreadable wallet, malformed account data, or a removed selection pauses providers using named accounts rather than silently choosing another credential. Existing requests may finish, but results from changed keys, selectors, or selections are discarded. Unlock the wallet and press the widget's **Refresh** button to reconnect; use **Open / retry KWallet** in settings to reload its account list. Repair malformed named entries with KWallet Manager. Removing an account leaves affected widgets paused until another account or Default is explicitly selected. Label-only edits and changes to unselected accounts do not refetch; replacing a selected key clears its retained data.
+
+### Wallet recovery
+
+The widget's **Refresh** action and **Open / retry KWallet** reload both Default credentials and named accounts. An already-ready wallet is reread without another open request. A failed or malformed Default-credential read clears its cached keys and readiness; a later wallet update or manual retry can recover them. Valid named accounts remain usable when only Default entries are unreadable. Existing environment precedence and Default discovery rules are unchanged.
+
+Closing the wallet clears both registries. Late read replies and abandoned open completions cannot restore closed-wallet keys or overwrite a newer read. A key write may succeed before its follow-up read fails; retry the wallet and check its state before repeating the write. Automatic polling does not reopen a closed wallet.
 
 ## Cost history
 

@@ -169,9 +169,19 @@ void XaiProviderAdapterTest::fetchesBalanceAndDailyUsage()
     QSignalSpy finished(&adapter, &XaiProviderAdapter::refreshFinished);
 
     adapter.refresh();
+    // A UTC date rollover during the refresh must not move its history window.
+    adapter.setCurrentDateTime(QDateTime::fromSecsSinceEpoch(1'800'086'400, QTimeZone::UTC));
 
     QVERIFY(finished.wait());
     QCOMPARE(finished.first().first().toBool(), true);
+    QCOMPARE(adapter.provider().value(QStringLiteral("updatedAt")).toString(),
+             QStringLiteral("2027-01-15T08:00:00.000Z"));
+    QCOMPARE(adapter.provider()
+                 .value(QStringLiteral("cost"))
+                 .toMap()
+                 .value(QStringLiteral("historyEndDate"))
+                 .toString(),
+             QStringLiteral("2027-01-15"));
     QCOMPARE(server.requests.size(), 2);
     QCOMPARE(server.requests.at(0).method, QByteArray("GET"));
     QCOMPARE(server.requests.at(0).path, QByteArray("/v1/billing/teams/team-1234/prepaid/balance"));

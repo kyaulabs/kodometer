@@ -1,3 +1,8 @@
+add_executable(cost-history-model-test tst_cost_history_model.cpp)
+target_link_libraries(cost-history-model-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(cost-history-model-test)
+add_test(NAME cost-history-model COMMAND cost-history-model-test)
+
 add_executable(quota-alert-policy-test tst_quota_alert_policy.cpp)
 target_link_libraries(quota-alert-policy-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(quota-alert-policy-test)

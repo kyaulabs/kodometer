@@ -145,6 +145,8 @@ void XaiUsageParserTest::mapsProviderWithAndWithoutHistory()
     QCOMPARE(cost.value(QStringLiteral("period")).toString(), QStringLiteral("Prepaid credits"));
     QVERIFY(cost.value(QStringLiteral("historyPartial")).toBool());
     QCOMPARE(cost.value(QStringLiteral("daily")).toList().size(), 3);
+    QCOMPARE(cost.value(QStringLiteral("historyEndDate")).toString(), QStringLiteral("2027-01-15"));
+    QVERIFY(cost.value(QStringLiteral("historyIncludesCurrentDay")).toBool());
     QCOMPARE(provider.value(QStringLiteral("dataConfidence")).toString(),
              QStringLiteral("estimated"));
     QCOMPARE(provider.value(QStringLiteral("updatedAt")).toString(),
@@ -156,6 +158,7 @@ void XaiUsageParserTest::mapsProviderWithAndWithoutHistory()
     QVERIFY(!balanceCost.contains(QStringLiteral("todayUSD")));
     QVERIFY(!balanceCost.contains(QStringLiteral("last30DaysUSD")));
     QVERIFY(!balanceCost.contains(QStringLiteral("daily")));
+    QVERIFY(!balanceCost.contains(QStringLiteral("historyEndDate")));
     QCOMPARE(balanceOnly.value(QStringLiteral("dataConfidence")).toString(),
              QStringLiteral("exact"));
 }

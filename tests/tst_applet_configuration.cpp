@@ -4,6 +4,7 @@
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickItem>
+#include <QQuickWindow>
 #include <QScopeGuard>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -131,6 +132,71 @@ class AppletConfigurationTest final : public QObject
             QVERIFY(object->setProperty("showIdleWindows", true));
             QCOMPARE(object->property("windows").value<QJSValue>().toVariant().toList().size(), 2);
         }
+    }
+
+    void presentsCostHistoryAndSupportsKeyboardSelection()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
+        QQmlEngine engine;
+        QQuickWindow window;
+        window.resize(400, 700);
+        QQmlComponent component(
+            &engine, QUrl(QStringLiteral(
+                         "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ProviderDetails.qml")));
+        const QVariantMap cost{
+            {QStringLiteral("balanceUSD"), 7.0},
+            {QStringLiteral("currencyCode"), QStringLiteral("USD")},
+            {QStringLiteral("historyEndDate"), QStringLiteral("2027-01-15")},
+            {QStringLiteral("historyIncludesCurrentDay"), true},
+            {QStringLiteral("daily"),
+             QVariantList{QVariantMap{{QStringLiteral("label"), QStringLiteral("2027-01-14")},
+                                      {QStringLiteral("value"), 0.0}},
+                          QVariantMap{{QStringLiteral("label"), QStringLiteral("2027-01-15")},
+                                      {QStringLiteral("value"), 2.0}}}}};
+        QVariantMap provider{{QStringLiteral("id"), QStringLiteral("xai")},
+                             {QStringLiteral("cost"), cost}};
+        QScopedPointer<QObject> object(
+            component.createWithInitialProperties({{QStringLiteral("provider"), provider},
+                                                   {QStringLiteral("width"), 400},
+                                                   {QStringLiteral("height"), 700}}));
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *item = qobject_cast<QQuickItem *>(object.data());
+        QVERIFY(item);
+        item->setParentItem(window.contentItem());
+        window.show();
+        auto *chart = object->findChild<QQuickItem *>(QStringLiteral("costHistory"));
+        QVERIFY(chart);
+        QVERIFY(chart->isVisible());
+        QCOMPARE(chart->property("dayCount").toInt(), 30);
+        auto *selector = chart->findChild<QObject *>(QStringLiteral("costHistoryRange"));
+        QVERIFY(selector);
+        QVERIFY(selector->setProperty("currentIndex", 0));
+        QCOMPARE(chart->property("dayCount").toInt(), 7);
+        auto *selection = chart->findChild<QObject *>(QStringLiteral("costHistorySelection"));
+        QVERIFY(selection);
+        QCOMPARE(selection->property("text").toString(), QStringLiteral("2027-01-15: $2.00"));
+        QQuickItem *button = nullptr;
+        QTRY_VERIFY(button = findVisualItem(chart, QStringLiteral("history-day-2027-01-14")));
+        button->forceActiveFocus();
+        QTest::keyClick(&window, Qt::Key_Space);
+        QCOMPARE(selection->property("text").toString(), QStringLiteral("2027-01-14: $0.00"));
+        QTRY_VERIFY(button = findVisualItem(chart, QStringLiteral("history-day-2027-01-13")));
+        QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
+        QCOMPARE(selection->property("text").toString(),
+                 QStringLiteral("2027-01-13: Not reported"));
+        QVERIFY(chart->findChild<QQuickItem *>(QStringLiteral("costHistoryPartial"))->isVisible());
+        QVERIFY(
+            chart->findChild<QQuickItem *>(QStringLiteral("costHistoryCurrentDay"))->isVisible());
+        QVERIFY(object->setProperty("width", 200));
+        QTRY_VERIFY(chart->width() <= 200);
+        provider.insert(QStringLiteral("cost"), QVariantMap{{QStringLiteral("balanceUSD"), 7.0}});
+        QVERIFY(object->setProperty("provider", provider));
+        QVERIFY(!chart->isVisible());
+        QCOMPARE(object->property("hasBalance").toBool(), true);
+        provider.insert(QStringLiteral("cost"), cost);
+        QVERIFY(object->setProperty("provider", provider));
+        QVERIFY(chart->isVisible());
+        QCOMPARE(chart->property("dayCount").toInt(), 7);
     }
 
     void providerButtonsUseTrustedDestinations()

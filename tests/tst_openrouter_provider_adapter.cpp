@@ -166,9 +166,19 @@ void OpenRouterProviderAdapterTest::fetchesCreditsKeyQuotaAndActivity()
     QSignalSpy finished(&adapter, &OpenRouterProviderAdapter::refreshFinished);
 
     adapter.refresh();
+    // All Activity requests and parsing use the same UTC calendar window.
+    adapter.setCurrentDateTime(QDateTime::fromSecsSinceEpoch(1'800'086'400, QTimeZone::UTC));
 
     QVERIFY(finished.wait());
     QCOMPARE(finished.first().first().toBool(), true);
+    QCOMPARE(adapter.provider().value(QStringLiteral("updatedAt")).toString(),
+             QStringLiteral("2027-01-15T08:00:00.000Z"));
+    QCOMPARE(adapter.provider()
+                 .value(QStringLiteral("cost"))
+                 .toMap()
+                 .value(QStringLiteral("historyEndDate"))
+                 .toString(),
+             QStringLiteral("2027-01-14"));
     QCOMPARE(server.requests.size(), 4);
     QCOMPARE(server.requests.at(0).path, QByteArray("/api/v1/credits"));
     QCOMPARE(server.requests.at(1).path, QByteArray("/api/v1/key"));

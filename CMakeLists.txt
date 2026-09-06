@@ -81,6 +81,7 @@ target_sources(kodometer-core
         src/zai_credentials.cpp
         src/zai_provider_adapter.cpp
         src/zai_usage_parser.cpp
+        src/cost_history_model.cpp
         src/presentation_formatter.cpp
         src/quota_alert_policy.cpp
         src/provider_actions.cpp
@@ -116,6 +117,7 @@ target_sources(kodometer-core
             include/kodometer/zai_credentials.hpp
             include/kodometer/zai_provider_adapter.hpp
             include/kodometer/zai_usage_parser.hpp
+            include/kodometer/cost_history_model.hpp
             include/kodometer/presentation_formatter.hpp
             include/kodometer/quota_alert_policy.hpp
             include/kodometer/provider_actions.hpp

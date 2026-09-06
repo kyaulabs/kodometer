@@ -148,6 +148,29 @@ class CostHistoryModelTest final : public QObject
                     .contains(QStringLiteral("<$0.01")));
     }
 
+    void revalidatesEqualButDifferentlyTypedData()
+    {
+        CostHistoryModel model;
+        model.setCost(history({point(QStringLiteral("2027-01-15"), 3)}));
+        QVERIFY(!model.view().isEmpty());
+        model.setCost(history({point(QStringLiteral("2027-01-15"), QStringLiteral("3"))}));
+        QVERIFY(model.view().isEmpty());
+    }
+
+    void handlesLeapDaysAndUTCMetadata()
+    {
+        CostHistoryModel model;
+        model.setDays(7);
+        QVariantMap cost = history({point(QStringLiteral("2028-02-29"), 1)});
+        cost.insert(QStringLiteral("historyEndDate"), QStringLiteral("2028-03-01"));
+        model.setCost(cost);
+        QCOMPARE(points(model).at(5).toMap().value(QStringLiteral("date")).toString(),
+                 QStringLiteral("2028-02-29"));
+        cost.insert(QStringLiteral("historyEstimated"), true);
+        model.setCost(cost);
+        QVERIFY(model.view().value(QStringLiteral("estimated")).toBool());
+    }
+
     void rejectsMalformedHistory_data()
     {
         QTest::addColumn<QVariantMap>("cost");
@@ -184,6 +207,9 @@ class CostHistoryModelTest final : public QObject
         QVariantMap nullList = history();
         nullList.insert(QStringLiteral("daily"), QVariant(QMetaType::fromType<QVariantList>()));
         QTest::newRow("null-list") << nullList;
+        QVariantMap ancient = history();
+        ancient.insert(QStringLiteral("historyEndDate"), QStringLiteral("0001-01-01"));
+        QTest::newRow("unrepresentable-start-date") << ancient;
     }
 
     void rejectsMalformedHistory()

@@ -1,6 +1,7 @@
 plasma_add_applet(org.kyaulabs.kodometer
     QML_SOURCES
         CompactMeter.qml
+        CostHistory.qml
         DetailSection.qml
         OverviewPage.qml
         ProviderActionRow.qml
@@ -42,6 +43,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../include/kodometer/zai_credentials.hpp
         ../include/kodometer/zai_provider_adapter.hpp
         ../include/kodometer/zai_usage_parser.hpp
+        ../include/kodometer/cost_history_model.hpp
         ../include/kodometer/presentation_formatter.hpp
         ../include/kodometer/provider_actions.hpp
         ../include/kodometer/provider_adapter.hpp
@@ -75,6 +77,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../src/zai_credentials.cpp
         ../src/zai_provider_adapter.cpp
         ../src/zai_usage_parser.cpp
+        ../src/cost_history_model.cpp
         ../src/presentation_formatter.cpp
         ../src/provider_actions.cpp
         ../src/provider_adapter.cpp

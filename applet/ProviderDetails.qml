@@ -249,6 +249,13 @@ Flickable {
             }
         }
 
+        CostHistory {
+            objectName: "costHistory"
+            Layout.fillWidth: true
+            cost: root.cost
+            accentColor: root.accentColor
+        }
+
         Kirigami.InlineMessage {
             Layout.fillWidth: true
             visible: root.errorText.length > 0 || Boolean(root.provider.accountsError)

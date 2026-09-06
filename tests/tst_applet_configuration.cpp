@@ -177,19 +177,38 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(selection->property("text").toString(), QStringLiteral("2027-01-15: $2.00"));
         QQuickItem *button = nullptr;
         QTRY_VERIFY(button = findVisualItem(chart, QStringLiteral("history-day-2027-01-14")));
+        QCOMPARE(button->property("reported").toBool(), true);
         button->forceActiveFocus();
         QTest::keyClick(&window, Qt::Key_Space);
         QCOMPARE(selection->property("text").toString(), QStringLiteral("2027-01-14: $0.00"));
         QTRY_VERIFY(button = findVisualItem(chart, QStringLiteral("history-day-2027-01-13")));
+        QCOMPARE(button->property("reported").toBool(), false);
         QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
         QCOMPARE(selection->property("text").toString(),
                  QStringLiteral("2027-01-13: Not reported"));
-        QVERIFY(chart->findChild<QQuickItem *>(QStringLiteral("costHistoryPartial"))->isVisible());
-        QVERIFY(
-            chart->findChild<QQuickItem *>(QStringLiteral("costHistoryCurrentDay"))->isVisible());
+        for (const QString &name :
+             {QStringLiteral("costHistoryPartial"), QStringLiteral("costHistoryCurrentDay")}) {
+            auto *note = chart->findChild<QQuickItem *>(name);
+            QVERIFY(note);
+            QVERIFY(note->isVisible());
+        }
+        auto *estimated = chart->findChild<QQuickItem *>(QStringLiteral("costHistoryEstimated"));
+        QVERIFY(estimated);
+        QVERIFY(!estimated->isVisible());
+        QVariantMap estimatedCost = cost;
+        estimatedCost.insert(QStringLiteral("historyEstimated"), true);
+        provider.insert(QStringLiteral("cost"), estimatedCost);
+        QVERIFY(object->setProperty("provider", provider));
+        QVERIFY(estimated->isVisible());
         QVERIFY(object->setProperty("width", 200));
         QTRY_VERIFY(chart->width() <= 200);
         provider.insert(QStringLiteral("cost"), QVariantMap{{QStringLiteral("balanceUSD"), 7.0}});
+        QVERIFY(object->setProperty("provider", provider));
+        QVERIFY(!chart->isVisible());
+        QCOMPARE(object->property("hasBalance").toBool(), true);
+        QVariantMap malformed = cost;
+        malformed.insert(QStringLiteral("daily"), QStringLiteral("invalid"));
+        provider.insert(QStringLiteral("cost"), malformed);
         QVERIFY(object->setProperty("provider", provider));
         QVERIFY(!chart->isVisible());
         QCOMPARE(object->property("hasBalance").toBool(), true);

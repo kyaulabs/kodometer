@@ -27,6 +27,7 @@ class FakeProviderAdapter final : public ProviderAdapter
         ++refreshCount;
         accountAtRefresh = selectedAccountCredential();
         managementAtRefresh = selectedAccountManagementCredential();
+        teamAtRefresh = selectedAccountTeamId();
     }
 
     void succeed(const QVariantMap &provider)
@@ -48,6 +49,7 @@ class FakeProviderAdapter final : public ProviderAdapter
     int profileChanges = 0;
     std::optional<QString> accountAtRefresh;
     QString managementAtRefresh;
+    QString teamAtRefresh;
     QString profileDirectory;
 
   private:
@@ -140,6 +142,7 @@ class UsageControllerTest final : public QObject
     void appliesMultipleContextsAtomicallyAndRenamesWithoutFetching();
     void isolatesNamedWalletSelectionsAndSecretChanges();
     void isolatesOpenRouterManagementChanges();
+    void isolatesXaiTeamChanges();
     void rejectsReentrantWalletChanges_data();
     void rejectsReentrantWalletChanges();
     void ignoresUnselectedWalletEditsAndRecoversAfterUnlock();
@@ -818,6 +821,51 @@ void UsageControllerTest::isolatesOpenRouterManagementChanges()
     QTRY_COMPARE(adapter->refreshCount, 5);
     QVERIFY(!adapter->accountAtRefresh);
     QVERIFY(adapter->managementAtRefresh.isEmpty());
+}
+
+void UsageControllerTest::isolatesXaiTeamChanges()
+{
+    const QString id = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    const QString entry = "accounts/xai/" + id;
+    auto *wallet = new ControllerCredentialBackend;
+    wallet->accountValues = {{entry, R"({"name":"Work","key":"management","teamId":"team-a"})"}};
+    CredentialStore store(wallet);
+    store.open();
+    wallet->load();
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("xai"));
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setAutoRefresh(false);
+    controller.setCredentialStore(&store);
+    QVERIFY(controller.xaiAccountId().isEmpty());
+    controller.setXaiAccountId(id);
+    controller.setXaiAccountId(id);
+    QCOMPARE(controller.xaiAccountId(), id);
+    QCOMPARE(adapter->refreshCount, 0);
+    controller.refresh();
+    QCOMPARE(*adapter->accountAtRefresh, QStringLiteral("management"));
+    QCOMPARE(adapter->teamAtRefresh, QStringLiteral("team-a"));
+    adapter->succeed({{"id", "xai"}, {"cost", QVariantMap{{"balanceUSD", 40}}}});
+    controller.refresh();
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    wallet->accountValues[entry] = R"({"name":"Work","key":"management","teamId":"team-b"})";
+    wallet->update();
+    QVERIFY(controller.providers().isEmpty());
+    wallet->accountValues[entry] = R"({"name":"Work","key":"management","teamId":"team-a"})";
+    wallet->update();
+    adapter->succeed({{"id", "xai"}});
+    QCOMPARE(fresh.count(), 0);
+    QTRY_COMPARE(adapter->refreshCount, 3);
+    wallet->accountValues[entry] = R"({"name":"Work","key":"management","teamId":"team-b"})";
+    wallet->update();
+    adapter->fail(QStringLiteral("old team failure"));
+    QVERIFY(!controller.error().contains("old team failure"));
+    QTRY_COMPARE(adapter->refreshCount, 4);
+    QCOMPARE(adapter->teamAtRefresh, QStringLiteral("team-b"));
+    adapter->succeed({{"id", "xai"}});
+    controller.setXaiAccountId({});
+    QTRY_COMPARE(adapter->refreshCount, 5);
+    QVERIFY(!adapter->accountAtRefresh);
+    QVERIFY(adapter->teamAtRefresh.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(UsageControllerTest)

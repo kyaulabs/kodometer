@@ -3,6 +3,7 @@
 
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QSet>
 #include <QUuid>
 
@@ -11,13 +12,21 @@
 namespace Kodometer {
 namespace {
 const QStringList Providers{QStringLiteral("deepseek"), QStringLiteral("kimi"),
-                            QStringLiteral("openrouter")};
+                            QStringLiteral("openrouter"), QStringLiteral("xai")};
 
 bool validKey(const QString &key)
 {
     return key.size() <= CredentialStore::MaximumSecretSize &&
            std::all_of(key.cbegin(), key.cend(),
                        [](QChar ch) { return ch.unicode() >= 0x21 && ch.unicode() <= 0x7e; });
+}
+
+bool validTeam(const QString &provider, const QString &team)
+{
+    if (provider != QLatin1String("xai"))
+        return team.isEmpty();
+    static const QRegularExpression identifier(QStringLiteral("\\A[A-Za-z0-9_-]{1,256}\\z"));
+    return identifier.match(team).hasMatch();
 }
 
 bool validId(const QString &id)
@@ -49,7 +58,8 @@ bool WalletAccounts::isAccountEntry(const QString &entry)
 {
     return entry.startsWith(QLatin1String("accounts/deepseek/")) ||
            entry.startsWith(QLatin1String("accounts/kimi/")) ||
-           entry.startsWith(QLatin1String("accounts/openrouter/"));
+           entry.startsWith(QLatin1String("accounts/openrouter/")) ||
+           entry.startsWith(QLatin1String("accounts/xai/"));
 }
 
 QString WalletAccounts::entryName(const QString &provider, const QString &id)
@@ -101,14 +111,19 @@ QString WalletAccounts::managementKey(const QString &provider, const QString &id
     return m_entries.value(entryName(provider, id)).managementKey;
 }
 
-std::optional<WalletAccounts::Account> WalletAccounts::validated(const QString &provider,
-                                                                 const QString &name,
-                                                                 const QString &key,
-                                                                 const QString &managementKey)
+QString WalletAccounts::teamId(const QString &provider, const QString &id) const
+{
+    return m_entries.value(entryName(provider, id)).teamId;
+}
+
+std::optional<WalletAccounts::Account>
+WalletAccounts::validated(const QString &provider, const QString &name, const QString &key,
+                          const QString &managementKey, const QString &teamId)
 {
     const QString label = name.trimmed();
     const QString secret = key.trimmed();
     const QString management = managementKey.trimmed();
+    const QString team = teamId.trimmed();
     if (label.isEmpty() || label.size() > 64 || secret.isEmpty() || !validKey(secret) ||
         !validKey(management))
         return std::nullopt;
@@ -117,9 +132,9 @@ std::optional<WalletAccounts::Account> WalletAccounts::validated(const QString &
     });
     const bool unsupportedManagement =
         provider != QLatin1String("openrouter") && !management.isEmpty();
-    if (badName || unsupportedManagement)
+    if (badName || unsupportedManagement || !validTeam(provider, team))
         return std::nullopt;
-    return Account{label, secret, management};
+    return Account{label, secret, management, team};
 }
 
 void WalletAccounts::setAvailable(bool available)
@@ -149,7 +164,7 @@ bool WalletAccounts::reload()
     QMap<QString, Account> parsed;
     QMap<QString, int> counts;
     QSet<QString> names;
-    bool valid = loaded->size() <= 24;
+    bool valid = loaded->size() <= 32;
     for (auto it = loaded->cbegin(); valid && it != loaded->cend(); ++it) {
         const QStringList parts = it.key().split(QLatin1Char('/'));
         if (parts.size() != 3 || parts.first() != QLatin1String("accounts")) {
@@ -174,13 +189,17 @@ bool WalletAccounts::reload()
         const QJsonValue management = object.value(QStringLiteral("managementKey"));
         const bool paired = provider == QLatin1String("openrouter") && !management.isUndefined();
         const bool validManagement = !paired || management.isString();
-        if (object.size() != (paired ? 3 : 2) || !label.isString() || !key.isString() ||
-            !validManagement) {
+        const QJsonValue team = object.value(QStringLiteral("teamId"));
+        const bool scoped = provider == QLatin1String("xai");
+        const bool validTeamType = !scoped || team.isString();
+        const int fieldCount = 2 + (paired ? 1 : 0) + (scoped ? 1 : 0);
+        if (object.size() != fieldCount || !label.isString() || !key.isString() ||
+            !validManagement || !validTeamType) {
             valid = false;
             break;
         }
-        const auto account =
-            validated(provider, label.toString(), key.toString(), management.toString());
+        const auto account = validated(provider, label.toString(), key.toString(),
+                                       management.toString(), team.toString());
         if (!account) {
             valid = false;
             break;
@@ -217,19 +236,20 @@ bool WalletAccounts::editable()
 }
 
 QString WalletAccounts::addAccount(const QString &provider, const QString &name, const QString &key,
-                                   const QString &managementKey)
+                                   const QString &managementKey, const QString &teamId)
 {
     if (!supportsProvider(provider)) {
-        setError(tr("Choose DeepSeek, Kimi Code, or OpenRouter."));
+        setError(tr("Choose DeepSeek, Kimi Code, OpenRouter, or xAI."));
         return {};
     }
     if (!editable())
         return {};
-    const auto account = validated(provider, name, key, managementKey);
+    const auto account = validated(provider, name, key, managementKey, teamId);
     if (!account) {
         setError(tr("Use a name of 1–64 characters and a required API key. An optional Management "
                     "key is supported only for OpenRouter. Keys must be printable ASCII without "
-                    "internal whitespace, at most 64 KiB each."));
+                    "internal whitespace, at most 64 KiB each. xAI also requires a team ID of "
+                    "1–256 ASCII letters, digits, underscores, or hyphens."));
         return {};
     }
     const QVariantList existing = entries(provider);
@@ -248,7 +268,7 @@ QString WalletAccounts::addAccount(const QString &provider, const QString &name,
 }
 
 bool WalletAccounts::replaceAccount(const QString &provider, const QString &id, const QString &key,
-                                    const QString &managementKey)
+                                    const QString &managementKey, const QString &teamId)
 {
     if (!editable())
         return false;
@@ -258,11 +278,12 @@ bool WalletAccounts::replaceAccount(const QString &provider, const QString &id, 
         setError(tr("Select an available named account."));
         return false;
     }
-    const auto replacement = validated(provider, it->name, key, managementKey);
+    const auto replacement = validated(provider, it->name, key, managementKey, teamId);
     if (!replacement) {
         setError(
             tr("Enter the required API key and, optionally, an OpenRouter Management key. Keys "
-               "must be printable ASCII without internal whitespace, at most 64 KiB each."));
+               "must be printable ASCII without internal whitespace, at most 64 KiB each. xAI also "
+               "requires a team ID of 1–256 ASCII letters, digits, underscores, or hyphens."));
         return false;
     }
     return write(entry, *replacement);
@@ -291,6 +312,9 @@ bool WalletAccounts::write(const QString &entry, const Account &account)
                        {QStringLiteral("key"), account.key}};
     if (!account.managementKey.isEmpty()) {
         object.insert(QStringLiteral("managementKey"), account.managementKey);
+    }
+    if (!account.teamId.isEmpty()) {
+        object.insert(QStringLiteral("teamId"), account.teamId);
     }
     const QString payload = QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact));
     QString error;

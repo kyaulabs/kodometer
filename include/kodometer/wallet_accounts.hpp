@@ -28,15 +28,16 @@ class WalletAccounts : public QObject
     // C++ only: no secret-reading QML API.
     [[nodiscard]] std::optional<QString> key(const QString &provider, const QString &id) const;
     [[nodiscard]] QString managementKey(const QString &provider, const QString &id) const;
+    [[nodiscard]] QString teamId(const QString &provider, const QString &id) const;
     [[nodiscard]] static bool supportsProvider(const QString &provider);
     [[nodiscard]] static bool isAccountEntry(const QString &entry);
 
     void setAvailable(bool available);
     bool reload();
     Q_INVOKABLE QString addAccount(const QString &provider, const QString &name, const QString &key,
-                                   const QString &managementKey = {});
+                                   const QString &managementKey = {}, const QString &teamId = {});
     Q_INVOKABLE bool replaceAccount(const QString &provider, const QString &id, const QString &key,
-                                    const QString &managementKey = {});
+                                    const QString &managementKey = {}, const QString &teamId = {});
     Q_INVOKABLE bool removeAccount(const QString &provider, const QString &id);
 
   signals:
@@ -48,11 +49,13 @@ class WalletAccounts : public QObject
         QString name;
         QString key;
         QString managementKey;
+        QString teamId;
         bool operator==(const Account &) const = default;
     };
     [[nodiscard]] static std::optional<Account> validated(const QString &provider,
                                                           const QString &name, const QString &key,
-                                                          const QString &managementKey);
+                                                          const QString &managementKey,
+                                                          const QString &teamId);
     [[nodiscard]] static QString entryName(const QString &provider, const QString &id);
     bool editable();
     bool write(const QString &entry, const Account &account);

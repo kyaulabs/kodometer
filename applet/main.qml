@@ -44,6 +44,7 @@ PlasmoidItem {
         deepseekAccountId: Plasmoid.configuration.deepseekAccountId
         kimiAccountId: Plasmoid.configuration.kimiAccountId
         openrouterAccountId: Plasmoid.configuration.openrouterAccountId
+        xaiAccountId: Plasmoid.configuration.xaiAccountId
         profiles.configuration: Plasmoid.configuration.oauthProfiles
         onProviderContextChanged: provider => {
             if (quotaNotifier)

@@ -112,8 +112,13 @@ void XaiProviderAdapter::refresh()
     setError({});
 
     QString credentialError;
-    const auto credentials = XaiCredentialResolver::resolve(
-        environmentWithCredentialOverrides(m_environment), &credentialError);
+    auto environment = environmentWithCredentialOverrides(m_environment);
+    const auto account = selectedAccountCredential();
+    if (account) {
+        environment.insert(QStringLiteral("XAI_MANAGEMENT_API_KEY"), *account);
+        environment.insert(QStringLiteral("XAI_TEAM_ID"), selectedAccountTeamId());
+    }
+    const auto credentials = XaiCredentialResolver::resolve(environment, &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;

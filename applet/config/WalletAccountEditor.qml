@@ -13,6 +13,9 @@ ColumnLayout {
     required property string providerName
     property string selectedId: ""
     readonly property bool pairedKeys: providerId === "openrouter"
+    readonly property bool teamAccount: providerId === "xai"
+    readonly property bool completeCredentials: secret.text.length > 0 && (!teamAccount
+                                                                           || team.text.length > 0)
     readonly property var entries: accountStore.providers[providerId] || []
     readonly property bool available: entries.some(entry => entry.id === root.selectedId)
     readonly property var choices: {
@@ -30,20 +33,22 @@ ColumnLayout {
         return items
     }
 
-    function clearKeys() {
+    function clearCredentials() {
         if (secret)
             secret.clear()
         if (management)
             management.clear()
+        if (team)
+            team.clear()
     }
 
-    onSelectedIdChanged: clearKeys()
+    onSelectedIdChanged: clearCredentials()
 
     Connections {
         target: root.accountStore
         function onChanged() {
             if (!root.accountStore.ready)
-                root.clearKeys()
+                root.clearCredentials()
         }
     }
 
@@ -101,8 +106,10 @@ ColumnLayout {
         maximumLength: 65536
         echoMode: TextInput.Password
         inputMethodHints: Qt.ImhHiddenText | Qt.ImhSensitiveData
-        placeholderText: qsTr("Enter a new or replacement API key")
-        Accessible.name: qsTr("%1 API key").arg(root.providerName)
+        placeholderText: root.teamAccount ? qsTr("Enter an xAI Management API key") : qsTr(
+                                                "Enter a new or replacement API key")
+        Accessible.name: root.teamAccount ? qsTr("xAI Management API key") : qsTr("%1 API key").arg(
+                                                root.providerName)
     }
 
     QQC2.TextField {
@@ -126,6 +133,25 @@ ColumnLayout {
                   "Re-enter both keys to replace the pair. Leaving Management blank removes it and disables Activity for this account.")
     }
 
+    QQC2.TextField {
+        id: team
+        objectName: root.providerId + "-wallet-team"
+        Layout.fillWidth: true
+        visible: root.teamAccount
+        enabled: root.accountStore.ready
+        maximumLength: 256
+        placeholderText: qsTr("Required xAI team ID")
+        Accessible.name: qsTr("xAI team ID")
+    }
+
+    QQC2.Label {
+        Layout.fillWidth: true
+        visible: root.teamAccount
+        wrapMode: Text.WordWrap
+        text: qsTr(
+                  "Re-enter the Management key and team ID to replace this account. Team IDs use 1–256 ASCII letters, digits, underscores, or hyphens. Neither value falls back to the environment.")
+    }
+
     Flow {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
@@ -134,25 +160,27 @@ ColumnLayout {
         QQC2.Button {
             objectName: root.providerId + "-wallet-add"
             text: qsTr("Add account")
-            enabled: root.accountStore.ready && name.text.length > 0 && secret.text.length > 0
+            enabled: root.accountStore.ready && name.text.length > 0 && root.completeCredentials
             onClicked: {
                 const id = root.accountStore.addAccount(root.providerId, name.text, secret.text,
-                                                        management.text)
+                                                        management.text, team.text)
                 if (id.length > 0) {
                     root.selectedId = id
                     name.clear()
-                    root.clearKeys()
+                    root.clearCredentials()
                 }
             }
         }
         QQC2.Button {
             objectName: root.providerId + "-wallet-replace"
-            text: root.pairedKeys ? qsTr("Replace selected keys") : qsTr("Replace selected key")
-            enabled: root.accountStore.ready && root.available && secret.text.length > 0
+            text: root.teamAccount ? qsTr("Replace key and team") : root.pairedKeys ? qsTr(
+                                                                                          "Replace selected keys") :
+                                                                                      qsTr("Replace selected key")
+            enabled: root.accountStore.ready && root.available && root.completeCredentials
             onClicked: {
                 if (root.accountStore.replaceAccount(root.providerId, root.selectedId, secret.text,
-                                                     management.text))
-                    root.clearKeys()
+                                                     management.text, team.text))
+                    root.clearCredentials()
             }
         }
         QQC2.Button {

@@ -93,6 +93,23 @@ QString UsageController::selectedAccountManagementKey(const QString &provider) c
                                                         m_accountSelections.value(provider));
 }
 
+QString UsageController::xaiAccountId() const
+{
+    return m_accountSelections.value(QStringLiteral("xai"));
+}
+
+void UsageController::setXaiAccountId(const QString &id)
+{
+    setAccountSelection(QStringLiteral("xai"), id);
+}
+
+QString UsageController::selectedAccountTeamId(const QString &provider) const
+{
+    if (m_credentialStore == nullptr)
+        return {};
+    return m_credentialStore->accounts()->teamId(provider, m_accountSelections.value(provider));
+}
+
 void UsageController::setAccountSelection(const QString &provider, const QString &id)
 {
     if (m_accountSelections.value(provider) == id)
@@ -120,6 +137,8 @@ QString UsageController::contextKey(const QString &provider) const
         QByteArray pair = key->toUtf8();
         pair.append('\0');
         pair.append(selectedAccountManagementKey(provider).toUtf8());
+        pair.append('\0');
+        pair.append(selectedAccountTeamId(provider).toUtf8());
         fingerprint =
             QString::fromLatin1(QCryptographicHash::hash(pair, QCryptographicHash::Sha256).toHex());
     }
@@ -335,7 +354,7 @@ void UsageController::refresh()
         if (WalletAccounts::supportsProvider(id)) {
             adapter->setAccountCredential(
                 m_accountSelections.value(id).isEmpty() ? std::nullopt : selectedAccountKey(id),
-                selectedAccountManagementKey(id));
+                selectedAccountManagementKey(id), selectedAccountTeamId(id));
         }
     }
     setBusy(true);

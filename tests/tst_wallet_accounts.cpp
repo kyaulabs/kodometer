@@ -263,7 +263,7 @@ class WalletAccountsTest final : public QObject
         QCOMPARE(*accounts->key("openrouter", id), QStringLiteral("replacement"));
     }
 
-    void boundsPairedKeysAndAcceptsAllThreeProviders()
+    void boundsPairedKeysAndAcceptsAllFourProviders()
     {
         auto *backend = new AccountBackend;
         CredentialStore store(backend);
@@ -278,18 +278,24 @@ class WalletAccountsTest final : public QObject
         QVERIFY(!accounts->replaceAccount("openrouter", id, "key", QString(65537, 'x')));
         QVERIFY(!accounts->replaceAccount("openrouter", id, "key", QStringLiteral("bad\u00e9key")));
         QVERIFY(accounts->removeAccount("openrouter", id));
-        for (const QString &provider :
-             {QStringLiteral("deepseek"), QStringLiteral("kimi"), QStringLiteral("openrouter")}) {
+        for (const QString &provider : {QStringLiteral("deepseek"), QStringLiteral("kimi"),
+                                        QStringLiteral("openrouter"), QStringLiteral("xai")}) {
             for (int i = 0; i < 8; ++i) {
                 const QString uuid =
                     QStringLiteral("11111111-1111-4111-8111-%1").arg(i, 12, 10, QLatin1Char('0'));
-                backend->values.insert("accounts/" + provider + "/" + uuid,
-                                       entry(QString::number(i)));
+                QJsonObject record{{"name", QString::number(i)}, {"key", "key"}};
+                if (provider == QLatin1String("xai"))
+                    record.insert("teamId", "Team_012");
+                backend->values.insert(
+                    "accounts/" + provider + "/" + uuid,
+                    QString::fromUtf8(QJsonDocument(record).toJson(QJsonDocument::Compact)));
             }
         }
         backend->update();
         QVERIFY(accounts->ready());
-        QCOMPARE(backend->values.size(), 24);
+        QCOMPARE(backend->values.size(), 32);
+        QCOMPARE(accounts->entries("xai").size(), 8);
+        QVERIFY(accounts->addAccount("xai", "Nine", "key", {}, "team").isEmpty());
         QCOMPARE(accounts->entries("openrouter").size(), 8);
         QVERIFY(accounts->addAccount("openrouter", "Nine", "key").isEmpty());
     }
@@ -317,6 +323,10 @@ class WalletAccountsTest final : public QObject
             QVERIFY(!accounts->replaceAccount("xai", id, "key", {}, team));
             QCOMPARE(accounts->teamId("xai", id), QStringLiteral("team-456"));
         }
+        const QString maximumTeam(256, 'A');
+        QVERIFY(accounts->replaceAccount("xai", id, "key", {}, maximumTeam));
+        QCOMPARE(accounts->teamId("xai", id), maximumTeam);
+        QVERIFY(accounts->replaceAccount("xai", id, "replacement", {}, "team-456"));
         QVERIFY(accounts->addAccount("xai", "Wrong", "key", "extra-management", "team").isEmpty());
         QVERIFY(accounts->addAccount("deepseek", "Wrong", "key", {}, "team").isEmpty());
         QVERIFY(accounts->addAccount("xai", "Missing", "key").isEmpty());

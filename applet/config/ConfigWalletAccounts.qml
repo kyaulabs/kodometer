@@ -14,6 +14,7 @@ Kirigami.ScrollablePage {
     property alias cfg_deepseekAccountId: deepseek.selectedId
     property alias cfg_kimiAccountId: kimi.selectedId
     property alias cfg_openrouterAccountId: openrouter.selectedId
+    property alias cfg_xaiAccountId: xai.selectedId
     // Injectable for offscreen tests; the real store never reveals saved keys to QML.
     property var accountStore: wallet.accounts
 
@@ -81,6 +82,16 @@ Kirigami.ScrollablePage {
             accountStore: root.accountStore
             providerId: "openrouter"
             providerName: "OpenRouter"
+        }
+        Kirigami.Separator {
+            Layout.fillWidth: true
+        }
+        WalletAccountEditor {
+            id: xai
+            Layout.fillWidth: true
+            accountStore: root.accountStore
+            providerId: "xai"
+            providerName: "xAI"
         }
     }
 }

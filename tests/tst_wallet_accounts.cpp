@@ -95,7 +95,7 @@ class WalletAccountsTest final : public QObject
         store.open();
         QVERIFY(accounts->ready());
         QVERIFY(accounts->error().isEmpty());
-        QCOMPARE(accounts->providers().size(), 2);
+        QCOMPARE(accounts->providers().size(), 3);
         QSignalSpy changed(accounts, &WalletAccounts::changed);
         const QString id = accounts->addAccount("deepseek", " Work ", " key-one ");
         QVERIFY(!id.isEmpty());
@@ -140,7 +140,7 @@ class WalletAccountsTest final : public QObject
         CredentialStore store(backend);
         store.open();
         auto *accounts = store.accounts();
-        QVERIFY(accounts->addAccount("openrouter", "Work", "key").isEmpty());
+        QVERIFY(accounts->addAccount("xai", "Work", "key").isEmpty());
         for (const auto &pair : QList<QPair<QString, QString>>{{"", "key"},
                                                                {QString(65, 'a'), "key"},
                                                                {"Bad\nName", "key"},
@@ -219,7 +219,7 @@ class WalletAccountsTest final : public QObject
         auto *backend = new AccountBackend;
         CredentialStore store(backend);
         store.open();
-        for (int count : {2, 9, 17}) {
+        for (int count : {2, 9, 25}) {
             backend->values.clear();
             for (int i = 0; i < count; ++i) {
                 const QString id =
@@ -235,6 +235,32 @@ class WalletAccountsTest final : public QObject
         backend->values.clear();
         store.open();
         QVERIFY(store.accounts()->ready());
+    }
+
+    void storesOpenRouterKeysAsOneAccount()
+    {
+        auto *backend = new AccountBackend;
+        CredentialStore store(backend);
+        store.open();
+        auto *accounts = store.accounts();
+        QVERIFY(WalletAccounts::isAccountEntry("accounts/openrouter/" + Id));
+        const QString id = accounts->addAccount("openrouter", "Work", "ordinary", "management");
+        QVERIFY(!id.isEmpty());
+        QCOMPARE(backend->values.size(), 1);
+        QCOMPARE(*accounts->key("openrouter", id), QStringLiteral("ordinary"));
+        QCOMPARE(accounts->managementKey("openrouter", id), QStringLiteral("management"));
+        QCOMPARE(accounts->metaObject()->indexOfMethod("managementKey(QString,QString)"), -1);
+        QCOMPARE(accounts->entries("openrouter").first().toMap().size(), 2);
+        QVERIFY(accounts->replaceAccount("openrouter", id, "replacement", ""));
+        QVERIFY(accounts->managementKey("openrouter", id).isEmpty());
+        QVERIFY(!accounts->replaceAccount("openrouter", id, "key", "bad\nkey"));
+        QCOMPARE(*accounts->key("openrouter", id), QStringLiteral("replacement"));
+        QVERIFY(accounts->addAccount("kimi", "Wrong", "key", "management").isEmpty());
+        QVERIFY(accounts->addAccount("openrouter", "Wrong", "", "management").isEmpty());
+        backend->close();
+        QVERIFY(accounts->managementKey("openrouter", id).isEmpty());
+        store.open();
+        QCOMPARE(*accounts->key("openrouter", id), QStringLiteral("replacement"));
     }
 
     void rejectsMalformedStoredAccounts_data()
@@ -253,6 +279,16 @@ class WalletAccountsTest final : public QObject
         QTest::newRow("bad-name") << key << entry("Bad\nName");
         QTest::newRow("large") << key << QString(262145, ' ');
         QTest::newRow("bad-id") << QStringLiteral("accounts/deepseek/default") << entry();
+        const QString router = "accounts/openrouter/" + Id;
+        QTest::newRow("management-type")
+            << router << QStringLiteral(R"({"name":"Work","key":"key","managementKey":2})");
+        QTest::newRow("management-invalid")
+            << router
+            << QStringLiteral(R"({"name":"Work","key":"key","managementKey":"bad\nkey"})");
+        QTest::newRow("management-unsupported")
+            << key << QStringLiteral(R"({"name":"Work","key":"key","managementKey":"management"})");
+        QTest::newRow("router-extra")
+            << router << QStringLiteral(R"({"name":"Work","key":"key","unexpected":true})");
         QTest::newRow("wrong-provider") << ("accounts/other/" + Id) << entry();
         QTest::newRow("wrong-prefix") << ("elsewhere/deepseek/" + Id) << entry();
         QTest::newRow("missing-parts") << QStringLiteral("accounts/deepseek") << entry();

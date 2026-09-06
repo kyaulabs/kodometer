@@ -103,6 +103,7 @@ void OpenRouterProviderAdapter::refresh()
         return;
     }
     setBusy(true);
+    m_refreshDateTime = currentDateTime();
     setError({});
     m_keyUsage.reset();
     m_activityHistory.reset();
@@ -192,7 +193,7 @@ void OpenRouterProviderAdapter::requestActivityLatest()
     QUrl url = m_activityEndpoint;
     QUrlQuery query;
     query.addQueryItem(QStringLiteral("date"),
-                       currentDateTime().date().addDays(-1).toString(Qt::ISODate));
+                       m_refreshDateTime.date().addDays(-1).toString(Qt::ISODate));
     url.setQuery(query);
     watchReply(m_network->get(requestFor(url, m_credentials.managementApiKey, false)),
                RequestKind::ActivityLatest);
@@ -371,7 +372,7 @@ void OpenRouterProviderAdapter::finishActivity(RequestKind kind, int statusCode,
     }
     QString parseError;
     const auto activity =
-        OpenRouterUsageParser::parseActivity(m_responseData, currentDateTime(), &parseError);
+        OpenRouterUsageParser::parseActivity(m_responseData, m_refreshDateTime, &parseError);
     if (!activity) {
         m_activityHistory.reset();
         m_activityDiagnostic = QStringLiteral("Response was invalid");
@@ -401,7 +402,7 @@ void OpenRouterProviderAdapter::completeSuccess()
 {
     m_provider =
         OpenRouterUsageParser::provider(m_credits, m_keyUsage, m_keyDiagnostic,
-                                        m_activityDiagnostic, currentDateTime(), m_activityHistory);
+                                        m_activityDiagnostic, m_refreshDateTime, m_activityHistory);
     emit providerChanged();
     emit refreshSucceeded(m_provider);
     setBusy(false);

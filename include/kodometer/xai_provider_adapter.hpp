@@ -69,6 +69,7 @@ class XaiProviderAdapter final : public ProviderAdapter
     QUrl m_baseEndpoint{QStringLiteral("https://management-api.x.ai")};
     QMap<QString, QString> m_environment;
     QDateTime m_currentDateTime;
+    QDateTime m_refreshDateTime;
     int m_timeoutMilliseconds = 30'000;
     XaiCredentials m_credentials;
     XaiBalance m_balance;

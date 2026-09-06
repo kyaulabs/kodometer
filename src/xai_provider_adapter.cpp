@@ -108,6 +108,7 @@ void XaiProviderAdapter::refresh()
         return;
     }
     setBusy(true);
+    m_refreshDateTime = currentDateTime();
     setError({});
 
     QString credentialError;
@@ -152,7 +153,7 @@ void XaiProviderAdapter::requestUsage()
 {
     QNetworkRequest request = requestFor(endpoint(QStringLiteral("/usage")), m_credentials);
     request.setRawHeader("Content-Type", "application/json");
-    const QDateTime now = currentDateTime();
+    const QDateTime now = m_refreshDateTime;
     QDateTime start(now.date().addDays(-29), QTime(0, 0), QTimeZone::UTC);
     const auto formatted = [](const QDateTime &value) {
         return value.toUTC().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
@@ -298,7 +299,7 @@ void XaiProviderAdapter::finishUsage(int statusCode)
 
 void XaiProviderAdapter::completeSuccess(const std::optional<XaiUsageHistory> &history)
 {
-    m_provider = XaiUsageParser::provider(m_balance, history, currentDateTime());
+    m_provider = XaiUsageParser::provider(m_balance, history, m_refreshDateTime);
     emit providerChanged();
     emit refreshSucceeded(m_provider);
     setBusy(false);

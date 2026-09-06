@@ -506,6 +506,10 @@ QVariantMap OpenRouterUsageParser::provider(const OpenRouterCredits &credits,
         cost.insert(QStringLiteral("last30DaysUSD"), activity->totalCost);
         cost.insert(QStringLiteral("daily"), daily);
         cost.insert(QStringLiteral("historyPartial"), false);
+        cost.insert(QStringLiteral("historyEndDate"),
+                    updatedAt.toUTC().date().addDays(-1).toString(Qt::ISODate));
+        cost.insert(QStringLiteral("historyIncludesCurrentDay"), false);
+        cost.insert(QStringLiteral("historyEstimated"), activity->estimatedCost > 0.0);
         sections.append(QVariantMap{
             {QStringLiteral("title"), QStringLiteral("Spend history")},
             {QStringLiteral("rows"),

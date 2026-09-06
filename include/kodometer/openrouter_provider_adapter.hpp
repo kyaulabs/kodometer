@@ -81,6 +81,7 @@ class OpenRouterProviderAdapter final : public ProviderAdapter
     QUrl m_activityEndpoint{QStringLiteral("https://openrouter.ai/api/v1/activity")};
     QMap<QString, QString> m_environment;
     QDateTime m_currentDateTime;
+    QDateTime m_refreshDateTime;
     int m_primaryTimeoutMilliseconds = 30'000;
     int m_optionalTimeoutMilliseconds = 1'000;
     OpenRouterCredentials m_credentials;

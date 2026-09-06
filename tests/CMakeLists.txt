@@ -1,3 +1,8 @@
+add_executable(account-switch-model-test tst_account_switch_model.cpp)
+target_link_libraries(account-switch-model-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(account-switch-model-test)
+add_test(NAME account-switch-model COMMAND account-switch-model-test)
+
 add_executable(wallet-accounts-test tst_wallet_accounts.cpp)
 target_link_libraries(wallet-accounts-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(wallet-accounts-test)

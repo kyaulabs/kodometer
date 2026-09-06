@@ -163,6 +163,21 @@ class QuotaAlertPolicyTest final : public QObject
         QCOMPARE(alerts.count(), 1);
     }
 
+    void forgetsOnlyTheChangedProvider()
+    {
+        QuotaAlertPolicy policy;
+        policy.setEnabled(true);
+        QSignalSpy alerts(&policy, &QuotaAlertPolicy::alertReady);
+        policy.observe(snapshot(QStringLiteral("codex"), 1));
+        policy.observe(snapshot(QStringLiteral("claude"), 1));
+        policy.forgetProvider(QStringLiteral("unknown"));
+        policy.forgetProvider(QStringLiteral("codex"));
+        QCOMPARE(alerts.count(), 2);
+        policy.observe(snapshot(QStringLiteral("claude"), 1));
+        policy.observe(snapshot(QStringLiteral("codex"), 1));
+        QCOMPARE(alerts.count(), 3);
+    }
+
     void recognizesNativeProviders()
     {
         QuotaAlertPolicy policy;

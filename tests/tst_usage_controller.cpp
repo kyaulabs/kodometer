@@ -33,7 +33,15 @@ class FakeProviderAdapter final : public ProviderAdapter
         emit refreshFailed(error);
     }
 
+    void setProfileDirectory(const QString &directory) override
+    {
+        profileDirectory = directory;
+        ++profileChanges;
+    }
+
     int refreshCount = 0;
+    int profileChanges = 0;
+    QString profileDirectory;
 
   private:
     QString m_providerId;
@@ -114,6 +122,8 @@ class UsageControllerTest final : public QObject
     void changesProvidersDuringRefresh();
     void handlesSynchronousCompletion();
     void publishesOnlyFreshEnabledResults();
+    void isolatesSelectedProfilesAndInflightResults();
+    void blocksMalformedProfilesWithoutBlockingOtherProviders();
 };
 
 void UsageControllerTest::aggregatesProvidersInRegistrationOrder()
@@ -419,6 +429,78 @@ void UsageControllerTest::publishesOnlyFreshEnabledResults()
     QTRY_COMPARE(codex->refreshCount, 3);
     codex->succeed(result); // Identical, but newly fetched data is still a fresh result.
     QCOMPARE(fresh.count(), 2);
+}
+
+void UsageControllerTest::isolatesSelectedProfilesAndInflightResults()
+{
+    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    UsageController controller(QList<ProviderAdapter *>{codex});
+    auto *profiles = controller.profiles();
+    QSignalSpy contexts(&controller, &UsageController::providerContextChanged);
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    QVERIFY(profiles->addProfile("codex", "Work", "/work"));
+    const QString work = profiles->selectedId("codex");
+    QCOMPARE(codex->refreshCount, 0); // Loading settings never starts networking.
+    controller.refresh();
+    QCOMPARE(codex->profileDirectory, QStringLiteral("/work"));
+    codex->succeed({{"id", "codex"}, {"name", "Codex"}});
+    QCOMPARE(controller.providers().first().toMap().value("profileName").toString(),
+             QStringLiteral("Work"));
+    controller.refresh();
+    const int pathChanges = codex->profileChanges;
+    QVERIFY(profiles->addProfile("codex", "Personal", "/personal"));
+    QVERIFY(controller.providers().isEmpty());
+    QVERIFY(controller.snapshot().value("providers").toList().isEmpty());
+    QCOMPARE(codex->profileChanges, pathChanges); // Never redirect an active token rotation.
+    QVERIFY(
+        profiles->selectProfile("codex", work)); // Even A -> B -> A invalidates the old request.
+    codex->succeed({{"id", "codex"}, {"old", true}});
+    QCOMPARE(fresh.count(), 1);
+    QVERIFY(controller.providers().isEmpty());
+    QTRY_COMPARE(codex->refreshCount, 3);
+    codex->fail(QStringLiteral("Work failure"));
+    QVERIFY(controller.providers().isEmpty());
+    QVERIFY(!controller.error().isEmpty());
+    QVERIFY(profiles->selectProfile("codex", "default"));
+    QVERIFY(controller.error().isEmpty());
+    QTRY_COMPARE(codex->refreshCount, 4);
+    QVERIFY(codex->profileDirectory.isEmpty());
+    QVERIFY(profiles->selectProfile("codex", work));
+    codex->fail(QStringLiteral("Old account error"));
+    QVERIFY(controller.error().isEmpty());
+    QTRY_COMPARE(codex->refreshCount, 5);
+    codex->succeed({{"id", "codex"}});
+    QCOMPARE(fresh.count(), 2);
+    QVERIFY(contexts.count() >= 4);
+    // Changes before the queued refresh runs coalesce into one request.
+    QVERIFY(profiles->selectProfile("codex", "default"));
+    QVERIFY(profiles->selectProfile("codex", work));
+    QTRY_COMPARE(codex->refreshCount, 6);
+    codex->succeed({{"id", "codex"}});
+    QCoreApplication::processEvents();
+    QCOMPARE(codex->refreshCount, 6);
+}
+
+void UsageControllerTest::blocksMalformedProfilesWithoutBlockingOtherProviders()
+{
+    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *other = new FakeProviderAdapter(QStringLiteral("other"));
+    UsageController controller({codex, other});
+    controller.profiles()->setConfiguration(QStringLiteral("invalid"));
+    controller.refresh();
+    QCOMPARE(codex->refreshCount, 0);
+    QCOMPARE(other->refreshCount, 1);
+    other->succeed({{"id", "other"}});
+    QCOMPARE(other->profileChanges, 0);
+    controller.profiles()->setConfiguration(QStringLiteral("{}"));
+    // A manual cycle can start before the profile refresh callback; still queue a follow-up.
+    controller.refresh();
+    QCoreApplication::processEvents();
+    codex->succeed({{"id", "codex"}});
+    other->succeed({{"id", "other"}});
+    QTRY_COMPARE(codex->refreshCount, 2);
+    codex->succeed({{"id", "codex"}});
+    other->succeed({{"id", "other"}});
 }
 
 QTEST_GUILESS_MAIN(UsageControllerTest)

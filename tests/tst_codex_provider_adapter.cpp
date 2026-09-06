@@ -235,10 +235,14 @@ void CodexProviderAdapterTest::refreshesExpiringTokenBeforeUsage()
     adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
     adapter.setTokenEndpoint(server.url(QStringLiteral("/token")));
     QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
-
+    QTemporaryDir other;
+    QVERIFY(other.isValid());
+    adapter.setProfileDirectory(directory.path());
     adapter.refresh();
+    adapter.setProfileDirectory(other.path());
 
     QVERIFY(finished.wait());
+    QVERIFY(!QFile::exists(other.filePath(QStringLiteral("auth.json"))));
     QCOMPARE(finished.first().first().toBool(), true);
     QCOMPARE(server.requests.size(), 2);
     QCOMPARE(server.requests.at(0).method, QByteArray("POST"));
@@ -259,6 +263,13 @@ void CodexProviderAdapterTest::refreshesExpiringTokenBeforeUsage()
              QStringLiteral("fresh-access"));
     QCOMPARE(savedTokens.value(QStringLiteral("refresh_token")).toString(),
              QStringLiteral("fresh-refresh"));
+    adapter.setProfileDirectory({});
+    server.enqueue({200, usagePayload()});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 2);
+    QCOMPARE(finished.last().first().toBool(), true);
+    QCOMPARE(server.requests.last().headers.value("authorization"),
+             QByteArray("Bearer fresh-access"));
 }
 
 void CodexProviderAdapterTest::retriesUnauthorizedUsageOnce()

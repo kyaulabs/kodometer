@@ -37,7 +37,7 @@ class OAuthProfilesTest final : public QObject
         QSignalSpy contexts(&profiles, &OAuthProfiles::contextChanged);
         QVERIFY(profiles.valid());
         QVERIFY(profiles.error().isEmpty());
-        QCOMPARE(profiles.providers().size(), 2);
+        QCOMPARE(profiles.providers().size(), 3);
         QCOMPARE(profiles.configuration(), QStringLiteral("{}"));
         QCOMPARE(profiles.entries("codex").size(), 1);
         QCOMPARE(profiles.selectedId("codex"), QStringLiteral("default"));
@@ -72,7 +72,7 @@ class OAuthProfilesTest final : public QObject
     void rejectsEditsWithoutDamagingExistingConfiguration()
     {
         OAuthProfiles profiles;
-        QVERIFY(!profiles.addProfile("gemini", "Work", "/work"));
+        QVERIFY(!profiles.addProfile("unknown", "Work", "/work"));
         QVERIFY(!profiles.selectProfile("unknown", "default"));
         QVERIFY(!profiles.removeProfile("codex", "default"));
         QVERIFY(!profiles.removeProfile("codex", "missing"));
@@ -182,13 +182,46 @@ class OAuthProfilesTest final : public QObject
     void removesLaterEntriesAndRejectsUnsupportedRemoval()
     {
         OAuthProfiles profiles;
-        QVERIFY(!profiles.removeProfile("gemini", "missing"));
+        QVERIFY(!profiles.removeProfile("unknown", "missing"));
         QVERIFY(profiles.addProfile("codex", "One", "/one"));
         QVERIFY(profiles.addProfile("codex", "Two", "/two"));
         QVERIFY(profiles.removeProfile("codex", profiles.selectedId("codex")));
         QCOMPARE(profiles.entries("codex").size(), 2);
         QCOMPARE(profiles.selectedId("codex"), QStringLiteral("default"));
         QCOMPARE(profiles.entries("claude").size(), 1);
+    }
+
+    void managesGeminiWithoutMigratingExistingSelections()
+    {
+        OAuthProfiles profiles;
+        profiles.setConfiguration(document(config()));
+        const auto codex = profiles.contextKey("codex");
+        QCOMPARE(profiles.selectedId("gemini"), QStringLiteral("default"));
+        QCOMPARE(profiles.entries("gemini").size(), 1);
+        QVERIFY(profiles.addProfile("gemini", "Work", "/profiles/gemini"));
+        const auto id = profiles.selectedId("gemini");
+        QCOMPARE(profiles.selectedDirectory("gemini"), QStringLiteral("/profiles/gemini"));
+        QCOMPARE(profiles.contextKey("codex"), codex);
+        QCOMPARE(QJsonDocument::fromJson(profiles.configuration().toUtf8())
+                     .object()
+                     .value("selectedGemini")
+                     .toString(),
+                 id);
+        OAuthProfiles copy;
+        copy.setConfiguration(profiles.configuration());
+        QCOMPARE(copy.contextKey("gemini"), profiles.contextKey("gemini"));
+        QVERIFY(copy.selectProfile("gemini", "default"));
+        QVERIFY(copy.removeProfile("gemini", id));
+        QCOMPARE(copy.contextKey("codex"), codex);
+        for (int i = 1; i < 8; ++i)
+            QVERIFY(
+                profiles.addProfile("gemini", QString::number(i), "/gemini/" + QString::number(i)));
+        QVERIFY(!profiles.addProfile("gemini", "Nine", "/nine"));
+        profiles.setConfiguration(document({{"selectedGemini", "missing"}}));
+        QVERIFY(!profiles.valid());
+        QVERIFY(profiles.entries("gemini").isEmpty());
+        QCOMPARE(profiles.contextKey("gemini"), QStringLiteral("invalid"));
+        QVERIFY(profiles.error().contains("Gemini"));
     }
 
     void acceptsOnlyLocalFolderUrls()

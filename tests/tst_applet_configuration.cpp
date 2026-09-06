@@ -13,6 +13,10 @@
 #include <KConfig>
 #include <KConfigGroup>
 #include <KConfigLoader>
+#include <KConfigPropertyMap>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 namespace {
 
@@ -200,6 +204,246 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(reloaded.property("oauthProfiles")
                     .toString()
                     .contains(QStringLiteral("/profiles/gemini")));
+    }
+
+    void switchesThroughPersistentConfiguration_data()
+    {
+        QTest::addColumn<QString>("provider");
+        for (const QString &id :
+             {QStringLiteral("codex"), QStringLiteral("claude"), QStringLiteral("gemini"),
+              QStringLiteral("deepseek"), QStringLiteral("kimi"), QStringLiteral("openrouter"),
+              QStringLiteral("xai"), QStringLiteral("zai")})
+            QTest::newRow(qPrintable(id)) << id;
+    }
+
+    void switchesThroughPersistentConfiguration()
+    {
+        QFETCH(QString, provider);
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
+        const bool oauth = provider == "codex" || provider == "claude" || provider == "gemini";
+        const QString id = QStringLiteral("11111111-1111-4111-8111-111111111111");
+        const QString selectionKey = "selected" + provider.left(1).toUpper() + provider.mid(1);
+        const QString original = QString::fromUtf8(
+            QJsonDocument(
+                QJsonObject{{provider, QJsonArray{QJsonObject{{"id", id},
+                                                              {"name", "<b>Work</b>"},
+                                                              {"directory", "/profiles/work"}}}},
+                            {selectionKey, id}})
+                .toJson(QJsonDocument::Compact));
+        QTemporaryDir temporary;
+        const QString path = temporary.filePath("widgetrc");
+        KConfig config(path, KConfig::SimpleConfig);
+        KConfigGroup widgetGroup(&config, "Widget");
+        KConfigGroup group(&widgetGroup, "General");
+        group.writeEntry("oauthProfiles", oauth ? original : QStringLiteral("{}"));
+        const QString field = oauth ? QStringLiteral("oauthProfiles") : provider + "AccountId";
+        if (!oauth)
+            group.writeEntry(qPrintable(field), id);
+        group.writeEntry("refreshIntervalMinutes", 17);
+        config.sync();
+        QFile schema(QStringLiteral(":/qt/qml/plasma/applet/org/kyaulabs/kodometer/main.xml"));
+        KConfigLoader loader(widgetGroup, &schema);
+        KConfigPropertyMap preferences(&loader);
+        QQmlEngine engine;
+        QQmlComponent backendComponent(&engine);
+        backendComponent.setData(R"(import plasma.applet.org.kyaulabs.kodometer as Private
+            Private.UsageController {
+                required property var preferences
+                autoRefresh: false
+                profiles.configuration: preferences.oauthProfiles
+                deepseekAccountId: preferences.deepseekAccountId
+                kimiAccountId: preferences.kimiAccountId
+                openrouterAccountId: preferences.openrouterAccountId
+                xaiAccountId: preferences.xaiAccountId
+                zaiAccountId: preferences.zaiAccountId
+            })",
+                                 QUrl());
+        QScopedPointer<QObject> backend(backendComponent.createWithInitialProperties(
+            {{"preferences", QVariant::fromValue<QObject *>(&preferences)}}));
+        QVERIFY2(backend, qPrintable(backendComponent.errorString()));
+        QQmlComponent component(
+            &engine, QUrl(QStringLiteral(
+                         "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/AccountSwitching.qml")));
+        QScopedPointer<QObject> switching(component.createWithInitialProperties(
+            {{"configuration", QVariant::fromValue<QObject *>(&preferences)}}));
+        QVERIFY2(switching, qPrintable(component.errorString()));
+        QSignalSpy applied(switching.data(), SIGNAL(selectionApplied(QString)));
+        QQmlComponent selectorComponent(
+            &engine, QUrl(QStringLiteral(
+                         "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/AccountSelector.qml")));
+        QScopedPointer<QObject> selectorObject(selectorComponent.createWithInitialProperties(
+            {{"switching", QVariant::fromValue(switching.data())},
+             {"providerId", provider},
+             {"width", 260},
+             {"height", 60}}));
+        QVERIFY2(selectorObject, qPrintable(selectorComponent.errorString()));
+        auto *selector = selectorObject->findChild<QQuickItem *>("runtime-account-selector");
+        QVERIFY(selector);
+        QCOMPARE(selector->property("currentIndex").toInt(), 1);
+        auto *label = selector->property("contentItem").value<QObject *>();
+        QVERIFY(label);
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
+        if (oauth)
+            QCOMPARE(label->property("text").toString(), QStringLiteral("<b>Work</b>"));
+        QQuickWindow window;
+        window.resize(260, 60);
+        qobject_cast<QQuickItem *>(selectorObject.data())->setParentItem(window.contentItem());
+        window.show();
+        selector->forceActiveFocus();
+        QTest::keyClick(&window, Qt::Key_Home);
+        QTRY_COMPARE(applied.count(), 1);
+        KConfig saved(path, KConfig::SimpleConfig);
+        KConfigGroup savedWidget(&saved, "Widget");
+        KConfigGroup persisted(&savedWidget, "General");
+        QCOMPARE(persisted.readEntry("refreshIntervalMinutes", 0), 17);
+        if (oauth) {
+            const auto document =
+                QJsonDocument::fromJson(persisted.readEntry("oauthProfiles", QString{}).toUtf8())
+                    .object();
+            QCOMPARE(document.value(selectionKey).toString(), QStringLiteral("default"));
+            QCOMPARE(document.value(provider).toArray().size(), 1);
+        }
+        else {
+            QVERIFY(persisted.readEntry(qPrintable(field), QString{}).isEmpty());
+        }
+        // An external settings update must still drive the selector after a runtime switch.
+        QVERIFY(preferences.setProperty(qPrintable(field), oauth ? original : id));
+        QTRY_COMPARE(selector->property("currentIndex").toInt(), 1);
+        QVariant result;
+        QVERIFY(QMetaObject::invokeMethod(switching.data(), "select",
+                                          Q_RETURN_ARG(QVariant, result), Q_ARG(QVariant, provider),
+                                          Q_ARG(QVariant, QStringLiteral("missing"))));
+        QVERIFY(!result.toBool());
+        QVERIFY(!switching->property("error").toString().isEmpty());
+        QCOMPARE(selector->property("currentIndex").toInt(), 1);
+        selector->forceActiveFocus();
+        QTest::keyClick(&window, Qt::Key_Home);
+        QTRY_COMPARE(applied.count(), 2);
+        QVERIFY(switching->property("error").toString().isEmpty());
+        if (oauth) {
+            auto *profiles = backend->property("profiles").value<QObject *>();
+            QVERIFY(profiles);
+            QCOMPARE(profiles->property("providers")
+                         .toMap()
+                         .value(provider)
+                         .toMap()
+                         .value("selectedId")
+                         .toString(),
+                     QStringLiteral("default"));
+        }
+        else {
+            QVERIFY(backend->property(qPrintable(field)).toString().isEmpty());
+        }
+        QVERIFY(!backend->property("busy").toBool());
+    }
+
+    void opensSwitcherWithoutUsageOrImplicitWrites()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
+        QQmlEngine engine;
+        QQmlComponent preferencesComponent(&engine);
+        preferencesComponent.setData(R"(import QtQml
+            QtObject {
+                property string oauthProfiles: "{}"
+                property string deepseekAccountId: "missing"
+                property string kimiAccountId: ""
+                property string openrouterAccountId: ""
+                property string xaiAccountId: ""
+                property string zaiAccountId: ""
+                property var disabledProviders: []
+                property int writes: 0
+                function writeConfig() { writes++ }
+            })",
+                                     QUrl());
+        QScopedPointer<QObject> preferences(preferencesComponent.create());
+        QVERIFY(preferences);
+        const QUrl base(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/"));
+        QQmlComponent bridgeComponent(&engine, base.resolved(QUrl("AccountSwitching.qml")));
+        QScopedPointer<QObject> bridge(bridgeComponent.createWithInitialProperties(
+            {{"configuration", QVariant::fromValue(preferences.data())}}));
+        QVERIFY2(bridge, qPrintable(bridgeComponent.errorString()));
+        QQuickWindow window;
+        window.resize(420, 600);
+        window.show();
+        QQmlComponent dialogComponent(&engine, base.resolved(QUrl("AccountSwitchDialog.qml")));
+        QScopedPointer<QObject> dialog(dialogComponent.createWithInitialProperties(
+            {{"switching", QVariant::fromValue(bridge.data())},
+             {"parent", QVariant::fromValue(window.contentItem())},
+             {"initialProviderId", "deepseek"}}));
+        QVERIFY2(dialog, qPrintable(dialogComponent.errorString()));
+        QSignalSpy wallet(dialog.data(), SIGNAL(walletRequested()));
+        QSignalSpy configure(dialog.data(), SIGNAL(configureRequested()));
+        QVERIFY(QMetaObject::invokeMethod(dialog.data(), "open"));
+        QTRY_VERIFY(dialog->property("opened").toBool());
+        QCOMPARE(preferences->property("writes").toInt(), 0);
+        QCOMPARE(dialog->property("targetProviderId").toString(), QStringLiteral("deepseek"));
+        auto *retry = dialog->findChild<QObject *>("switch-wallet-retry");
+        auto *provider = dialog->findChild<QObject *>("switch-provider-selector");
+        auto *account = dialog->findChild<QObject *>("runtime-account-selector");
+        QVERIFY(retry && provider && account);
+        QVERIFY(QMetaObject::invokeMethod(retry, "clicked"));
+        QCOMPARE(wallet.count(), 1);
+        QVERIFY(provider->setProperty("currentIndex", 0));
+        QVERIFY(QMetaObject::invokeMethod(provider, "activated", Q_ARG(int, 0)));
+        QCOMPARE(preferences->property("writes").toInt(), 0);
+        QCOMPARE(dialog->property("targetProviderId").toString(), QStringLiteral("codex"));
+        // Selecting the already selected Default closes the dialog without a write.
+        QVERIFY(QMetaObject::invokeMethod(account, "activated", Q_ARG(int, 0)));
+        QTRY_VERIFY(!dialog->property("opened").toBool());
+        QCOMPARE(preferences->property("writes").toInt(), 0);
+        QVERIFY(QMetaObject::invokeMethod(dialog.data(), "open"));
+        QTRY_VERIFY(dialog->property("opened").toBool());
+        QVERIFY(account->setProperty("currentIndex", 0));
+        QVERIFY(QMetaObject::invokeMethod(account, "activated", Q_ARG(int, 0)));
+        QCOMPARE(preferences->property("deepseekAccountId").toString(), QString{});
+        QCOMPARE(preferences->property("writes").toInt(), 1);
+        QVERIFY(QMetaObject::invokeMethod(dialog.data(), "open"));
+        QTRY_VERIFY(dialog->property("opened").toBool());
+        auto *settings = dialog->findChild<QObject *>("switch-configure");
+        QVERIFY(settings);
+        QVERIFY(QMetaObject::invokeMethod(settings, "clicked"));
+        QCOMPARE(configure.count(), 1);
+    }
+
+    void retainsSwitchTargetWithoutRetainingUsage()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
+        QQmlEngine engine;
+        QQmlComponent component(
+            &engine, QUrl(QStringLiteral(
+                         "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/UsageNavigation.qml")));
+        QScopedPointer<QObject> navigation(component.create());
+        QVERIFY2(navigation, qPrintable(component.errorString()));
+        const QVariantList catalog{QVariantMap{{"id", "codex"}, {"name", "Codex"}},
+                                   QVariantMap{{"id", "kimi"}, {"name", "Kimi"}}};
+        navigation->setProperty("catalog", catalog);
+        navigation->setProperty(
+            "providers",
+            QVariantList{QVariantMap{{"id", "kimi"}, {"cost", QVariantMap{{"balance", 40}}}}});
+        QVERIFY(QMetaObject::invokeMethod(navigation.data(), "focusProvider",
+                                          Q_ARG(QVariant, QStringLiteral("codex"))));
+        QTRY_COMPARE(navigation->property("selectedProviderId").toString(),
+                     QStringLiteral("codex"));
+        auto selected = navigation->property("selectedProvider").toMap();
+        QVERIFY(selected.value("pendingSelection").toBool());
+        QVERIFY(!selected.contains("cost"));
+        navigation->setProperty("providers",
+                                QVariantList{QVariantMap{{"id", "codex"}, {"fresh", true}}});
+        QTRY_VERIFY(navigation->property("selectedProvider").toMap().value("fresh").toBool());
+        navigation->setProperty("providers", QVariantList{});
+        QTRY_VERIFY(
+            navigation->property("selectedProvider").toMap().value("pendingSelection").toBool());
+        // Explicit navigation wins over queued restoration.
+        QVERIFY(QMetaObject::invokeMethod(navigation.data(), "selectOverview"));
+        QCoreApplication::processEvents();
+        QVERIFY(navigation->property("requestedProviderId").toString().isEmpty());
+        QVERIFY(navigation->property("displayedProviders").toList().isEmpty());
+        QVERIFY(QMetaObject::invokeMethod(navigation.data(), "focusProvider",
+                                          Q_ARG(QVariant, QStringLiteral("codex"))));
+        navigation->setProperty("catalog", QVariantList{});
+        QCoreApplication::processEvents();
+        QVERIFY(navigation->property("requestedProviderId").toString().isEmpty());
+        QVERIFY(navigation->property("selectedProvider").toMap().isEmpty());
     }
 
     void stagesProfileEditsUntilApplied_data()

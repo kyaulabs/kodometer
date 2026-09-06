@@ -63,9 +63,17 @@ PlasmoidItem {
         thresholdPercent: Plasmoid.configuration.quotaNotificationThreshold
     }
 
-    Private.ProviderSelectionModel {
+    AccountSwitching {
+        id: accountSwitching
+        configuration: Plasmoid.configuration
+        accounts: credentialStore.accounts
+        onSelectionApplied: providerId => navigation.focusProvider(providerId)
+    }
+
+    UsageNavigation {
         id: navigation
         providers: backend.providers
+        catalog: accountSwitching.providers
     }
 
     Timer {
@@ -94,6 +102,7 @@ PlasmoidItem {
     }
 
     fullRepresentation: Item {
+        id: fullView
         implicitWidth: Kirigami.Units.gridUnit * 22
         implicitHeight: Kirigami.Units.gridUnit * 34
         Layout.minimumWidth: Kirigami.Units.gridUnit * 18
@@ -111,7 +120,7 @@ PlasmoidItem {
             ProviderTabs {
                 Layout.fillWidth: true
                 visible: providers.length > 0
-                providers: backend.providers
+                providers: navigation.displayedProviders
                 overviewVisible: providers.length > 1
                 selectedIndex: navigation.selectedTabIndex
                 onOverviewSelected: navigation.selectOverview()
@@ -120,20 +129,20 @@ PlasmoidItem {
 
             Kirigami.Separator {
                 Layout.fillWidth: true
-                visible: backend.providers.length > 0
+                visible: navigation.displayedProviders.length > 0
             }
 
             Loader {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                active: backend.providers.length > 0
+                active: navigation.displayedProviders.length > 0
                 sourceComponent: navigation.overviewSelected ? overviewComponent : providerComponent
             }
 
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                visible: backend.providers.length === 0
+                visible: navigation.displayedProviders.length === 0
 
                 Item {
                     Layout.fillHeight: true
@@ -160,9 +169,9 @@ PlasmoidItem {
 
             Kirigami.InlineMessage {
                 Layout.fillWidth: true
-                visible: !backend.profiles.valid && (!backend.disabledProviders.includes("codex")
-                                                     || !backend.disabledProviders.includes(
-                                                         "claude"))
+                visible: !backend.profiles.valid && accountSwitching.providers.some(provider
+                                                                                    => provider.kind
+                                                                                       === "profile")
                 type: Kirigami.MessageType.Error
                 text: backend.profiles.error
             }
@@ -174,8 +183,26 @@ PlasmoidItem {
                 text: backend.error
             }
 
+            Kirigami.InlineMessage {
+                Layout.fillWidth: true
+                visible: accountSwitching.error.length > 0
+                type: Kirigami.MessageType.Error
+                text: accountSwitching.error
+            }
+
             RowLayout {
                 Layout.fillWidth: true
+
+                QQC2.ToolButton {
+                    objectName: "openAccountSwitcher"
+                    icon.name: "user-identity"
+                    text: qsTr("Switch account…")
+                    display: QQC2.AbstractButton.IconOnly
+                    enabled: accountSwitching.providers.length > 0
+                    onClicked: accountDialog.open()
+                    QQC2.ToolTip.text: text
+                    QQC2.ToolTip.visible: hovered
+                }
 
                 QQC2.BusyIndicator {
                     implicitWidth: Kirigami.Units.iconSizes.small
@@ -207,6 +234,15 @@ PlasmoidItem {
                 }
             }
         }
+
+        AccountSwitchDialog {
+            id: accountDialog
+            parent: fullView
+            switching: accountSwitching
+            initialProviderId: navigation.selectedProviderId
+            onWalletRequested: credentialStore.open()
+            onConfigureRequested: Plasmoid.internalAction("configure").trigger()
+        }
     }
 
     Component {
@@ -224,6 +260,8 @@ PlasmoidItem {
 
         ProviderDetails {
             provider: navigation.selectedProvider
+            switching: accountSwitching
+            loading: backend.busy
             clockTick: root.clockTick
             showIdleWindows: Plasmoid.configuration.showIdleWindows
         }

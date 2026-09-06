@@ -27,6 +27,7 @@ Kodometer is under active development. The current release foundation includes:
 - per-widget automatic refresh, provider switches, and idle-window preferences;
 - named Codex, Claude, and Gemini credential profiles, with only the selected profile polled;
 - named DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai accounts in KWallet, with selected-only polling;
+- in-widget profile/account selection, including recovery when usage data is unavailable;
 - opt-in low-quota desktop notifications with duplicate suppression;
 - last-good data retention when a refresh fails;
 - redacted account identity by default;
@@ -174,6 +175,16 @@ Open **Configure Kodometer… → General** to choose which providers run and ho
 
 These preferences use Plasma's per-widget configuration and its Apply, Cancel, and Defaults controls. The separate **Credentials** page writes directly to KWallet when you press Save, Replace, or Remove; Cancel does not undo wallet changes. OAuth credentials and API keys are never stored in the general settings file.
 
+## Switch accounts in the widget
+
+Use the **Profile** or **Account** selector in provider details to choose an existing entry. The footer's **Switch account…** action also works from Overview or when no usage data is available. Its provider list includes enabled providers only. Opening the dialog or choosing a provider does not change configuration, open KWallet, or request usage.
+
+Choosing an account saves the selection immediately for this widget. The selection action does not copy credentials, change another widget's selection, or switch a CLI login. Normal OAuth renewal still applies. Selecting the current entry again does not save or refetch. A changed selection uses the normal refresh cycle and clears that provider's old data. While waiting, the provider view stays accessible with a no-usage placeholder, never the previous account's quota or balance.
+
+Unavailable named wallet entries cannot be selected. Use **Open / retry KWallet** to reload them, or explicitly choose **Default** to restore existing credential discovery. Invalid OAuth profile metadata must be repaired in configuration; the switcher does not discard it. Add, replace, or remove entries through **Configure profiles and accounts…**.
+
+Runtime switches do not wait for Apply and are not undone by Cancel in an open settings dialog. Applying older staged settings can replace the runtime selection. Profile and account names are shown as plain text; the switcher never reads saved keys or team identifiers into its choice list.
+
 ## OAuth profiles
 
 Open **Configure Kodometer… → OAuth profiles** to add an existing credential folder and a nonsecret name, such as Work. Codex folders must contain `auth.json`; Claude folders must contain `.credentials.json`; Gemini folders must contain `oauth_creds.json`. Use **Browse…** or enter an absolute path, then **Add and select** and **Apply**. Kodometer does not sign in, copy credentials, or change the CLI's active login. Codex's existing API-key file form remains supported.
@@ -198,7 +209,7 @@ OpenRouter accounts require an ordinary API key and accept an optional Managemen
 
 Named accounts use only the selected KWallet keys. They ignore environment keys, DeepSeek's compatibility alias, and Kimi's CLI credentials. **Default** restores the existing environment/wallet precedence and Kimi CLI discovery. Only the selected account is polled; applying a selection clears that provider's old data and queues a normal refresh, even with automatic refresh disabled.
 
-Account names, keys, and provider selectors are stored together in KWallet and shared by widgets using that wallet. Saves, key replacements, and removals take effect immediately; Cancel does not undo them. Each widget stores only its selected account UUIDs in Plasma configuration. Selections follow Apply/Cancel/Defaults, and Defaults does not delete wallet entries. The entry fields never reveal saved keys.
+Account names, keys, and provider selectors are stored together in KWallet and shared by widgets using that wallet. Saves, key replacements, and removals take effect immediately; Cancel does not undo them. Each widget stores only its selected account UUIDs in Plasma configuration. Selections made in settings follow Apply/Cancel/Defaults; in-widget switches save immediately. Defaults does not delete wallet entries. The entry fields never reveal saved keys.
 
 A locked or unreadable wallet, malformed account data, or a removed selection pauses providers using named accounts rather than silently choosing another credential. Existing requests may finish, but results from changed keys, selectors, or selections are discarded. Unlock the wallet and press the widget's **Refresh** button to reconnect; use **Open / retry KWallet** in settings to reload its account list. Repair malformed named entries with KWallet Manager. Removing an account leaves affected widgets paused until another account or Default is explicitly selected. Label-only edits and changes to unselected accounts do not refetch; replacing a selected key clears its retained data.
 

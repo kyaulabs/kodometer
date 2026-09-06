@@ -1,6 +1,7 @@
 #include <QDesktopServices>
 #include <QFile>
 #include <QLibrary>
+#include <QPluginLoader>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickItem>
@@ -101,6 +102,14 @@ class AppletConfigurationTest final : public QObject
     void initTestCase()
     {
         QVERIFY2(m_plugin.load(), qPrintable(m_plugin.errorString()));
+    }
+
+    void declaresCompiledAppletMinimum()
+    {
+        QPluginLoader loader(QStringLiteral(KODOMETER_APPLET_LIBRARY));
+        const QJsonObject metadata = loader.metaData().value(QStringLiteral("MetaData")).toObject();
+        QCOMPARE(metadata.value(QStringLiteral("X-Plasma-API-Minimum-Version")).toString(),
+                 QStringLiteral("6.4"));
     }
 
     void exposesConfigurationAtResourceRoot()

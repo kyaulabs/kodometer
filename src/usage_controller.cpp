@@ -221,6 +221,7 @@ void UsageController::adapterSucceeded(ProviderAdapter *adapter, const QVariantM
         m_providerSnapshots.insert(adapter->providerId(), provider);
         m_anySuccess = true;
         rebuildProviders();
+        emit providerRefreshed(provider);
     }
     finishAdapter();
 }

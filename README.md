@@ -24,13 +24,14 @@ Kodometer is under active development. The current release foundation includes:
 - provider tabs, an overview, reset countdowns, and account and plan labels;
 - official dashboard and documentation links from provider details;
 - per-widget automatic refresh, provider switches, and idle-window preferences;
+- opt-in low-quota desktop notifications with duplicate suppression;
 - last-good data retention when a refresh fails;
 - redacted account identity by default;
 - request timeouts, response-size limits, and manual redirect handling;
 - C++ and QML tests with line, function, and branch coverage gates above 95%;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Multi-account controls, expanded cost history, and notifications will follow in reviewable branches.
+Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Multi-account controls and expanded cost history will follow in reviewable branches.
 
 ## Requirements
 
@@ -38,7 +39,7 @@ Runtime:
 
 - KDE Plasma 6.0 or newer;
 - Qt 6.4 or newer;
-- KDE Frameworks 6 Wallet and a configured KDE Wallet service;
+- KDE Frameworks 6 Wallet and Notifications, with a configured KDE Wallet service;
 - a Codex login at `~/.codex/auth.json`, or under `$CODEX_HOME/auth.json`;
 - a Claude login at `~/.claude/.credentials.json`;
 - a Gemini CLI OAuth login at `~/.gemini/oauth_creds.json`;
@@ -123,14 +124,15 @@ Build requirements:
 - a C++20 compiler;
 - Extra CMake Modules;
 - Qt 6 Core, Gui, Network, QML, Quick Test, and development tools;
-- KDE Frameworks 6 Config, CoreAddons, and Wallet;
+- KDE Frameworks 6 Config, CoreAddons, Notifications, and Wallet;
+- `dbus-run-session` for isolated notification integration tests;
 - libplasma and Kirigami.
 
 On Arch Linux:
 
 ```bash
 sudo pacman -S --needed base-devel cmake extra-cmake-modules \
-  kconfig kcoreaddons kirigami kwallet libplasma ninja qt6-declarative
+  dbus kconfig kcoreaddons kirigami knotifications kwallet libplasma ninja qt6-declarative
 ```
 
 ## Build and install
@@ -169,6 +171,16 @@ Open **Configure Kodometer… → General** to choose which providers run and ho
 
 These preferences use Plasma's per-widget configuration and its Apply, Cancel, and Defaults controls. The separate **Credentials** page writes directly to KWallet when you press Save, Replace, or Remove; Cancel does not undo wallet changes. OAuth credentials and API keys are never stored in the general settings file.
 
+## Quota notifications
+
+Notifications are off by default. Enable **Notify when quota is low** in General settings and choose a threshold from 1% to 50% remaining; the default is 10%.
+
+A fresh successful result at or below the threshold produces one alert for that provider. Kodometer uses its most constrained non-idle quota window, including reported spending caps. Balance-only data, failed refreshes, retained snapshots, and invalid percentages do not generate alerts. Invalid active windows also cannot prove recovery.
+
+A provider is rearmed after its valid active quotas recover to at least five percentage points above the threshold. At the default threshold, quota must recover to 15% before another drop to 10% can alert. Results with no usable quota do not rearm the provider. This state is per provider, per widget session; restarting the widget, toggling notifications, or changing the threshold clears it. Settings changes wait for a fresh result rather than replaying cached data.
+
+Alerts contain only a public provider name and the remaining percentage—not account identities, window labels, or credentials. KDE Notifications delivers normal-urgency popups under your desktop notification and Do Not Disturb settings. Delivery is best effort; Kodometer does not retry suppressed or undelivered alerts. The default event has no sound or actions.
+
 ## Provider actions
 
 Provider details include **Open dashboard** and **Documentation** buttons. They open official pages in your default browser only when clicked. Hover over a button to preview its destination. If the desktop cannot launch the page, Kodometer shows an error without changing the usage snapshot.
@@ -196,7 +208,7 @@ shellcheck scripts/*.sh
 scripts/coverage.sh
 ```
 
-The coverage command scans only its freshly instrumented build directory, writes reports to `coverage/`, and fails below 96% for line, function, or branch coverage. QML primitives and general settings controls run through Qt Quick Test in an offscreen session. Applet-enabled builds also test the compiled configuration resources, KConfig persistence, and idle-window presentation without opening a wallet or calling provider APIs.
+The coverage command scans only its freshly instrumented build directory, writes reports to `coverage/`, and fails below 96% for line, function, or branch coverage. QML primitives and general settings controls run through Qt Quick Test in an offscreen session. Applet-enabled builds also test the compiled configuration resources, KConfig persistence, and idle-window presentation without opening a wallet or calling provider APIs. Notification delivery tests run against a fake service on a private D-Bus session, never the desktop's notification service.
 
 Build the release archive and checksum:
 

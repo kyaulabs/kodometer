@@ -47,6 +47,8 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../include/kodometer/provider_adapter.hpp
         ../include/kodometer/provider_selection_model.hpp
         ../include/kodometer/usage_controller.hpp
+        ../include/kodometer/quota_alert_policy.hpp
+        ../include/kodometer/quota_notifier.hpp
         ../src/codex_credentials.cpp
         ../src/codex_provider_adapter.cpp
         ../src/codex_usage_parser.cpp
@@ -78,13 +80,16 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../src/provider_adapter.cpp
         ../src/provider_selection_model.cpp
         ../src/usage_controller.cpp
+        ../src/quota_alert_policy.cpp
+        ../src/quota_notifier.cpp
     GENERATE_APPLET_CLASS
 )
 
 target_include_directories(org.kyaulabs.kodometer PRIVATE ../include ../include/kodometer)
 target_link_libraries(
-    org.kyaulabs.kodometer PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml KF6::Wallet Plasma::Plasma
+    org.kyaulabs.kodometer PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml KF6::Notifications KF6::Wallet Plasma::Plasma
 )
 target_compile_definitions(org.kyaulabs.kodometer PRIVATE KODOMETER_VERSION="${PROJECT_VERSION}")
 target_compile_features(org.kyaulabs.kodometer PRIVATE cxx_std_20)
 kodometer_enable_warnings(org.kyaulabs.kodometer)
+install(FILES kodometer.notifyrc DESTINATION "${KDE_INSTALL_KNOTIFYRCDIR}")

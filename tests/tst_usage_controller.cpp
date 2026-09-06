@@ -113,6 +113,7 @@ class UsageControllerTest final : public QObject
     void filtersDisabledProviders();
     void changesProvidersDuringRefresh();
     void handlesSynchronousCompletion();
+    void publishesOnlyFreshEnabledResults();
 };
 
 void UsageControllerTest::aggregatesProvidersInRegistrationOrder()
@@ -394,6 +395,30 @@ void UsageControllerTest::handlesSynchronousCompletion()
     slow->succeed({{QStringLiteral("id"), QStringLiteral("slow")}});
     QVERIFY(!controller.busy());
     QCOMPARE(controller.error(), QStringLiteral("Immediate: No credential"));
+}
+
+void UsageControllerTest::publishesOnlyFreshEnabledResults()
+{
+    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
+    UsageController controller({codex, claude});
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    const QVariantMap result{{QStringLiteral("id"), QStringLiteral("codex")}};
+    controller.refresh();
+    codex->succeed(result);
+    claude->fail(QStringLiteral("Unavailable"));
+    QCOMPARE(fresh.count(), 1);
+    QCOMPARE(fresh.first().first().toMap(), result);
+    controller.refresh();
+    codex->fail(QStringLiteral("Unavailable"));
+    controller.setDisabledProviders({QStringLiteral("claude")});
+    claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
+    QCOMPARE(fresh.count(), 1);
+    codex->succeed(result); // Unsolicited result before the queued refresh is ignored.
+    QCOMPARE(fresh.count(), 1);
+    QTRY_COMPARE(codex->refreshCount, 3);
+    codex->succeed(result); // Identical, but newly fetched data is still a fresh result.
+    QCOMPARE(fresh.count(), 2);
 }
 
 QTEST_GUILESS_MAIN(UsageControllerTest)

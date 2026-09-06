@@ -44,6 +44,13 @@ PlasmoidItem {
         autoRefresh: Plasmoid.configuration.autoRefresh
         refreshIntervalMinutes: Plasmoid.configuration.refreshIntervalMinutes
         disabledProviders: Plasmoid.configuration.disabledProviders
+        onProviderRefreshed: provider => quotaNotifier.observe(provider)
+    }
+
+    Private.QuotaNotifier {
+        id: quotaNotifier
+        enabled: Plasmoid.configuration.quotaNotifications
+        thresholdPercent: Plasmoid.configuration.quotaNotificationThreshold
     }
 
     Private.ProviderSelectionModel {

@@ -1,3 +1,8 @@
+add_executable(quota-alert-policy-test tst_quota_alert_policy.cpp)
+target_link_libraries(quota-alert-policy-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(quota-alert-policy-test)
+add_test(NAME quota-alert-policy COMMAND quota-alert-policy-test)
+
 add_executable(provider-actions-test tst_provider_actions.cpp)
 target_link_libraries(provider-actions-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(provider-actions-test)
@@ -145,6 +150,18 @@ kodometer_enable_warnings(usage-controller-test)
 add_test(NAME usage-controller COMMAND usage-controller-test)
 
 if(KODOMETER_BUILD_APPLET)
+    find_package(Qt6 6.4 REQUIRED COMPONENTS DBus)
+    find_program(DBUS_RUN_SESSION_EXECUTABLE dbus-run-session REQUIRED)
+    add_executable(quota-notifier-test tst_quota_notifier.cpp
+        ../src/quota_notifier.cpp ../include/kodometer/quota_notifier.hpp)
+    target_link_libraries(quota-notifier-test PRIVATE kodometer-core Qt6::Test Qt6::DBus KF6::Notifications)
+    kodometer_enable_warnings(quota-notifier-test)
+    configure_file(../applet/kodometer.notifyrc
+        notification-data/knotifications6/kodometer.notifyrc COPYONLY)
+    add_test(NAME quota-notifier COMMAND "${DBUS_RUN_SESSION_EXECUTABLE}" -- $<TARGET_FILE:quota-notifier-test>)
+    set_tests_properties(quota-notifier PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;KODOMETER_TEST_PRIVATE_BUS=1;XDG_DATA_DIRS=${CMAKE_CURRENT_BINARY_DIR}/notification-data:/usr/share")
+
     add_executable(applet-configuration-test tst_applet_configuration.cpp)
     target_link_libraries(applet-configuration-test PRIVATE Qt6::Test Qt6::Quick Qt6::Qml KF6::ConfigCore KF6::ConfigGui)
     target_compile_definitions(applet-configuration-test PRIVATE

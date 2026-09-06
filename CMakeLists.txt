@@ -34,7 +34,7 @@ if(KODOMETER_BUILD_APPLET)
     find_package(ECM 6.0 NO_MODULE REQUIRED)
     list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
     include(KDEInstallDirs6)
-    find_package(KF6 6.0 REQUIRED COMPONENTS Config CoreAddons Wallet)
+    find_package(KF6 6.0 REQUIRED COMPONENTS Config CoreAddons Notifications Wallet)
     find_package(Plasma 6.0 REQUIRED)
 endif()
 
@@ -82,6 +82,7 @@ target_sources(kodometer-core
         src/zai_provider_adapter.cpp
         src/zai_usage_parser.cpp
         src/presentation_formatter.cpp
+        src/quota_alert_policy.cpp
         src/provider_actions.cpp
         src/provider_adapter.cpp
         src/provider_selection_model.cpp
@@ -116,6 +117,7 @@ target_sources(kodometer-core
             include/kodometer/zai_provider_adapter.hpp
             include/kodometer/zai_usage_parser.hpp
             include/kodometer/presentation_formatter.hpp
+            include/kodometer/quota_alert_policy.hpp
             include/kodometer/provider_actions.hpp
             include/kodometer/provider_adapter.hpp
             include/kodometer/provider_selection_model.hpp

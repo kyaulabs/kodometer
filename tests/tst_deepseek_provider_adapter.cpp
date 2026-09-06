@@ -100,6 +100,7 @@ class DeepSeekProviderAdapterTest final : public QObject
 
   private slots:
     void fetchesBalance();
+    void namedAccountDoesNotUseEnvironmentOrAliases();
     void reportsCredentialFailures();
     void classifiesHttpFailures_data();
     void classifiesHttpFailures();
@@ -143,6 +144,32 @@ void DeepSeekProviderAdapterTest::fetchesBalance()
     QVERIFY(request.startsWith("GET /user/balance HTTP/1.1\r\n"));
     QVERIFY(request.contains("Authorization: Bearer api-secret\r\n"));
     QVERIFY(request.contains("Accept: application/json\r\n"));
+}
+
+void DeepSeekProviderAdapterTest::namedAccountDoesNotUseEnvironmentOrAliases()
+{
+    HttpServer server;
+    server.enqueue({200, validBalance()});
+    server.enqueue({200, validBalance()});
+    QNetworkAccessManager network;
+    DeepSeekProviderAdapter adapter(&network);
+    adapter.setBaseEndpoint(server.baseUrl());
+    adapter.setEnvironment({{"DEEPSEEK_API_KEY", "environment"}, {"DEEPSEEK_KEY", "alias"}});
+    adapter.setCredentialOverrides({{"DEEPSEEK_API_KEY", "default-wallet"}});
+    QSignalSpy finished(&adapter, &DeepSeekProviderAdapter::refreshFinished);
+    adapter.setAccountCredential(QStringLiteral("named-wallet"));
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 1);
+    QVERIFY(server.requests().first().contains("Authorization: Bearer named-wallet\r\n"));
+    adapter.setAccountCredential(QString{});
+    adapter.refresh();
+    QCOMPARE(finished.count(), 2);
+    QCOMPARE(finished.last().first().toBool(), false);
+    QCOMPARE(server.requests().size(), 1);
+    adapter.setAccountCredential(std::nullopt);
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 3);
+    QVERIFY(server.requests().last().contains("Authorization: Bearer environment\r\n"));
 }
 
 void DeepSeekProviderAdapterTest::reportsCredentialFailures()

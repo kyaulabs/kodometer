@@ -25,6 +25,7 @@ class FakeProviderAdapter final : public ProviderAdapter
     void refresh() override
     {
         ++refreshCount;
+        accountAtRefresh = selectedAccountCredential();
     }
 
     void succeed(const QVariantMap &provider)
@@ -44,6 +45,7 @@ class FakeProviderAdapter final : public ProviderAdapter
 
     int refreshCount = 0;
     int profileChanges = 0;
+    std::optional<QString> accountAtRefresh;
     QString profileDirectory;
 
   private:
@@ -60,6 +62,11 @@ class ControllerCredentialBackend final : public CredentialBackend
     std::optional<QMap<QString, QString>> readSecrets(const QStringList &, QString *) override
     {
         return values;
+    }
+
+    std::optional<QMap<QString, QString>> readAccountEntries(QString *) override
+    {
+        return accountValues;
     }
 
     bool writeSecret(const QString &, const QString &, QString *) override
@@ -83,6 +90,7 @@ class ControllerCredentialBackend final : public CredentialBackend
     }
 
     QMap<QString, QString> values;
+    QMap<QString, QString> accountValues;
 };
 
 class CredentialAwareAdapter final : public ProviderAdapter
@@ -128,6 +136,10 @@ class UsageControllerTest final : public QObject
     void isolatesSelectedProfilesAndInflightResults();
     void blocksMalformedProfilesWithoutBlockingOtherProviders();
     void appliesMultipleContextsAtomicallyAndRenamesWithoutFetching();
+    void isolatesNamedWalletSelectionsAndSecretChanges();
+    void rejectsReentrantWalletChanges_data();
+    void rejectsReentrantWalletChanges();
+    void ignoresUnselectedWalletEditsAndRecoversAfterUnlock();
     void rejectsReentrantContextChanges_data();
     void rejectsReentrantContextChanges();
 };
@@ -573,6 +585,187 @@ void UsageControllerTest::rejectsReentrantContextChanges()
     QVERIFY(changed);
     QVERIFY(controller.providers().isEmpty());
     QCOMPARE(fresh.count(), 0);
+}
+
+void UsageControllerTest::isolatesNamedWalletSelectionsAndSecretChanges()
+{
+    const QString first = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    const QString second = QStringLiteral("22222222-2222-4222-8222-222222222222");
+    auto *wallet = new ControllerCredentialBackend;
+    wallet->accountValues = {
+        {"accounts/deepseek/" + first, R"({"name":"Work","key":"key-one"})"},
+        {"accounts/deepseek/" + second, R"({"name":"Personal","key":"key-two"})"}};
+    auto *store = new CredentialStore(wallet);
+    store->open();
+    wallet->load();
+    auto *deepseek = new FakeProviderAdapter(QStringLiteral("deepseek"));
+    auto *kimi = new FakeProviderAdapter(QStringLiteral("kimi"));
+    UsageController controller({deepseek, kimi});
+    controller.setCredentialStore(store);
+    QCOMPARE(controller.deepseekAccountId(), QString{});
+    QCOMPARE(controller.kimiAccountId(), QString{});
+    controller.setDeepseekAccountId(first);
+    controller.setDeepseekAccountId(first);
+    QCOMPARE(deepseek->refreshCount, 0);
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    controller.refresh();
+    QCOMPARE(*deepseek->accountAtRefresh, QStringLiteral("key-one"));
+    QVERIFY(!kimi->accountAtRefresh);
+    deepseek->succeed({{"id", "deepseek"}});
+    kimi->succeed({{"id", "kimi"}});
+    QCOMPARE(controller.providers().first().toMap().value("accountName").toString(),
+             QStringLiteral("Work"));
+    controller.refresh();
+    controller.setDeepseekAccountId(second);
+    QCOMPARE(controller.providers().size(), 1);
+    QCOMPARE(*deepseek->accountAtRefresh, QStringLiteral("key-one"));
+    deepseek->succeed({{"id", "deepseek"}});
+    kimi->succeed({{"id", "kimi"}});
+    QCOMPARE(fresh.count(), 3); // Only Kimi's old cycle remains eligible.
+    QTRY_COMPARE(deepseek->refreshCount, 3);
+    QCOMPARE(*deepseek->accountAtRefresh, QStringLiteral("key-two"));
+    wallet->accountValues["accounts/deepseek/" + second] =
+        R"({"name":"Personal","key":"replacement"})";
+    wallet->update();
+    deepseek->fail(QStringLiteral("Rejected old key"));
+    kimi->succeed({{"id", "kimi"}});
+    QVERIFY(!controller.error().contains(QStringLiteral("Rejected old key")));
+    QTRY_COMPARE(deepseek->refreshCount, 4);
+    QCOMPARE(*deepseek->accountAtRefresh, QStringLiteral("replacement"));
+    deepseek->succeed({{"id", "deepseek"}});
+    kimi->succeed({{"id", "kimi"}});
+    wallet->accountValues.remove("accounts/deepseek/" + second);
+    wallet->update();
+    QVERIFY(!controller.error().isEmpty());
+    QCOMPARE(controller.providers().size(), 1);
+    QTRY_COMPARE(kimi->refreshCount, 5);
+    QCOMPARE(deepseek->refreshCount, 4);
+    kimi->succeed({{"id", "kimi"}});
+    controller.setKimiAccountId(first); // A DeepSeek UUID cannot resolve as a Kimi credential.
+    controller.refresh();
+    QVERIFY(!controller.busy());
+    QVERIFY(!controller.error().isEmpty());
+    delete store;
+    QCOMPARE(controller.credentialStore(), nullptr);
+    controller.setDeepseekAccountId({});
+    controller.setKimiAccountId({});
+    QTRY_COMPARE(deepseek->refreshCount, 5);
+    QVERIFY(!deepseek->accountAtRefresh);
+    QVERIFY(!kimi->accountAtRefresh);
+}
+
+void UsageControllerTest::rejectsReentrantWalletChanges_data()
+{
+    QTest::addColumn<QString>("change");
+    for (const QString &change :
+         {QStringLiteral("switch"), QStringLiteral("aba"), QStringLiteral("replace"),
+          QStringLiteral("close"), QStringLiteral("disable")}) {
+        QTest::newRow(qPrintable(change)) << change;
+    }
+}
+
+void UsageControllerTest::rejectsReentrantWalletChanges()
+{
+    QFETCH(QString, change);
+    const QString first = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    const QString second = QStringLiteral("22222222-2222-4222-8222-222222222222");
+    auto *wallet = new ControllerCredentialBackend;
+    wallet->accountValues = {{"accounts/kimi/" + first, R"({"name":"Work","key":"one"})"},
+                             {"accounts/kimi/" + second, R"({"name":"Personal","key":"two"})"}};
+    CredentialStore store(wallet);
+    store.open();
+    wallet->load();
+    auto *kimi = new FakeProviderAdapter(QStringLiteral("kimi"));
+    UsageController controller(QList<ProviderAdapter *>{kimi});
+    controller.setAutoRefresh(false);
+    controller.setCredentialStore(&store);
+    controller.setKimiAccountId(first);
+    controller.setKimiAccountId(first);
+    QCOMPARE(controller.kimiAccountId(), first);
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    controller.refresh();
+    bool changed = false;
+    connect(&controller, &UsageController::providersChanged, &controller, [&] {
+        if (changed || controller.providers().isEmpty())
+            return;
+        changed = true;
+        if (change == QLatin1String("replace")) {
+            wallet->accountValues["accounts/kimi/" + first] =
+                R"({"name":"Work","key":"replacement"})";
+            wallet->update();
+        }
+        else if (change == QLatin1String("close")) {
+            emit wallet->closed();
+        }
+        else if (change == QLatin1String("disable")) {
+            controller.setDisabledProviders({QStringLiteral("kimi")});
+        }
+        else {
+            controller.setKimiAccountId(second);
+            if (change == QLatin1String("aba"))
+                controller.setKimiAccountId(first);
+        }
+    });
+    kimi->succeed({{"id", "kimi"}});
+    QCOMPARE(fresh.count(), 0);
+    QVERIFY(controller.providers().isEmpty());
+    if (change == QLatin1String("close") || change == QLatin1String("disable")) {
+        QCoreApplication::processEvents();
+        QCOMPARE(kimi->refreshCount, 1);
+    }
+    else {
+        QTRY_COMPARE(kimi->refreshCount, 2);
+        kimi->succeed({{"id", "kimi"}});
+        QCOMPARE(fresh.count(), 1);
+    }
+}
+
+void UsageControllerTest::ignoresUnselectedWalletEditsAndRecoversAfterUnlock()
+{
+    const QString first = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    const QString second = QStringLiteral("22222222-2222-4222-8222-222222222222");
+    auto *wallet = new ControllerCredentialBackend;
+    wallet->accountValues = {{"accounts/deepseek/" + first, R"({"name":"Work","key":"one"})"}};
+    CredentialStore store(wallet);
+    store.open();
+    wallet->load();
+    auto *deepseek = new FakeProviderAdapter(QStringLiteral("deepseek"));
+    UsageController controller(QList<ProviderAdapter *>{deepseek});
+    controller.setAutoRefresh(false);
+    controller.setDeepseekAccountId(first); // Selection can arrive before the store binding.
+    controller.setCredentialStore(&store);
+    controller.refresh();
+    deepseek->succeed({{"id", "deepseek"}});
+    QSignalSpy contexts(&controller, &UsageController::providerContextChanged);
+    wallet->accountValues.insert("accounts/deepseek/" + second,
+                                 R"({"name":"Personal","key":"two"})");
+    wallet->update();
+    wallet->accountValues["accounts/deepseek/" + first] = R"({"name":"Renamed","key":"one"})";
+    wallet->update();
+    QCOMPARE(contexts.count(), 0);
+    QCOMPARE(controller.providers().size(), 1);
+    QCOMPARE(controller.providers().first().toMap().value("accountName").toString(),
+             QStringLiteral("Renamed"));
+    QCoreApplication::processEvents();
+    QCOMPARE(deepseek->refreshCount, 1);
+    emit wallet->closed();
+    QVERIFY(controller.providers().isEmpty());
+    QVERIFY(!controller.error().isEmpty());
+    QCoreApplication::processEvents();
+    QCOMPARE(deepseek->refreshCount, 1);
+    store.open();
+    wallet->load();
+    QTRY_COMPARE(deepseek->refreshCount, 2);
+    QCOMPARE(*deepseek->accountAtRefresh, QStringLiteral("one"));
+    deepseek->succeed({{"id", "deepseek"}});
+    auto *replacementBackend = new ControllerCredentialBackend;
+    CredentialStore replacement(replacementBackend);
+    controller.setCredentialStore(&replacement);
+    QVERIFY(controller.providers().isEmpty());
+    const qsizetype count = contexts.count();
+    wallet->accountValues.clear();
+    wallet->update();
+    QCOMPARE(contexts.count(), count);
 }
 
 QTEST_GUILESS_MAIN(UsageControllerTest)

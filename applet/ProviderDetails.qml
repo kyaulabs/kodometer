@@ -101,6 +101,15 @@ Flickable {
             wrapMode: Text.WordWrap
         }
 
+        QQC2.Label {
+            objectName: "selectedWalletAccount"
+            Layout.fillWidth: true
+            visible: Boolean(root.provider.accountName)
+            text: qsTr("Account: %1").arg(root.provider.accountName || "")
+            textFormat: Text.PlainText
+            wrapMode: Text.WordWrap
+        }
+
         ProviderActionRow {
             objectName: "providerActionRow"
             Layout.fillWidth: true

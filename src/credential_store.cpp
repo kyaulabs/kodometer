@@ -12,7 +12,7 @@ bool validSecret(const QString &secret)
 } // namespace
 
 CredentialStore::CredentialStore(CredentialBackend *backend, QObject *parent)
-    : QObject(parent), m_backend(backend)
+    : QObject(parent), m_backend(backend), m_accounts(backend, this)
 {
     Q_ASSERT(m_backend != nullptr); // GCOVR_EXCL_BR_LINE -- constructor invariant
     if (m_backend->parent() == nullptr) {
@@ -21,11 +21,19 @@ CredentialStore::CredentialStore(CredentialBackend *backend, QObject *parent)
     connect(m_backend, &CredentialBackend::openFinished, this,
             &CredentialStore::handleOpenFinished);
     connect(m_backend, &CredentialBackend::changed, this, [this] {
+        if (m_backendOpen) {
+            (void)m_accounts.reload();
+        }
         if (m_ready) {
             (void)reload();
         }
     });
     connect(m_backend, &CredentialBackend::closed, this, &CredentialStore::handleClosed);
+}
+
+WalletAccounts *CredentialStore::accounts() noexcept
+{
+    return &m_accounts;
 }
 
 bool CredentialStore::ready() const noexcept
@@ -72,7 +80,11 @@ QStringList CredentialStore::supportedKeys()
 
 void CredentialStore::open()
 {
-    if (m_ready || m_busy) {
+    if (m_ready) {
+        (void)m_accounts.reload();
+        return;
+    }
+    if (m_busy) {
         return;
     }
     setError({});
@@ -183,6 +195,8 @@ bool CredentialStore::reload()
 void CredentialStore::handleOpenFinished(bool success, const QString &error)
 {
     setBusy(false);
+    m_backendOpen = success;
+    m_accounts.setAvailable(success);
     if (!success) {
         setReady(false);
         QString message = error;
@@ -202,6 +216,8 @@ void CredentialStore::handleOpenFinished(bool success, const QString &error)
 
 void CredentialStore::handleClosed()
 {
+    m_backendOpen = false;
+    m_accounts.setAvailable(false);
     setBusy(false);
     setReady(false);
     setSecrets({});

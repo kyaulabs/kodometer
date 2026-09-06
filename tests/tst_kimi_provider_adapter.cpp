@@ -138,6 +138,7 @@ class KimiProviderAdapterTest final : public QObject
 
   private slots:
     void fetchesUsageWithApiKey();
+    void namedAccountNeverFallsBackToCli();
     void reusesCliCredentialWithDeviceIdentity();
     void fallsBackToCliAfterRejectedApiKey();
     void reportsCredentialFailures();
@@ -251,6 +252,39 @@ void KimiProviderAdapterTest::fallsBackToCliAfterRejectedApiKey()
     QCOMPARE(server.requests().size(), 2);
     QVERIFY(server.requests().at(0).contains("Authorization: Bearer bad-key\r\n"));
     QVERIFY(server.requests().at(1).contains("Authorization: Bearer cli-token\r\n"));
+}
+
+void KimiProviderAdapterTest::namedAccountNeverFallsBackToCli()
+{
+    QTemporaryDir temporary;
+    QVERIFY(temporary.isValid());
+    const QString home = temporary.path() + QStringLiteral("/kimi");
+    QVERIFY(!writeCliCredential(home, 1'800'003'600.0).isEmpty());
+    HttpServer server;
+    server.enqueue({401, "{}"});
+    server.enqueue({200, validUsage()});
+    QNetworkAccessManager network;
+    KimiProviderAdapter adapter(&network);
+    adapter.setBaseEndpoint(server.baseUrl());
+    adapter.setEnvironment({{"KIMI_CODE_API_KEY", "environment"}, {"KIMI_CODE_HOME", home}});
+    adapter.setCurrentDateTime(QDateTime::fromSecsSinceEpoch(1'800'000'000, QTimeZone::UTC));
+    QSignalSpy finished(&adapter, &KimiProviderAdapter::refreshFinished);
+    adapter.setAccountCredential(QStringLiteral("named-wallet"));
+    adapter.refresh();
+    adapter.setAccountCredential(
+        std::nullopt); // Closing/switching must not change this request's fallback policy.
+    QTRY_COMPARE(finished.count(), 1);
+    QCOMPARE(finished.last().first().toBool(), false);
+    QCOMPARE(server.requests().size(), 1);
+    QVERIFY(server.requests().first().contains("Authorization: Bearer named-wallet\r\n"));
+    adapter.setAccountCredential(QString{});
+    adapter.refresh();
+    QCOMPARE(finished.count(), 2);
+    QCOMPARE(server.requests().size(), 1);
+    adapter.setAccountCredential(std::nullopt);
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 3);
+    QVERIFY(server.requests().last().contains("Authorization: Bearer environment\r\n"));
 }
 
 void KimiProviderAdapterTest::reportsCredentialFailures()

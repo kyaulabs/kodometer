@@ -13,6 +13,8 @@ plasma_add_applet(org.kyaulabs.kodometer
         config/ConfigCredentials.qml
         config/ConfigGeneral.qml
         config/ConfigProfiles.qml
+        config/ConfigWalletAccounts.qml
+        config/WalletAccountEditor.qml
         config/ProfileEditor.qml
         config.qml
         main.qml
@@ -23,6 +25,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../include/kodometer/codex_provider_adapter.hpp
         ../include/kodometer/codex_usage_parser.hpp
         ../include/kodometer/credential_store.hpp
+        ../include/kodometer/wallet_accounts.hpp
         ../include/kodometer/kwallet_credential_store.hpp
         ../include/kodometer/claude_credentials.hpp
         ../include/kodometer/claude_provider_adapter.hpp
@@ -58,6 +61,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../src/codex_provider_adapter.cpp
         ../src/codex_usage_parser.cpp
         ../src/credential_store.cpp
+        ../src/wallet_accounts.cpp
         ../src/kwallet_credential_store.cpp
         ../src/claude_credentials.cpp
         ../src/claude_provider_adapter.cpp

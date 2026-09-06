@@ -19,6 +19,10 @@ class UsageController : public QObject
     QML_ELEMENT
 
     Q_PROPERTY(Kodometer::OAuthProfiles *profiles READ profiles CONSTANT)
+    Q_PROPERTY(QString deepseekAccountId READ deepseekAccountId WRITE setDeepseekAccountId NOTIFY
+                   accountSelectionChanged)
+    Q_PROPERTY(QString kimiAccountId READ kimiAccountId WRITE setKimiAccountId NOTIFY
+                   accountSelectionChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(QVariantMap snapshot READ snapshot NOTIFY snapshotChanged)
@@ -36,6 +40,10 @@ class UsageController : public QObject
     explicit UsageController(const QList<ProviderAdapter *> &adapters, QObject *parent = nullptr);
 
     [[nodiscard]] OAuthProfiles *profiles() noexcept;
+    [[nodiscard]] QString deepseekAccountId() const;
+    [[nodiscard]] QString kimiAccountId() const;
+    void setDeepseekAccountId(const QString &id);
+    void setKimiAccountId(const QString &id);
     [[nodiscard]] bool busy() const noexcept;
     [[nodiscard]] QString error() const;
     [[nodiscard]] QVariantMap snapshot() const;
@@ -60,12 +68,16 @@ class UsageController : public QObject
     void refreshFinished(bool success);
     void providerRefreshed(const QVariantMap &provider);
     void providerContextChanged(const QString &provider);
+    void accountSelectionChanged();
     void refreshSettingsChanged();
     void disabledProvidersChanged();
 
   private:
     void registerAdapter(ProviderAdapter *adapter);
     void profileSettingsChanged();
+    void setAccountSelection(const QString &provider, const QString &id);
+    [[nodiscard]] QString contextKey(const QString &provider) const;
+    [[nodiscard]] std::optional<QString> selectedAccountKey(const QString &provider) const;
     void queueProfileRefresh();
     void adapterSucceeded(ProviderAdapter *adapter, const QVariantMap &provider);
     void adapterFailed(ProviderAdapter *adapter, const QString &error);
@@ -80,6 +92,7 @@ class UsageController : public QObject
     void setError(const QString &error);
 
     OAuthProfiles m_profiles;
+    QMap<QString, QString> m_accountSelections;
     QMap<QString, QString> m_profileContexts;
     QMap<QString, quint64> m_profileRevisions;
     QMap<ProviderAdapter *, quint64> m_pendingProfileRevisions;

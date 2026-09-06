@@ -2,6 +2,16 @@
 
 namespace Kodometer {
 
+void ProviderAdapter::setAccountCredential(const std::optional<QString> &credential)
+{
+    m_accountCredential = credential;
+}
+
+std::optional<QString> ProviderAdapter::selectedAccountCredential() const
+{
+    return m_accountCredential;
+}
+
 void ProviderAdapter::setCredentialOverrides(const QMap<QString, QString> &overrides)
 {
     m_credentialOverrides = overrides;

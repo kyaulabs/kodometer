@@ -31,6 +31,51 @@ QQuickItem *findVisualItem(QQuickItem *root, const QString &name)
 
 } // namespace
 
+class AccountUiStore final : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool ready MEMBER ready NOTIFY changed)
+    Q_PROPERTY(QString error MEMBER error NOTIFY changed)
+    Q_PROPERTY(QVariantMap providers READ providers NOTIFY changed)
+  public:
+    bool ready = true;
+    QString error;
+    bool failWrites = false;
+    QString savedKey;
+    QString removedId;
+    const QString id = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    QVariantMap records;
+    QVariantMap providers() const
+    {
+        return records;
+    }
+    Q_INVOKABLE QString addAccount(const QString &provider, const QString &name, const QString &key)
+    {
+        if (failWrites)
+            return {};
+        savedKey = key;
+        records.insert(provider, QVariantList{QVariantMap{{"id", id}, {"name", name}}});
+        emit changed();
+        return id;
+    }
+    Q_INVOKABLE bool replaceAccount(const QString &, const QString &, const QString &key)
+    {
+        if (failWrites)
+            return false;
+        savedKey = key;
+        return true;
+    }
+    Q_INVOKABLE bool removeAccount(const QString &provider, const QString &selected)
+    {
+        removedId = selected;
+        records.remove(provider);
+        emit changed();
+        return true;
+    }
+  signals:
+    void changed();
+};
+
 class AppletConfigurationTest final : public QObject
 {
     Q_OBJECT
@@ -63,7 +108,9 @@ class AppletConfigurationTest final : public QObject
         QVERIFY2(object, qPrintable(model.errorString()));
         auto *categories = qobject_cast<QAbstractItemModel *>(object.data());
         QVERIFY(categories);
-        QCOMPARE(categories->rowCount(), 3);
+        QCOMPARE(categories->rowCount(), 4);
+        QVERIFY(loader.property("deepseekAccountId").toString().isEmpty());
+        QVERIFY(loader.property("kimiAccountId").toString().isEmpty());
         const auto roles = categories->roleNames();
         const int sourceRole = roles.key(QByteArray("source"), -1);
         QVERIFY(sourceRole >= 0);
@@ -83,7 +130,7 @@ class AppletConfigurationTest final : public QObject
         {
             KConfig config(path, KConfig::SimpleConfig);
             KConfigLoader loader(KConfigGroup(&config, "Widget"), &schema);
-            QCOMPARE(loader.items().size(), 7);
+            QCOMPARE(loader.items().size(), 9);
             const QVariantMap preferences{
                 {QStringLiteral("autoRefresh"), false},
                 {QStringLiteral("refreshIntervalMinutes"), 15},
@@ -91,6 +138,10 @@ class AppletConfigurationTest final : public QObject
                 {QStringLiteral("showIdleWindows"), true},
                 {QStringLiteral("quotaNotifications"), true},
                 {QStringLiteral("quotaNotificationThreshold"), 20},
+                {QStringLiteral("deepseekAccountId"),
+                 QStringLiteral("11111111-1111-4111-8111-111111111111")},
+                {QStringLiteral("kimiAccountId"),
+                 QStringLiteral("22222222-2222-4222-8222-222222222222")},
                 {QStringLiteral("oauthProfiles"),
                  QStringLiteral(
                      R"({"version":1,"codex":[{"id":"11111111-1111-4111-8111-111111111111","name":"Work","directory":"/profiles/work"}],"selectedCodex":"11111111-1111-4111-8111-111111111111"})")}};
@@ -111,6 +162,10 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(reloaded.property("showIdleWindows").toBool(), true);
         QCOMPARE(reloaded.property("quotaNotifications").toBool(), true);
         QCOMPARE(reloaded.property("quotaNotificationThreshold").toInt(), 20);
+        QCOMPARE(reloaded.property("deepseekAccountId").toString(),
+                 QStringLiteral("11111111-1111-4111-8111-111111111111"));
+        QCOMPARE(reloaded.property("kimiAccountId").toString(),
+                 QStringLiteral("22222222-2222-4222-8222-222222222222"));
         QVERIFY(reloaded.property("oauthProfiles")
                     .toString()
                     .contains(QStringLiteral("/profiles/work")));
@@ -171,6 +226,104 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(liveProfiles->property("configuration").toString(), staged);
         QVERIFY(!backend->property("busy").toBool());
         QVERIFY(!backend->findChild<QTimer *>(QStringLiteral("refreshTimer"))->isActive());
+    }
+
+    void stagesWalletSelectionsButMutatesWalletImmediately()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
+        QQmlEngine engine;
+        AccountUiStore accounts;
+        QQmlComponent backendComponent(&engine);
+        backendComponent.setData(R"(import plasma.applet.org.kyaulabs.kodometer as Private
+            Private.UsageController { autoRefresh: false })",
+                                 QUrl());
+        QScopedPointer<QObject> backend(backendComponent.create());
+        QVERIFY2(backend, qPrintable(backendComponent.errorString()));
+        QQmlComponent component(
+            &engine,
+            QUrl(QStringLiteral(
+                "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ConfigWalletAccounts.qml")));
+        QScopedPointer<QObject> page(component.createWithInitialProperties(
+            {{"accountStore", QVariant::fromValue<QObject *>(&accounts)}, {"width", 340}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        QCOMPARE(page->property("cfg_deepseekAccountId").toString(), QString{});
+        QCOMPARE(page->property("cfg_kimiAccountId").toString(), QString{});
+        auto *name = page->findChild<QObject *>(QStringLiteral("deepseek-wallet-name"));
+        auto *key = page->findChild<QObject *>(QStringLiteral("deepseek-wallet-key"));
+        auto *add = page->findChild<QObject *>(QStringLiteral("deepseek-wallet-add"));
+        auto *replace = page->findChild<QObject *>(QStringLiteral("deepseek-wallet-replace"));
+        auto *remove = page->findChild<QObject *>(QStringLiteral("deepseek-wallet-remove"));
+        auto *selector = page->findChild<QObject *>(QStringLiteral("deepseek-wallet-selector"));
+        QVERIFY(name && key && add && replace && remove && selector);
+        QCOMPARE(key->property("echoMode").toInt(), 2); // TextInput.Password
+        QCOMPARE(key->property("text").toString(), QString{});
+        QVERIFY(!add->property("enabled").toBool());
+        QVERIFY(name->setProperty("text", QStringLiteral("<b>Work</b>")));
+        QVERIFY(key->setProperty("text", QStringLiteral("private-key")));
+        accounts.failWrites = true;
+        QVERIFY(QMetaObject::invokeMethod(add, "clicked"));
+        QCOMPARE(key->property("text").toString(), QStringLiteral("private-key"));
+        accounts.failWrites = false;
+        QVERIFY(QMetaObject::invokeMethod(add, "clicked"));
+        QCOMPARE(accounts.savedKey, QStringLiteral("private-key"));
+        QCOMPARE(key->property("text").toString(), QString{});
+        QCOMPARE(name->property("text").toString(), QString{});
+        QCOMPARE(page->property("cfg_deepseekAccountId").toString(), accounts.id);
+        QCOMPARE(backend->property("deepseekAccountId").toString(), QString{});
+        QCOMPARE(selector->property("count").toInt(), 2);
+        QCOMPARE(selector->property("currentIndex").toInt(), 1);
+        QCOMPARE(selector->property("displayText").toString(), QStringLiteral("<b>Work</b>"));
+        QVERIFY(key->setProperty("text", QStringLiteral("replacement")));
+        QVERIFY(replace->property("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(replace, "clicked"));
+        QCOMPARE(accounts.savedKey, QStringLiteral("replacement"));
+        QCOMPARE(key->property("text").toString(), QString{});
+        const QString staged = page->property("cfg_deepseekAccountId").toString();
+        page.reset(); // Cancel leaves the saved wallet entry but does not select it in the widget.
+        QCOMPARE(accounts.providers().size(), 1);
+        QCOMPARE(backend->property("deepseekAccountId").toString(), QString{});
+        QVERIFY(backend->setProperty("deepseekAccountId", staged)); // Apply.
+        page.reset(component.createWithInitialProperties(
+            {{"accountStore", QVariant::fromValue<QObject *>(&accounts)},
+             {"cfg_deepseekAccountId", staged}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        remove = page->findChild<QObject *>(QStringLiteral("deepseek-wallet-remove"));
+        selector = page->findChild<QObject *>(QStringLiteral("deepseek-wallet-selector"));
+        key = page->findChild<QObject *>(QStringLiteral("deepseek-wallet-key"));
+        QVERIFY(remove && selector && key);
+        QVERIFY(key->setProperty("text", QStringLiteral("draft")));
+        QVERIFY(accounts.setProperty("ready", false));
+        QCOMPARE(key->property("text").toString(), QString{});
+        QVERIFY(!remove->property("enabled").toBool());
+        QVERIFY(accounts.setProperty("ready", true));
+        QVERIFY(QMetaObject::invokeMethod(remove, "clicked"));
+        QCOMPARE(accounts.removedId, staged);
+        QCOMPARE(page->property("cfg_deepseekAccountId").toString(), staged);
+        QCOMPARE(selector->property("displayText").toString(),
+                 QStringLiteral("Selected account unavailable"));
+        QVERIFY(!remove->property("enabled").toBool());
+        QVERIFY(selector->setProperty("currentIndex", 0));
+        QVERIFY(QMetaObject::invokeMethod(selector, "activated", Q_ARG(int, 0)));
+        QCOMPARE(page->property("cfg_deepseekAccountId").toString(), QString{});
+        QVERIFY(!backend->property("busy").toBool());
+    }
+
+    void presentsWalletNamesAsPlainText()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
+        QQmlEngine engine;
+        QQmlComponent component(
+            &engine, QUrl(QStringLiteral(
+                         "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ProviderDetails.qml")));
+        const QVariantMap provider{{QStringLiteral("id"), QStringLiteral("kimi")},
+                                   {QStringLiteral("accountName"), QStringLiteral("<b>Work</b>")}};
+        QScopedPointer<QObject> object(
+            component.createWithInitialProperties({{QStringLiteral("provider"), provider}}));
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *label = object->findChild<QObject *>(QStringLiteral("selectedWalletAccount"));
+        QVERIFY(label);
+        QCOMPARE(label->property("text").toString(), QStringLiteral("Account: <b>Work</b>"));
+        QCOMPARE(label->property("textFormat").toInt(), static_cast<int>(Qt::PlainText));
     }
 
     void propagatesIdleWindowPreference()

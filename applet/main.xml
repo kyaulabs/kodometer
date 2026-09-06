@@ -32,6 +32,14 @@
             <min>1</min>
             <max>50</max>
         </entry>
+        <entry name="deepseekAccountId" type="String">
+            <label>Selected DeepSeek KWallet account UUID; empty uses Default</label>
+            <default></default>
+        </entry>
+        <entry name="kimiAccountId" type="String">
+            <label>Selected Kimi Code KWallet account UUID; empty uses Default</label>
+            <default></default>
+        </entry>
         <entry name="oauthProfiles" type="String">
             <label>Named OAuth credential folders and selected profiles</label>
             <default>{}</default>

@@ -22,6 +22,15 @@ TestCase {
         compare(page.cfg_autoRefresh, true)
         compare(page.cfg_refreshIntervalMinutes, 5)
         compare(page.cfg_showIdleWindows, false)
+        compare(page.cfg_quotaNotifications, false)
+        compare(page.cfg_quotaNotificationThreshold, 10)
+        const threshold = findChild(page, "quotaNotificationThreshold")
+        verify(threshold)
+        compare(threshold.enabled, false)
+        page.cfg_quotaNotifications = true
+        compare(threshold.enabled, true)
+        page.cfg_quotaNotificationThreshold = 20
+        compare(threshold.value, 20)
         compare(page.cfg_disabledProviders.length, 0)
         const interval = findChild(page, "refreshInterval")
         verify(interval)

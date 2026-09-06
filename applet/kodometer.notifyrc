@@ -1,0 +1,9 @@
+[Global]
+Name=Kodometer
+Comment=AI provider usage notifications
+IconName=view-statistics
+
+[Event/lowQuota]
+Name=Low quota
+Comment=A provider has little quota remaining
+Action=Popup

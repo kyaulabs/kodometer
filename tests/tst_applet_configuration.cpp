@@ -51,6 +51,8 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(loader.property("autoRefresh").toBool(), true);
         QCOMPARE(loader.property("refreshIntervalMinutes").toInt(), 5);
         QCOMPARE(loader.property("showIdleWindows").toBool(), false);
+        QCOMPARE(loader.property("quotaNotifications").toBool(), false);
+        QCOMPARE(loader.property("quotaNotificationThreshold").toInt(), 10);
         QVERIFY(loader.property("disabledProviders").toStringList().isEmpty());
 
         QQmlComponent model(&engine, root.resolved(QUrl(QStringLiteral("config.qml"))));
@@ -78,12 +80,14 @@ class AppletConfigurationTest final : public QObject
         {
             KConfig config(path, KConfig::SimpleConfig);
             KConfigLoader loader(KConfigGroup(&config, "Widget"), &schema);
-            QCOMPARE(loader.items().size(), 4);
+            QCOMPARE(loader.items().size(), 6);
             const QVariantMap preferences{
                 {QStringLiteral("autoRefresh"), false},
                 {QStringLiteral("refreshIntervalMinutes"), 15},
                 {QStringLiteral("disabledProviders"), QStringList{QStringLiteral("codex")}},
-                {QStringLiteral("showIdleWindows"), true}};
+                {QStringLiteral("showIdleWindows"), true},
+                {QStringLiteral("quotaNotifications"), true},
+                {QStringLiteral("quotaNotificationThreshold"), 20}};
             for (auto it = preferences.cbegin(); it != preferences.cend(); ++it) {
                 auto *item = loader.findItemByName(it.key());
                 QVERIFY(item);
@@ -99,6 +103,8 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(reloaded.property("disabledProviders").toStringList(),
                  QStringList{QStringLiteral("codex")});
         QCOMPARE(reloaded.property("showIdleWindows").toBool(), true);
+        QCOMPARE(reloaded.property("quotaNotifications").toBool(), true);
+        QCOMPARE(reloaded.property("quotaNotificationThreshold").toInt(), 20);
     }
 
     void propagatesIdleWindowPreference()

@@ -97,6 +97,7 @@ class QuotaAlertPolicyTest final : public QObject
     {
         QTest::addColumn<QVariant>("remaining");
         QTest::newRow("absent") << QVariant();
+        QTest::newRow("typed-null") << QVariant(QMetaType::fromType<double>());
         QTest::newRow("string") << QVariant(QStringLiteral("5"));
         QTest::newRow("bool") << QVariant(false);
         QTest::newRow("negative") << QVariant(-1.0);
@@ -131,6 +132,35 @@ class QuotaAlertPolicyTest final : public QObject
         policy.observe(snapshot(QStringLiteral("unknown"), 0));
         policy.observe({});
         QCOMPARE(alerts.count(), 0);
+    }
+
+    void acceptsNumericRepresentations()
+    {
+        for (const QVariant &number : {QVariant(5), QVariant(5U), QVariant(5LL), QVariant(5ULL),
+                                       QVariant(5.0F), QVariant(5.0)}) {
+            QuotaAlertPolicy policy;
+            policy.setEnabled(true);
+            QSignalSpy alerts(&policy, &QuotaAlertPolicy::alertReady);
+            policy.observe(snapshot(QStringLiteral("codex"), number));
+            QCOMPARE(alerts.count(), 1);
+        }
+    }
+
+    void incompleteWindowsDoNotProveRecovery()
+    {
+        QuotaAlertPolicy policy;
+        policy.setEnabled(true);
+        QSignalSpy alerts(&policy, &QuotaAlertPolicy::alertReady);
+        policy.observe(snapshot(QStringLiteral("codex"), 5));
+        QVariantMap provider = snapshot(QStringLiteral("codex"), 80);
+        QVariantList windows = provider.value(QStringLiteral("windows")).toList();
+        windows.append(
+            QVariantMap{{QStringLiteral("remainingPercent"), QStringLiteral("invalid")}});
+        windows.append(QVariantMap{{QStringLiteral("remainingPercent"), 90}});
+        provider.insert(QStringLiteral("windows"), windows);
+        policy.observe(provider);
+        policy.observe(snapshot(QStringLiteral("codex"), 5));
+        QCOMPARE(alerts.count(), 1);
     }
 
     void recognizesNativeProviders()

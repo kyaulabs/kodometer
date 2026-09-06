@@ -55,6 +55,7 @@ class UsageController : public QObject
     void providersChanged();
     void credentialStoreChanged();
     void refreshFinished(bool success);
+    void providerRefreshed(const QVariantMap &provider);
     void refreshSettingsChanged();
     void disabledProvidersChanged();
 

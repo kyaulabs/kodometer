@@ -11,6 +11,8 @@ Kirigami.FormLayout {
     property alias cfg_refreshIntervalMinutes: refreshInterval.value
     property alias cfg_showIdleWindows: idleWindows.checked
     property var cfg_disabledProviders: []
+    property alias cfg_quotaNotifications: notifications.checked
+    property alias cfg_quotaNotificationThreshold: notificationThreshold.value
 
     QQC2.CheckBox {
         id: automatic
@@ -35,6 +37,23 @@ Kirigami.FormLayout {
         objectName: "showIdleWindows"
         Kirigami.FormData.label: qsTr("Display:")
         text: qsTr("Show idle quota windows")
+    }
+
+    QQC2.CheckBox {
+        id: notifications
+        Kirigami.FormData.label: qsTr("Notifications:")
+        text: qsTr("Notify when quota is low")
+    }
+
+    QQC2.SpinBox {
+        id: notificationThreshold
+        objectName: "quotaNotificationThreshold"
+        Kirigami.FormData.label: qsTr("Remaining quota (%):")
+        from: 1
+        to: 50
+        value: 10
+        editable: true
+        enabled: notifications.checked
     }
 
     Repeater {

@@ -21,6 +21,7 @@ Kodometer is under active development. The current release foundation includes:
 - DeepSeek account balance with paid and granted credit breakdowns;
 - z.ai and BigModel CN Coding Plan, MCP, model-token, and account-balance data;
 - OpenRouter credit balance, API-key spending cap, and optional 30-day activity totals;
+- 7-day and 30-day daily spend charts for xAI and OpenRouter;
 - provider tabs, an overview, reset countdowns, and account and plan labels;
 - official dashboard and documentation links from provider details;
 - per-widget automatic refresh, provider switches, and idle-window preferences;
@@ -31,7 +32,7 @@ Kodometer is under active development. The current release foundation includes:
 - C++ and QML tests with line, function, and branch coverage gates above 95%;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Multi-account controls and expanded cost history will follow in reviewable branches.
+Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Multi-account controls will follow in a reviewable branch.
 
 ## Requirements
 
@@ -170,6 +171,16 @@ Open **Configure Kodometer… → General** to choose which providers run and ho
 - **Show idle quota windows** is off by default. Enable it to include windows marked idle in the overview, provider details, and account summaries.
 
 These preferences use Plasma's per-widget configuration and its Apply, Cancel, and Defaults controls. The separate **Credentials** page writes directly to KWallet when you press Save, Replace, or Remove; Cancel does not undo wallet changes. OAuth credentials and API keys are never stored in the general settings file.
+
+## Cost history
+
+Provider details show **Daily spend (USD)** when xAI or OpenRouter returns daily history. Choose 7 or 30 days; the range selector changes only the view and does not fetch data or persist a preference. Click a bar, or focus it with Tab and press Space, to read that day's amount. Hover and keyboard focus also expose date-and-amount tooltips.
+
+The chart uses UTC calendar days anchored to the snapshot. xAI includes the incomplete day when the refresh started; OpenRouter ends on the preceding completed day. Refreshes keep one date window even if their requests cross midnight. Retained snapshots keep their original dates rather than sliding forward with the clock.
+
+Only explicitly reported daily amounts contribute to the chart's total. Missing days say **Not reported**, not `$0.00`; a positive amount below one cent says **<$0.01**. Partial history, unreported days, incomplete days, and provider estimates have visible notes. Provider-level partial and estimated flags apply to both ranges. Daily sums can differ from other billing figures, which may cover different periods or scopes.
+
+The chart uses existing adapter results—no extra requests, credential access, billing-data files, or Qt Charts dependency. Invalid history hides the chart without hiding valid balances. Providers that expose only balances or quota do not get a synthetic spend history.
 
 ## Quota notifications
 

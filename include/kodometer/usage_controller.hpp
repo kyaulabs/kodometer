@@ -25,6 +25,8 @@ class UsageController : public QObject
                    NOTIFY accountSelectionChanged)
     Q_PROPERTY(
         QString xaiAccountId READ xaiAccountId WRITE setXaiAccountId NOTIFY accountSelectionChanged)
+    Q_PROPERTY(
+        QString zaiAccountId READ zaiAccountId WRITE setZaiAccountId NOTIFY accountSelectionChanged)
     Q_PROPERTY(QString kimiAccountId READ kimiAccountId WRITE setKimiAccountId NOTIFY
                    accountSelectionChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
@@ -49,6 +51,8 @@ class UsageController : public QObject
     [[nodiscard]] QString openrouterAccountId() const;
     [[nodiscard]] QString xaiAccountId() const;
     void setXaiAccountId(const QString &id);
+    [[nodiscard]] QString zaiAccountId() const;
+    void setZaiAccountId(const QString &id);
     void setOpenrouterAccountId(const QString &id);
     void setDeepseekAccountId(const QString &id);
     void setKimiAccountId(const QString &id);
@@ -88,6 +92,7 @@ class UsageController : public QObject
     [[nodiscard]] std::optional<QString> selectedAccountKey(const QString &provider) const;
     [[nodiscard]] QString selectedAccountManagementKey(const QString &provider) const;
     [[nodiscard]] QString selectedAccountTeamId(const QString &provider) const;
+    [[nodiscard]] QVariantMap selectedAccountZaiOptions(const QString &provider) const;
     void queueProfileRefresh();
     void adapterSucceeded(ProviderAdapter *adapter, const QVariantMap &provider);
     void adapterFailed(ProviderAdapter *adapter, const QString &error);

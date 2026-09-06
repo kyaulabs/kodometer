@@ -3,6 +3,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QRegularExpression>
+
+#include <algorithm>
 
 #if defined(Q_OS_UNIX)
 #include <unistd.h>
@@ -106,6 +109,57 @@ std::optional<QString> credentialFile(const QString &path, QString *error)
 }
 
 } // namespace
+
+bool ZaiCredentialResolver::validAccountOptions(const QVariantMap &options)
+{
+    for (const QVariant &value : options) {
+        if (value.metaType().id() != QMetaType::QString)
+            return false;
+    }
+    const QString region = options.value(QStringLiteral("region")).toString();
+    const QString scope = options.value(QStringLiteral("scope")).toString();
+    if (region != QLatin1String("global") && region != QLatin1String("bigmodel-cn"))
+        return false;
+    if (scope == QLatin1String("personal"))
+        return options.size() == 2;
+    if (scope != QLatin1String("team") || options.size() != 4)
+        return false;
+    static const QRegularExpression identifier(QStringLiteral("\\A[A-Za-z0-9_-]{1,256}\\z"));
+    const QString organization = options.value(QStringLiteral("organizationId")).toString();
+    const QString project = options.value(QStringLiteral("projectId")).toString();
+    const bool validOrganization = identifier.match(organization).hasMatch();
+    const bool validProject = identifier.match(project).hasMatch();
+    return validOrganization && validProject;
+}
+
+std::optional<ZaiCredentials>
+ZaiCredentialResolver::resolveNamed(const QString &key, const QVariantMap &options, QString *error)
+{
+    if (key.isEmpty() || key.size() > 65536 || !std::all_of(key.cbegin(), key.cend(), [](QChar ch) {
+            return ch.unicode() >= 0x21 && ch.unicode() <= 0x7e;
+        })) {
+        setError(error, QStringLiteral("Selected z.ai account has an invalid API key"));
+        return std::nullopt;
+    }
+    if (!validAccountOptions(options)) {
+        setError(error,
+                 QStringLiteral("Selected z.ai account has invalid region or scope settings"));
+        return std::nullopt;
+    }
+    ZaiCredentials credentials;
+    credentials.apiKey = key;
+    credentials.source = ZaiCredentialSource::WalletAccount;
+    credentials.region =
+        options.value(QStringLiteral("region")).toString() == QLatin1String("bigmodel-cn")
+            ? ZaiRegion::BigModelChina
+            : ZaiRegion::Global;
+    credentials.scope = options.value(QStringLiteral("scope")).toString() == QLatin1String("team")
+                            ? ZaiUsageScope::Team
+                            : ZaiUsageScope::Personal;
+    credentials.organizationId = options.value(QStringLiteral("organizationId")).toString();
+    credentials.projectId = options.value(QStringLiteral("projectId")).toString();
+    return credentials;
+}
 
 std::optional<ZaiCredentials>
 ZaiCredentialResolver::resolve(const QMap<QString, QString> &environment,

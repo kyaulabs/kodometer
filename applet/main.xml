@@ -44,6 +44,10 @@
             <label>Selected OpenRouter KWallet account UUID; empty uses Default</label>
             <default></default>
         </entry>
+        <entry name="zaiAccountId" type="String">
+            <label>Selected z.ai KWallet account UUID; empty uses Default</label>
+            <default></default>
+        </entry>
         <entry name="xaiAccountId" type="String">
             <label>Selected xAI KWallet account UUID; empty uses Default</label>
             <default></default>

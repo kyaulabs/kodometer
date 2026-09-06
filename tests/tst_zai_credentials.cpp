@@ -25,6 +25,7 @@ class ZaiCredentialsTest final : public QObject
     Q_OBJECT
 
   private slots:
+    void validatesNamedCredentialsWithoutDiscovery();
     void resolvesGlobalCredential();
     void resolvesChinaAliasesInOrder();
     void resolvesSecureChinaCredentialFile();
@@ -32,6 +33,41 @@ class ZaiCredentialsTest final : public QObject
     void validatesRegionScopeAndTeamContext();
     void rejectsMissingAndUnsafeTokens();
 };
+
+void ZaiCredentialsTest::validatesNamedCredentialsWithoutDiscovery()
+{
+    const QVariantMap personal{{"region", "global"}, {"scope", "personal"}};
+    QString error;
+    for (const QString &key : {QString{}, QString(65537, 'x'), QStringLiteral("bad key"),
+                               QStringLiteral("bad\nkey"), QStringLiteral("bad\u00e9key")}) {
+        QVERIFY(!ZaiCredentialResolver::resolveNamed(key, personal, &error));
+        QVERIFY(!error.isEmpty());
+    }
+    auto credentials = ZaiCredentialResolver::resolveNamed(QString(65536, 'x'), personal);
+    QVERIFY(credentials);
+    QCOMPARE(credentials->source, ZaiCredentialSource::WalletAccount);
+    QCOMPARE(credentials->scope, ZaiUsageScope::Personal);
+    QCOMPARE(credentials->region, ZaiRegion::Global);
+    QVERIFY(credentials->organizationId.isEmpty());
+    const QVariantMap team{{"region", "bigmodel-cn"},
+                           {"scope", "team"},
+                           {"organizationId", QString(256, 'a')},
+                           {"projectId", "project_1"}};
+    credentials = ZaiCredentialResolver::resolveNamed("key", team);
+    QVERIFY(credentials);
+    QCOMPARE(credentials->region, ZaiRegion::BigModelChina);
+    QCOMPARE(credentials->scope, ZaiUsageScope::Team);
+    QCOMPARE(credentials->organizationId, QString(256, 'a'));
+    for (const QVariantMap &options : QList<QVariantMap>{
+             {},
+             {{"region", "global"}, {"scope", "unknown"}},
+             {{"region", "unknown"}, {"scope", "personal"}},
+             {{"region", true}, {"scope", "personal"}},
+             {{"region", "global"}, {"scope", "team"}, {"organizationId", "org"}, {"extra", "x"}},
+             {{"region", "global"}, {"scope", "personal"}, {"extra", "x"}}}) {
+        QVERIFY(!ZaiCredentialResolver::resolveNamed("key", options, &error));
+    }
+}
 
 void ZaiCredentialsTest::resolvesGlobalCredential()
 {

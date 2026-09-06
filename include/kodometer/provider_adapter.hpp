@@ -23,7 +23,8 @@ class ProviderAdapter : public QObject
 
     void setCredentialOverrides(const QMap<QString, QString> &overrides);
     void setAccountCredential(const std::optional<QString> &credential,
-                              const QString &managementCredential = {}, const QString &teamId = {});
+                              const QString &managementCredential = {}, const QString &teamId = {},
+                              const QVariantMap &zaiOptions = {});
 
   signals:
     void refreshSucceeded(const QVariantMap &provider);
@@ -33,6 +34,7 @@ class ProviderAdapter : public QObject
     [[nodiscard]] std::optional<QString> selectedAccountCredential() const;
     [[nodiscard]] QString selectedAccountManagementCredential() const;
     [[nodiscard]] QString selectedAccountTeamId() const;
+    [[nodiscard]] QVariantMap selectedAccountZaiOptions() const;
     [[nodiscard]] QMap<QString, QString>
     environmentWithCredentialOverrides(const QMap<QString, QString> &environment) const;
 
@@ -41,6 +43,7 @@ class ProviderAdapter : public QObject
     std::optional<QString> m_accountCredential;
     QString m_accountManagementCredential;
     QString m_accountTeamId;
+    QVariantMap m_accountZaiOptions;
 };
 
 } // namespace Kodometer

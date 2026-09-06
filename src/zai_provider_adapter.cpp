@@ -119,8 +119,12 @@ void ZaiProviderAdapter::refresh()
     m_pendingProvider.clear();
 
     QString credentialError;
-    const auto credentials = ZaiCredentialResolver::resolve(
-        environmentWithCredentialOverrides(m_environment), m_homeDirectory, &credentialError);
+    const auto named = selectedAccountCredential();
+    const auto credentials =
+        named ? ZaiCredentialResolver::resolveNamed(*named, selectedAccountZaiOptions(),
+                                                    &credentialError)
+              : ZaiCredentialResolver::resolve(environmentWithCredentialOverrides(m_environment),
+                                               m_homeDirectory, &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;

@@ -28,6 +28,7 @@ class FakeProviderAdapter final : public ProviderAdapter
         accountAtRefresh = selectedAccountCredential();
         managementAtRefresh = selectedAccountManagementCredential();
         teamAtRefresh = selectedAccountTeamId();
+        zaiAtRefresh = selectedAccountZaiOptions();
     }
 
     void succeed(const QVariantMap &provider)
@@ -50,6 +51,7 @@ class FakeProviderAdapter final : public ProviderAdapter
     std::optional<QString> accountAtRefresh;
     QString managementAtRefresh;
     QString teamAtRefresh;
+    QVariantMap zaiAtRefresh;
     QString profileDirectory;
 
   private:
@@ -143,6 +145,7 @@ class UsageControllerTest final : public QObject
     void isolatesNamedWalletSelectionsAndSecretChanges();
     void isolatesOpenRouterManagementChanges();
     void isolatesXaiTeamChanges();
+    void isolatesZaiSelectorChanges();
     void rejectsReentrantWalletChanges_data();
     void rejectsReentrantWalletChanges();
     void ignoresUnselectedWalletEditsAndRecoversAfterUnlock();
@@ -866,6 +869,76 @@ void UsageControllerTest::isolatesXaiTeamChanges()
     QTRY_COMPARE(adapter->refreshCount, 5);
     QVERIFY(!adapter->accountAtRefresh);
     QVERIFY(adapter->teamAtRefresh.isEmpty());
+}
+
+void UsageControllerTest::isolatesZaiSelectorChanges()
+{
+    const QString id = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    const QString entry = "accounts/zai/" + id;
+    auto *wallet = new ControllerCredentialBackend;
+    const QVariantMap initial{{"region", "global"},
+                              {"scope", "team"},
+                              {"organizationId", "org-a"},
+                              {"projectId", "project-a"}};
+    const auto record = [](const QVariantMap &options) {
+        return QString::fromUtf8(
+            QJsonDocument(QJsonObject{{"name", "Work"},
+                                      {"key", "key"},
+                                      {"zai", QJsonObject::fromVariantMap(options)}})
+                .toJson(QJsonDocument::Compact));
+    };
+    wallet->accountValues = {{entry, record(initial)}};
+    CredentialStore store(wallet);
+    store.open();
+    wallet->load();
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("zai"));
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setAutoRefresh(false);
+    controller.setCredentialStore(&store);
+    QVERIFY(controller.zaiAccountId().isEmpty());
+    controller.setZaiAccountId(id);
+    QCOMPARE(controller.zaiAccountId(), id);
+    QCOMPARE(adapter->refreshCount, 0);
+    controller.refresh();
+    QCOMPARE(*adapter->accountAtRefresh, QStringLiteral("key"));
+    QCOMPARE(adapter->zaiAtRefresh, initial);
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    for (const QString &field : initial.keys()) {
+        adapter->succeed({{"id", "zai"}});
+        QVERIFY(!controller.providers().isEmpty());
+        controller.refresh();
+        const int before = adapter->refreshCount;
+        QVariantMap next = initial;
+        if (field == QLatin1String("region"))
+            next[field] = "bigmodel-cn";
+        else if (field == QLatin1String("scope"))
+            next = {{"region", "global"}, {"scope", "personal"}};
+        else
+            next[field] = "changed";
+        wallet->accountValues[entry] = record(next);
+        wallet->update();
+        QVERIFY(controller.providers().isEmpty());
+        wallet->accountValues[entry] = record(initial);
+        wallet->update();
+        const auto count = fresh.count();
+        adapter->succeed({{"id", "zai"}});
+        QCOMPARE(fresh.count(), count);
+        QTRY_COMPARE(adapter->refreshCount, before + 1);
+        wallet->accountValues[entry] = record(next);
+        wallet->update();
+        adapter->fail(QStringLiteral("old selector failure"));
+        QVERIFY(!controller.error().contains("old selector failure"));
+        QTRY_COMPARE(adapter->refreshCount, before + 2);
+        QCOMPARE(adapter->zaiAtRefresh, next);
+        adapter->succeed({{"id", "zai"}});
+        wallet->accountValues[entry] = record(initial);
+        wallet->update();
+        QTRY_COMPARE(adapter->refreshCount, before + 3);
+    }
+    adapter->succeed({{"id", "zai"}});
+    controller.setZaiAccountId({});
+    QTRY_VERIFY(!adapter->accountAtRefresh);
+    QVERIFY(adapter->zaiAtRefresh.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(UsageControllerTest)

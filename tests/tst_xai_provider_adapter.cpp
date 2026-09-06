@@ -144,6 +144,7 @@ class XaiProviderAdapterTest final : public QObject
 
   private slots:
     void fetchesBalanceAndDailyUsage();
+    void isolatesNamedKeyAndTeam();
     void preservesBalanceWhenHistoryIsUnavailable();
     void reportsCredentialFailures();
     void classifiesBalanceHttpFailures();
@@ -211,6 +212,50 @@ void XaiProviderAdapterTest::fetchesBalanceAndDailyUsage()
              10.0);
     QVERIFY(adapter.error().isEmpty());
     QVERIFY(!adapter.busy());
+}
+
+void XaiProviderAdapterTest::isolatesNamedKeyAndTeam()
+{
+    HttpServer server;
+    for (int i = 0; i < 3; ++i) {
+        server.enqueue({200, R"({"total":{"val":"-1000"}})"});
+        server.enqueue({200, usagePayload()});
+    }
+    QNetworkAccessManager network;
+    XaiProviderAdapter adapter(&network);
+    configure(adapter, server);
+    adapter.setCredentialOverrides({{"XAI_MANAGEMENT_API_KEY", "default-wallet"}});
+    QSignalSpy finished(&adapter, &XaiProviderAdapter::refreshFinished);
+    adapter.setAccountCredential(QStringLiteral("named-key"), {}, QStringLiteral("named-team"));
+    adapter.refresh();
+    adapter.setAccountCredential(QStringLiteral("next-key"), {}, QStringLiteral("next-team"));
+    QTRY_COMPARE(finished.count(), 1);
+    QCOMPARE(server.requests.size(), 2);
+    QCOMPARE(server.requests.at(0).path,
+             QByteArray("/v1/billing/teams/named-team/prepaid/balance"));
+    QCOMPARE(server.requests.at(1).path, QByteArray("/v1/billing/teams/named-team/usage"));
+    QCOMPARE(server.requests.at(0).headers.value("authorization"), QByteArray("Bearer named-key"));
+    QCOMPARE(server.requests.at(1).headers.value("authorization"), QByteArray("Bearer named-key"));
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 2);
+    QCOMPARE(server.requests.at(2).path, QByteArray("/v1/billing/teams/next-team/prepaid/balance"));
+    QCOMPARE(server.requests.at(3).headers.value("authorization"), QByteArray("Bearer next-key"));
+    adapter.setAccountCredential(QStringLiteral("named"));
+    adapter.refresh();
+    QCOMPARE(finished.count(), 3);
+    QCOMPARE(finished.last().first().toBool(), false);
+    adapter.setAccountCredential(QString{}, {}, QStringLiteral("named-team"));
+    adapter.refresh();
+    QCOMPARE(finished.count(), 4);
+    QCOMPARE(finished.last().first().toBool(), false);
+    QCOMPARE(server.requests.size(), 4);
+    adapter.setAccountCredential(std::nullopt);
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 5);
+    QCOMPARE(server.requests.size(), 6);
+    QCOMPARE(server.requests.at(4).path, QByteArray("/v1/billing/teams/team-1234/prepaid/balance"));
+    QCOMPARE(server.requests.at(5).headers.value("authorization"),
+             QByteArray("Bearer management-key"));
 }
 
 void XaiProviderAdapterTest::preservesBalanceWhenHistoryIsUnavailable()

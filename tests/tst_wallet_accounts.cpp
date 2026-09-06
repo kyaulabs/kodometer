@@ -95,7 +95,7 @@ class WalletAccountsTest final : public QObject
         store.open();
         QVERIFY(accounts->ready());
         QVERIFY(accounts->error().isEmpty());
-        QCOMPARE(accounts->providers().size(), 3);
+        QCOMPARE(accounts->providers().size(), 4);
         QSignalSpy changed(accounts, &WalletAccounts::changed);
         const QString id = accounts->addAccount("deepseek", " Work ", " key-one ");
         QVERIFY(!id.isEmpty());
@@ -140,7 +140,7 @@ class WalletAccountsTest final : public QObject
         CredentialStore store(backend);
         store.open();
         auto *accounts = store.accounts();
-        QVERIFY(accounts->addAccount("xai", "Work", "key").isEmpty());
+        QVERIFY(accounts->addAccount("zai", "Work", "key").isEmpty());
         for (const auto &pair : QList<QPair<QString, QString>>{{"", "key"},
                                                                {QString(65, 'a'), "key"},
                                                                {"Bad\nName", "key"},
@@ -219,7 +219,7 @@ class WalletAccountsTest final : public QObject
         auto *backend = new AccountBackend;
         CredentialStore store(backend);
         store.open();
-        for (int count : {2, 9, 25}) {
+        for (int count : {2, 9, 33}) {
             backend->values.clear();
             for (int i = 0; i < count; ++i) {
                 const QString id =
@@ -294,6 +294,40 @@ class WalletAccountsTest final : public QObject
         QVERIFY(accounts->addAccount("openrouter", "Nine", "key").isEmpty());
     }
 
+    void storesXaiKeyAndTeamTogether()
+    {
+        auto *backend = new AccountBackend;
+        CredentialStore store(backend);
+        store.open();
+        auto *accounts = store.accounts();
+        QVERIFY(WalletAccounts::isAccountEntry("accounts/xai/" + Id));
+        const QString id = accounts->addAccount("xai", "Work", "management-key", {}, " team-123 ");
+        QVERIFY(!id.isEmpty());
+        QCOMPARE(backend->values.size(), 1);
+        QCOMPARE(*accounts->key("xai", id), QStringLiteral("management-key"));
+        QCOMPARE(accounts->teamId("xai", id), QStringLiteral("team-123"));
+        QCOMPARE(accounts->metaObject()->indexOfMethod("teamId(QString,QString)"), -1);
+        QCOMPARE(accounts->entries("xai").first().toMap().size(), 2);
+        QVERIFY(accounts->replaceAccount("xai", id, "replacement", {}, "team-456"));
+        QCOMPARE(accounts->teamId("xai", id), QStringLiteral("team-456"));
+        for (const QString &team :
+             {QString{}, QStringLiteral(".."), QStringLiteral("a/b"), QStringLiteral("a\\b"),
+              QStringLiteral("%2f"), QStringLiteral("bad\nteam"), QStringLiteral("bad team"),
+              QStringLiteral("bad\u00e9team"), QString(257, 'x')}) {
+            QVERIFY(!accounts->replaceAccount("xai", id, "key", {}, team));
+            QCOMPARE(accounts->teamId("xai", id), QStringLiteral("team-456"));
+        }
+        QVERIFY(accounts->addAccount("xai", "Wrong", "key", "extra-management", "team").isEmpty());
+        QVERIFY(accounts->addAccount("deepseek", "Wrong", "key", {}, "team").isEmpty());
+        QVERIFY(accounts->addAccount("xai", "Missing", "key").isEmpty());
+        backend->close();
+        QVERIFY(accounts->teamId("xai", id).isEmpty());
+        store.open();
+        QCOMPARE(accounts->teamId("xai", id), QStringLiteral("team-456"));
+        QVERIFY(accounts->removeAccount("xai", id));
+        QVERIFY(accounts->teamId("xai", id).isEmpty());
+    }
+
     void rejectsMalformedStoredAccounts_data()
     {
         QTest::addColumn<QString>("walletKey");
@@ -310,6 +344,20 @@ class WalletAccountsTest final : public QObject
         QTest::newRow("bad-name") << key << entry("Bad\nName");
         QTest::newRow("large") << key << QString(262145, ' ');
         QTest::newRow("bad-id") << QStringLiteral("accounts/deepseek/default") << entry();
+        const QString xai = "accounts/xai/" + Id;
+        QTest::newRow("xai-no-team") << xai << entry();
+        QTest::newRow("xai-team-type")
+            << xai << QStringLiteral(R"({"name":"Work","key":"key","teamId":2})");
+        QTest::newRow("xai-empty-team")
+            << xai << QStringLiteral(R"({"name":"Work","key":"key","teamId":""})");
+        QTest::newRow("xai-invalid-team")
+            << xai << QStringLiteral(R"({"name":"Work","key":"key","teamId":"../other"})");
+        QTest::newRow("xai-extra")
+            << xai
+            << QStringLiteral(
+                   R"({"name":"Work","key":"key","teamId":"team","managementKey":"extra"})");
+        QTest::newRow("unsupported-team")
+            << key << QStringLiteral(R"({"name":"Work","key":"key","teamId":"team"})");
         const QString router = "accounts/openrouter/" + Id;
         QTest::newRow("router-large") << router << QString(384 * 1024 + 1, ' ');
         QTest::newRow("management-type")

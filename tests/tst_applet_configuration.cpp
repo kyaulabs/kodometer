@@ -42,6 +42,7 @@ class AccountUiStore final : public QObject
     QString error;
     bool failWrites = false;
     QString savedKey;
+    QString savedManagement;
     QString removedId;
     const QString id = QStringLiteral("11111111-1111-4111-8111-111111111111");
     QVariantMap records;
@@ -49,20 +50,24 @@ class AccountUiStore final : public QObject
     {
         return records;
     }
-    Q_INVOKABLE QString addAccount(const QString &provider, const QString &name, const QString &key)
+    Q_INVOKABLE QString addAccount(const QString &provider, const QString &name, const QString &key,
+                                   const QString &management = {})
     {
         if (failWrites)
             return {};
         savedKey = key;
+        savedManagement = management;
         records.insert(provider, QVariantList{QVariantMap{{"id", id}, {"name", name}}});
         emit changed();
         return id;
     }
-    Q_INVOKABLE bool replaceAccount(const QString &, const QString &, const QString &key)
+    Q_INVOKABLE bool replaceAccount(const QString &, const QString &, const QString &key,
+                                    const QString &management = {})
     {
         if (failWrites)
             return false;
         savedKey = key;
+        savedManagement = management;
         return true;
     }
     Q_INVOKABLE bool removeAccount(const QString &provider, const QString &selected)
@@ -111,6 +116,7 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(categories->rowCount(), 4);
         QVERIFY(loader.property("deepseekAccountId").toString().isEmpty());
         QVERIFY(loader.property("kimiAccountId").toString().isEmpty());
+        QVERIFY(loader.property("openrouterAccountId").toString().isEmpty());
         const auto roles = categories->roleNames();
         const int sourceRole = roles.key(QByteArray("source"), -1);
         QVERIFY(sourceRole >= 0);
@@ -130,7 +136,7 @@ class AppletConfigurationTest final : public QObject
         {
             KConfig config(path, KConfig::SimpleConfig);
             KConfigLoader loader(KConfigGroup(&config, "Widget"), &schema);
-            QCOMPARE(loader.items().size(), 9);
+            QCOMPARE(loader.items().size(), 10);
             const QVariantMap preferences{
                 {QStringLiteral("autoRefresh"), false},
                 {QStringLiteral("refreshIntervalMinutes"), 15},
@@ -142,6 +148,8 @@ class AppletConfigurationTest final : public QObject
                  QStringLiteral("11111111-1111-4111-8111-111111111111")},
                 {QStringLiteral("kimiAccountId"),
                  QStringLiteral("22222222-2222-4222-8222-222222222222")},
+                {QStringLiteral("openrouterAccountId"),
+                 QStringLiteral("33333333-3333-4333-8333-333333333333")},
                 {QStringLiteral("oauthProfiles"),
                  QStringLiteral(
                      R"({"version":1,"codex":[{"id":"11111111-1111-4111-8111-111111111111","name":"Work","directory":"/profiles/work"}],"selectedCodex":"11111111-1111-4111-8111-111111111111"})")}};
@@ -166,6 +174,8 @@ class AppletConfigurationTest final : public QObject
                  QStringLiteral("11111111-1111-4111-8111-111111111111"));
         QCOMPARE(reloaded.property("kimiAccountId").toString(),
                  QStringLiteral("22222222-2222-4222-8222-222222222222"));
+        QCOMPARE(reloaded.property("openrouterAccountId").toString(),
+                 QStringLiteral("33333333-3333-4333-8333-333333333333"));
         QVERIFY(reloaded.property("oauthProfiles")
                     .toString()
                     .contains(QStringLiteral("/profiles/work")));
@@ -306,6 +316,56 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(QMetaObject::invokeMethod(selector, "activated", Q_ARG(int, 0)));
         QCOMPARE(page->property("cfg_deepseekAccountId").toString(), QString{});
         QVERIFY(!backend->property("busy").toBool());
+    }
+
+    void stagesOpenRouterSelectionAndClearsBothPasswordFields()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
+        QQmlEngine engine;
+        AccountUiStore accounts;
+        QQmlComponent component(
+            &engine,
+            QUrl(QStringLiteral(
+                "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ConfigWalletAccounts.qml")));
+        QScopedPointer<QObject> page(component.createWithInitialProperties(
+            {{"accountStore", QVariant::fromValue<QObject *>(&accounts)}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        QVERIFY(page->property("cfg_openrouterAccountId").toString().isEmpty());
+        auto *name = page->findChild<QObject *>(QStringLiteral("openrouter-wallet-name"));
+        auto *key = page->findChild<QObject *>(QStringLiteral("openrouter-wallet-key"));
+        auto *management =
+            page->findChild<QObject *>(QStringLiteral("openrouter-wallet-management-key"));
+        auto *add = page->findChild<QObject *>(QStringLiteral("openrouter-wallet-add"));
+        auto *replace = page->findChild<QObject *>(QStringLiteral("openrouter-wallet-replace"));
+        QVERIFY(name && key && management && add && replace);
+        QCOMPARE(management->property("echoMode").toInt(), 2);
+        QVERIFY(name->setProperty("text", QStringLiteral("Work")));
+        QVERIFY(key->setProperty("text", QStringLiteral("ordinary")));
+        QVERIFY(management->setProperty("text", QStringLiteral("management")));
+        accounts.failWrites = true;
+        QVERIFY(QMetaObject::invokeMethod(add, "clicked"));
+        QCOMPARE(management->property("text").toString(), QStringLiteral("management"));
+        accounts.failWrites = false;
+        QVERIFY(QMetaObject::invokeMethod(add, "clicked"));
+        QCOMPARE(accounts.savedKey, QStringLiteral("ordinary"));
+        QCOMPARE(accounts.savedManagement, QStringLiteral("management"));
+        QCOMPARE(page->property("cfg_openrouterAccountId").toString(), accounts.id);
+        QVERIFY(key->property("text").toString().isEmpty());
+        QVERIFY(management->property("text").toString().isEmpty());
+        QVERIFY(key->setProperty("text", QStringLiteral("replacement")));
+        QVERIFY(QMetaObject::invokeMethod(replace, "clicked"));
+        QVERIFY(accounts.savedManagement.isEmpty());
+        QVERIFY(management->setProperty("text", QStringLiteral("draft")));
+        QVERIFY(key->setProperty("text", QStringLiteral("draft")));
+        QVERIFY(page->setProperty("cfg_openrouterAccountId", QString{}));
+        QVERIFY(management->property("text").toString().isEmpty());
+        QVERIFY(key->property("text").toString().isEmpty());
+        QVERIFY(management->setProperty("text", QStringLiteral("draft")));
+        QVERIFY(accounts.setProperty("ready", false));
+        QVERIFY(management->property("text").toString().isEmpty());
+        page.reset();
+        QCOMPARE(accounts.savedKey,
+                 QStringLiteral("replacement")); // Cancel does not undo wallet writes.
     }
 
     void presentsWalletNamesAsPlainText()

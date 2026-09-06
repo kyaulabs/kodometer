@@ -75,6 +75,24 @@ void UsageController::setKimiAccountId(const QString &id)
     setAccountSelection(QStringLiteral("kimi"), id);
 }
 
+QString UsageController::openrouterAccountId() const
+{
+    return m_accountSelections.value(QStringLiteral("openrouter"));
+}
+
+void UsageController::setOpenrouterAccountId(const QString &id)
+{
+    setAccountSelection(QStringLiteral("openrouter"), id);
+}
+
+QString UsageController::selectedAccountManagementKey(const QString &provider) const
+{
+    if (m_credentialStore == nullptr)
+        return {};
+    return m_credentialStore->accounts()->managementKey(provider,
+                                                        m_accountSelections.value(provider));
+}
+
 void UsageController::setAccountSelection(const QString &provider, const QString &id)
 {
     if (m_accountSelections.value(provider) == id)
@@ -99,8 +117,11 @@ QString UsageController::contextKey(const QString &provider) const
     const auto key = selectedAccountKey(provider);
     QString fingerprint = QStringLiteral("unavailable");
     if (key) {
-        fingerprint = QString::fromLatin1(
-            QCryptographicHash::hash(key->toUtf8(), QCryptographicHash::Sha256).toHex());
+        QByteArray pair = key->toUtf8();
+        pair.append('\0');
+        pair.append(selectedAccountManagementKey(provider).toUtf8());
+        fingerprint =
+            QString::fromLatin1(QCryptographicHash::hash(pair, QCryptographicHash::Sha256).toHex());
     }
     // Internal only; neither keys nor fingerprints are exposed to QML or notifications.
     return id + QLatin1Char('\n') + fingerprint;
@@ -313,7 +334,8 @@ void UsageController::refresh()
         }
         if (WalletAccounts::supportsProvider(id)) {
             adapter->setAccountCredential(
-                m_accountSelections.value(id).isEmpty() ? std::nullopt : selectedAccountKey(id));
+                m_accountSelections.value(id).isEmpty() ? std::nullopt : selectedAccountKey(id),
+                selectedAccountManagementKey(id));
         }
     }
     setBusy(true);

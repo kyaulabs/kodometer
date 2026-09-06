@@ -132,6 +132,7 @@ class OpenRouterProviderAdapterTest final : public QObject
   private slots:
     void fetchesCreditsKeyQuotaAndActivity();
     void isolatesNamedKeyPairs();
+    void preservesNamedCreditsAfterManagementRejection();
     void preservesCreditsWhenOptionalRequestsFail();
     void reportsCredentialFailures();
     void classifiesCreditsHttpFailures_data();
@@ -250,6 +251,26 @@ void OpenRouterProviderAdapterTest::isolatesNamedKeyPairs()
     QCOMPARE(server.requests.at(6).headers.value("authorization"), QByteArray("Bearer user-key"));
     QCOMPARE(server.requests.at(8).headers.value("authorization"),
              QByteArray("Bearer management-key"));
+}
+
+void OpenRouterProviderAdapterTest::preservesNamedCreditsAfterManagementRejection()
+{
+    HttpServer server;
+    server.enqueue({200, credits()});
+    server.enqueue({200, keyUsage()});
+    server.enqueue({403, "{}"});
+    QNetworkAccessManager network;
+    OpenRouterProviderAdapter adapter(&network);
+    configure(adapter, server, true);
+    adapter.setAccountCredential(QStringLiteral("named"), QStringLiteral("rejected-management"));
+    QSignalSpy finished(&adapter, &OpenRouterProviderAdapter::refreshFinished);
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 1);
+    QCOMPARE(finished.first().first().toBool(), true);
+    QCOMPARE(server.requests.size(), 3);
+    QCOMPARE(server.requests.last().headers.value("authorization"),
+             QByteArray("Bearer rejected-management"));
+    QCOMPARE(adapter.provider().value("cost").toMap().value("balanceUSD").toDouble(), 60.0);
 }
 
 void OpenRouterProviderAdapterTest::preservesCreditsWhenOptionalRequestsFail()

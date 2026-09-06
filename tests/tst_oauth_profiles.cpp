@@ -114,6 +114,9 @@ class OAuthProfilesTest final : public QObject
         QTest::newRow("null-list") << document({{"codex", QJsonValue::Null}});
         QTest::newRow("unknown-selection") << document({{"selectedCodex", "missing"}});
         QTest::newRow("null-selection") << document({{"selectedClaude", QJsonValue::Null}});
+        QTest::newRow("gemini-list-type") << document({{"gemini", true}});
+        QTest::newRow("gemini-selection-type") << document({{"selectedGemini", QJsonValue::Null}});
+        QTest::newRow("gemini-row-type") << document({{"gemini", QJsonArray{false}}});
         QTest::newRow("bad-row") << document({{"codex", QJsonArray{1}}});
         QJsonArray many;
         for (int i = 0; i < 9; ++i)
@@ -138,6 +141,7 @@ class OAuthProfilesTest final : public QObject
         QJsonObject secret = record();
         secret.insert("refreshToken", "not a supported field");
         QTest::newRow("extra-field") << document({{"codex", QJsonArray{secret}}});
+        QTest::newRow("gemini-secret-field") << document({{"gemini", QJsonArray{secret}}});
         QTest::newRow("duplicate") << document({{"codex", QJsonArray{record(), record()}}});
     }
 

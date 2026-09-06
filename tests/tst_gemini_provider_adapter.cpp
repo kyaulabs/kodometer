@@ -327,6 +327,8 @@ void GeminiProviderAdapterTest::pinsProfileRotation()
                  (QFile::ReadGroup | QFile::WriteGroup | QFile::ReadOther | QFile::WriteOther),
              QFile::Permissions{});
     QVERIFY(server.requests.at(mode).body.contains("refresh_token=alpha-refresh"));
+    QVERIFY(server.requests.at(mode).body.contains("client_id=test-client"));
+    QVERIFY(server.requests.at(mode).body.contains("client_secret=test-secret"));
     QCOMPARE(server.requests.last().headers.value("authorization"),
              QByteArray("Bearer rotated-alpha"));
     QCOMPARE(GeminiCredentialStore::selectedAuthentication(alpha.filePath("settings.json")),

@@ -55,6 +55,7 @@ GeminiProviderAdapter::GeminiProviderAdapter(QNetworkAccessManager *network, QOb
       m_network(network == nullptr ? new QNetworkAccessManager(this) : network),
       m_credentialPath(GeminiCredentialStore::authenticationFilePath(QDir::homePath())),
       m_settingsPath(GeminiCredentialStore::settingsFilePath(QDir::homePath())),
+      m_defaultCredentialPath(m_credentialPath), m_defaultSettingsPath(m_settingsPath),
       m_oauthEnvironment(oauthEnvironment())
 {
     // GCOVR_EXCL_BR_STOP
@@ -91,11 +92,25 @@ QVariantMap GeminiProviderAdapter::provider() const
 void GeminiProviderAdapter::setCredentialPath(const QString &path)
 {
     m_credentialPath = path;
+    m_defaultCredentialPath = path;
 }
 
 void GeminiProviderAdapter::setSettingsPath(const QString &path)
 {
     m_settingsPath = path;
+    m_defaultSettingsPath = path;
+}
+
+void GeminiProviderAdapter::setProfileDirectory(const QString &directory)
+{
+    if (directory.isEmpty()) {
+        m_credentialPath = m_defaultCredentialPath;
+        m_settingsPath = m_defaultSettingsPath;
+        return;
+    }
+    const QDir root(directory);
+    m_credentialPath = root.filePath(QStringLiteral("oauth_creds.json"));
+    m_settingsPath = root.filePath(QStringLiteral("settings.json"));
 }
 
 void GeminiProviderAdapter::setTokenEndpoint(const QUrl &endpoint)
@@ -134,6 +149,9 @@ void GeminiProviderAdapter::refresh()
         return;
     }
 
+    // Pin both files before callbacks can change the next cycle's profile.
+    m_requestCredentialPath = m_credentialPath;
+    m_requestSettingsPath = m_settingsPath;
     setBusy(true);
     setError({});
     m_refreshedDuringRequest = false;
@@ -141,7 +159,7 @@ void GeminiProviderAdapter::refresh()
     m_projectId.clear();
 
     const GeminiAuthType authentication =
-        GeminiCredentialStore::selectedAuthentication(m_settingsPath);
+        GeminiCredentialStore::selectedAuthentication(m_requestSettingsPath);
     if (authentication == GeminiAuthType::ApiKey) {
         completeFailure(
             QStringLiteral("Gemini API key authentication does not expose OAuth quota"));
@@ -154,7 +172,7 @@ void GeminiProviderAdapter::refresh()
     }
 
     QString credentialError;
-    const auto credentials = GeminiCredentialStore::load(m_credentialPath, &credentialError);
+    const auto credentials = GeminiCredentialStore::load(m_requestCredentialPath, &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;
@@ -372,11 +390,11 @@ void GeminiProviderAdapter::finishToken(int statusCode, QNetworkReply::NetworkEr
 
     QString saveError;
     // GCOVR_EXCL_START -- failures require concurrent credential-file mutation
-    if (!GeminiCredentialStore::save(m_credentialPath, m_credentials, &saveError)) {
+    if (!GeminiCredentialStore::save(m_requestCredentialPath, m_credentials, &saveError)) {
         completeFailure(saveError);
         return;
     }
-    const auto reloaded = GeminiCredentialStore::load(m_credentialPath, &saveError);
+    const auto reloaded = GeminiCredentialStore::load(m_requestCredentialPath, &saveError);
     if (!reloaded) {
         completeFailure(saveError);
         return;

@@ -166,7 +166,7 @@ class AppletConfigurationTest final : public QObject
                  QStringLiteral("55555555-5555-4555-8555-555555555555")},
                 {QStringLiteral("oauthProfiles"),
                  QStringLiteral(
-                     R"({"version":1,"codex":[{"id":"11111111-1111-4111-8111-111111111111","name":"Work","directory":"/profiles/work"}],"selectedCodex":"11111111-1111-4111-8111-111111111111"})")}};
+                     R"({"version":1,"codex":[{"id":"11111111-1111-4111-8111-111111111111","name":"Work","directory":"/profiles/work"}],"selectedCodex":"11111111-1111-4111-8111-111111111111","gemini":[{"id":"22222222-2222-4222-8222-222222222222","name":"Gemini Work","directory":"/profiles/gemini"}],"selectedGemini":"22222222-2222-4222-8222-222222222222"})")}};
             for (auto it = preferences.cbegin(); it != preferences.cend(); ++it) {
                 auto *item = loader.findItemByName(it.key());
                 QVERIFY(item);
@@ -197,10 +197,22 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(reloaded.property("oauthProfiles")
                     .toString()
                     .contains(QStringLiteral("/profiles/work")));
+        QVERIFY(reloaded.property("oauthProfiles")
+                    .toString()
+                    .contains(QStringLiteral("/profiles/gemini")));
+    }
+
+    void stagesProfileEditsUntilApplied_data()
+    {
+        QTest::addColumn<QString>("provider");
+        QTest::newRow("codex") << QStringLiteral("codex");
+        QTest::newRow("claude") << QStringLiteral("claude");
+        QTest::newRow("gemini") << QStringLiteral("gemini");
     }
 
     void stagesProfileEditsUntilApplied()
     {
+        QFETCH(QString, provider);
         QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
         QQmlEngine engine;
         QQmlComponent backendComponent(&engine);
@@ -217,9 +229,10 @@ class AppletConfigurationTest final : public QObject
         QScopedPointer<QObject> page(pageComponent.create());
         QVERIFY2(page, qPrintable(pageComponent.errorString()));
         QCOMPARE(page->property("cfg_oauthProfiles").toString(), QStringLiteral("{}"));
-        auto *name = page->findChild<QObject *>(QStringLiteral("codex-profile-name"));
-        auto *directory = page->findChild<QObject *>(QStringLiteral("codex-profile-directory"));
-        auto *add = page->findChild<QObject *>(QStringLiteral("codex-profile-add"));
+        auto *name = page->findChild<QObject *>(provider + QStringLiteral("-profile-name"));
+        auto *directory =
+            page->findChild<QObject *>(provider + QStringLiteral("-profile-directory"));
+        auto *add = page->findChild<QObject *>(provider + QStringLiteral("-profile-add"));
         QVERIFY(name);
         QVERIFY(directory);
         QVERIFY(add);
@@ -229,8 +242,8 @@ class AppletConfigurationTest final : public QObject
         const QString staged = page->property("cfg_oauthProfiles").toString();
         QVERIFY(staged.contains(QStringLiteral("/profiles/work")));
         QCOMPARE(liveProfiles->property("configuration").toString(), QStringLiteral("{}"));
-        auto *selector = page->findChild<QObject *>(QStringLiteral("codex-profile-selector"));
-        auto *remove = page->findChild<QObject *>(QStringLiteral("codex-profile-remove"));
+        auto *selector = page->findChild<QObject *>(provider + QStringLiteral("-profile-selector"));
+        auto *remove = page->findChild<QObject *>(provider + QStringLiteral("-profile-remove"));
         QVERIFY(selector);
         QVERIFY(remove);
         QCOMPARE(selector->property("count").toInt(), 2);

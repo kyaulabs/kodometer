@@ -30,6 +30,7 @@ class GeminiProviderAdapter final : public ProviderAdapter
     [[nodiscard]] QVariantMap provider() const;
 
     void setCredentialPath(const QString &path);
+    void setProfileDirectory(const QString &directory) override;
     void setSettingsPath(const QString &path);
     void setTokenEndpoint(const QUrl &endpoint);
     void setCodeAssistEndpoint(const QUrl &endpoint);
@@ -76,6 +77,10 @@ class GeminiProviderAdapter final : public ProviderAdapter
     QNetworkAccessManager *m_network = nullptr;
     QString m_credentialPath;
     QString m_settingsPath;
+    QString m_defaultCredentialPath;
+    QString m_defaultSettingsPath;
+    QString m_requestCredentialPath;
+    QString m_requestSettingsPath;
     QUrl m_tokenEndpoint{QStringLiteral("https://oauth2.googleapis.com/token")};
     QUrl m_codeAssistEndpoint{
         QStringLiteral("https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist")};

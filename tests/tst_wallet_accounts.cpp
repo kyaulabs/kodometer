@@ -300,6 +300,51 @@ class WalletAccountsTest final : public QObject
         QVERIFY(accounts->addAccount("openrouter", "Nine", "key").isEmpty());
     }
 
+    void storesZaiSelectorsTogether()
+    {
+        auto *backend = new AccountBackend;
+        CredentialStore store(backend);
+        store.open();
+        auto *accounts = store.accounts();
+        const QVariantMap personal{{"region", "global"}, {"scope", "personal"}};
+        const QVariantMap team{{"region", "bigmodel-cn"},
+                               {"scope", "team"},
+                               {"organizationId", "org-1"},
+                               {"projectId", "project_2"}};
+        QVERIFY(WalletAccounts::isAccountEntry("accounts/zai/" + Id));
+        const QString id = accounts->addAccount("zai", "Work", "key", {}, {}, team);
+        QVERIFY(!id.isEmpty());
+        QCOMPARE(accounts->zaiOptions("zai", id), team);
+        QCOMPARE(accounts->entries("zai").first().toMap().size(), 2);
+        QCOMPARE(accounts->metaObject()->indexOfMethod("zaiOptions(QString,QString)"), -1);
+        QVERIFY(accounts->replaceAccount("zai", id, "replacement", {}, {}, personal));
+        QCOMPARE(accounts->zaiOptions("zai", id), personal);
+        QVERIFY(accounts->addAccount("deepseek", "Wrong", "key", {}, {}, personal).isEmpty());
+        QVERIFY(accounts->addAccount("zai", "Wrong", "key", "management", {}, team).isEmpty());
+        QVERIFY(accounts->addAccount("zai", "Wrong", "key", {}, "team", team).isEmpty());
+        for (const QString &field : team.keys()) {
+            for (const QVariant &bad :
+                 {QVariant{}, QVariant(true), QVariant(7), QVariant(""), QVariant("../bad"),
+                  QVariant("%2f"), QVariant("bad\nvalue"), QVariant(QString(257, 'a'))}) {
+                QVariantMap invalid = team;
+                invalid[field] = bad;
+                QVERIFY(!accounts->replaceAccount("zai", id, "key", {}, {}, invalid));
+                QCOMPARE(accounts->zaiOptions("zai", id), personal);
+            }
+            QVariantMap missing = team;
+            missing.remove(field);
+            QVERIFY(!accounts->replaceAccount("zai", id, "key", {}, {}, missing));
+        }
+        QVariantMap extra = personal;
+        extra["organizationId"] = "org";
+        QVERIFY(!accounts->replaceAccount("zai", id, "key", {}, {}, extra));
+        backend->close();
+        QVERIFY(accounts->zaiOptions("zai", id).isEmpty());
+        store.open();
+        QCOMPARE(accounts->zaiOptions("zai", id), personal);
+        QVERIFY(accounts->removeAccount("zai", id));
+    }
+
     void storesXaiKeyAndTeamTogether()
     {
         auto *backend = new AccountBackend;

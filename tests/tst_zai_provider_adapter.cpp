@@ -127,6 +127,7 @@ class ZaiProviderAdapterTest final : public QObject
     Q_OBJECT
 
   private slots:
+    void isolatesNamedRegionAndScope();
     void fetchesGlobalQuotaAndModelUsage();
     void fetchesChinaTeamQuotaAndBalance();
     void preservesQuotaWhenOptionalRequestsFail();
@@ -137,6 +138,75 @@ class ZaiProviderAdapterTest final : public QObject
     void boundsResponsesAndTimeouts();
     void ignoresConcurrentRefreshAndRetainsLastGoodData();
 };
+
+void ZaiProviderAdapterTest::isolatesNamedRegionAndScope()
+{
+    HttpServer server;
+    for (int i = 0; i < 2; ++i) {
+        server.enqueue({200, quotaFixture()});
+        server.enqueue({200, emptyModelFixture()});
+        server.enqueue({200, emptyModelFixture()});
+        if (i == 0)
+            server.enqueue({200, balanceFixture()});
+    }
+    QNetworkAccessManager network;
+    ZaiProviderAdapter adapter(&network);
+    configureEndpoints(adapter, server, true);
+    adapter.setEnvironment({{"Z_AI_API_KEY", "environment"},
+                            {"Z_AI_REGION", "bigmodel-cn"},
+                            {"BIGMODEL_API_KEY", "alias"},
+                            {"Z_AI_USAGE_SCOPE", "team"},
+                            {"Z_AI_ORGANIZATION", "env-org"},
+                            {"Z_AI_PROJECT", "env-project"}});
+    adapter.setCredentialOverrides({{"Z_AI_API_KEY", "wallet-default"}});
+    const QVariantMap team{{"region", "bigmodel-cn"},
+                           {"scope", "team"},
+                           {"organizationId", "named-org"},
+                           {"projectId", "named-project"}};
+    const QVariantMap personal{{"region", "global"}, {"scope", "personal"}};
+    QSignalSpy finished(&adapter, &ZaiProviderAdapter::refreshFinished);
+    adapter.setAccountCredential(QStringLiteral("named"), {}, {}, team);
+    adapter.refresh();
+    adapter.setAccountCredential(QStringLiteral("next"), {}, {}, personal);
+    QTRY_COMPARE(finished.count(), 1);
+    QVERIFY(finished.last().first().toBool());
+    QCOMPARE(server.requests().size(), 4);
+    QCOMPARE(adapter.provider().value("region"), QVariant("bigmodel-cn"));
+    for (int i = 0; i < 4; ++i) {
+        QVERIFY(server.requests().at(i).contains("Authorization: Bearer named\r\n"));
+        QCOMPARE(server.requests().at(i).contains("Bigmodel-Organization: named-org\r\n"), i < 3);
+        QCOMPARE(server.requests().at(i).contains("Bigmodel-Project: named-project\r\n"), i < 3);
+    }
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 2);
+    QVERIFY(finished.last().first().toBool());
+    QCOMPARE(server.requests().size(), 7);
+    QCOMPARE(adapter.provider().value("region"), QVariant("global"));
+    for (int i = 4; i < 7; ++i) {
+        QVERIFY(server.requests().at(i).contains("Authorization: Bearer next\r\n"));
+        QVERIFY(!server.requests().at(i).contains("Bigmodel-"));
+        QVERIFY(!server.requests().at(i).contains("type="));
+    }
+    adapter.setAccountCredential(QString{}, {}, {}, team);
+    adapter.refresh();
+    QCOMPARE(finished.count(), 3);
+    QVERIFY(!finished.last().first().toBool());
+    adapter.setAccountCredential(QStringLiteral("key"));
+    adapter.refresh();
+    QCOMPARE(finished.count(), 4);
+    QVERIFY(!finished.last().first().toBool());
+    QCOMPARE(server.requests().size(), 7);
+    server.enqueue({200, quotaFixture()});
+    server.enqueue({200, emptyModelFixture()});
+    server.enqueue({200, emptyModelFixture()});
+    server.enqueue({200, balanceFixture()});
+    adapter.setAccountCredential(std::nullopt);
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 5);
+    QVERIFY(finished.last().first().toBool());
+    QVERIFY(server.requests().at(7).contains("Authorization: Bearer environment\r\n"));
+    QVERIFY(server.requests().at(7).contains("Bigmodel-Organization: env-org\r\n"));
+}
 
 void ZaiProviderAdapterTest::fetchesGlobalQuotaAndModelUsage()
 {

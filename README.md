@@ -26,7 +26,7 @@ Kodometer is under active development. The current release foundation includes:
 - official dashboard and documentation links from provider details;
 - per-widget automatic refresh, provider switches, and idle-window preferences;
 - named Codex and Claude credential profiles, with only the selected profile polled;
-- named DeepSeek and Kimi Code API-key accounts in KWallet, with selected-only polling;
+- named DeepSeek, Kimi Code, and OpenRouter API-key accounts in KWallet, with selected-only polling;
 - opt-in low-quota desktop notifications with duplicate suppression;
 - last-good data retention when a refresh fails;
 - redacted account identity by default;
@@ -34,7 +34,7 @@ Kodometer is under active development. The current release foundation includes:
 - C++ and QML tests with line, function, and branch coverage gates above 95%;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Codex and Claude support named credential profiles; DeepSeek and Kimi Code support named KWallet accounts. Other providers still use one configured account.
+Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Codex and Claude support named credential profiles; DeepSeek, Kimi Code, and OpenRouter support named KWallet accounts. Other providers still use one configured account.
 
 ## Requirements
 
@@ -52,7 +52,7 @@ Runtime:
 - a z.ai API key exported as `Z_AI_API_KEY`;
 - an OpenRouter API key exported as `OPENROUTER_API_KEY`.
 
-Open the widget's **Configure Kodometer…** action to store DeepSeek, Kimi Code, OpenRouter, xAI, or z.ai API keys in KDE Wallet. Kodometer stores entries in a `Kodometer` folder of the network wallet and never copies wallet values into Plasma configuration. In Default mode, a non-empty environment credential takes precedence over its matching wallet entry. Named DeepSeek and Kimi Code accounts instead use only their selected wallet key. OpenRouter's ordinary and Management keys are separate entries; `XAI_TEAM_ID` and z.ai region, scope, organization, and project selectors remain environment settings.
+Open the widget's **Configure Kodometer…** action to store DeepSeek, Kimi Code, OpenRouter, xAI, or z.ai API keys in KDE Wallet. Kodometer stores entries in a `Kodometer` folder of the network wallet and never copies wallet values into Plasma configuration. In Default mode, a non-empty environment credential takes precedence over its matching wallet entry. Named DeepSeek, Kimi Code, and OpenRouter accounts instead use only their selected wallet keys. OpenRouter's ordinary and Management keys are separate entries; `XAI_TEAM_ID` and z.ai region, scope, organization, and project selectors remain environment settings.
 
 Kodometer accepts OAuth credentials written by Codex, Claude, and Gemini CLI. Codex's `OPENAI_API_KEY` file form is also supported. Claude profile roots set through `CLAUDE_CONFIG_DIR` are honored, as is `CLAUDE_SECURESTORAGE_CONFIG_DIR`; relative profile paths resolve from Kodometer's working directory, matching Claude Code's literal-path behavior.
 
@@ -184,11 +184,13 @@ Only the selected profile is refreshed. Applying a selection change clears that 
 
 The page follows Plasma's Apply, Cancel, and Defaults controls. Removing an active profile selects Default without deleting any credential files. Invalid stored profile configuration pauses Codex and Claude rather than silently using another account; restore Defaults to recover. File ownership, permissions, size, and type are still checked before credentials are used. Normal OAuth renewal may update the selected credential file atomically.
 
-## DeepSeek and Kimi Code accounts
+## Named KWallet accounts
 
-Open **Configure Kodometer… → KWallet accounts** to add a name and API key, then choose **Add account** and **Apply**. Each provider supports up to eight named accounts. Names must be unique within the provider and contain 1–64 characters. Keys must be nonempty printable ASCII without internal whitespace and at most 64 KiB. Do not put secrets in names.
+Open **Configure Kodometer… → KWallet accounts** to add a DeepSeek, Kimi Code, or OpenRouter account name and API key, then choose **Add account** and **Apply**. Each provider supports up to eight named accounts. Names must be unique within the provider and contain 1–64 characters. Keys must be nonempty printable ASCII without internal whitespace and at most 64 KiB. Do not put secrets in names.
 
-Named accounts use only the selected KWallet key. They ignore environment keys, DeepSeek's compatibility alias, and Kimi's CLI credentials. **Default** restores the existing environment/wallet precedence and Kimi CLI discovery. Only the selected account is polled; applying a selection clears that provider's old data and queues a normal refresh, even with automatic refresh disabled.
+OpenRouter accounts require an ordinary API key and accept an optional Management key from the same account for Activity. Both keys are saved together. **Replace selected keys** requires re-entering the ordinary key and the desired Management key; leaving Management blank removes it and disables Activity. Kodometer never borrows a missing named Management key from Default or the environment. Activity failures still preserve valid credits. Optional HTTP referer and client-title headers remain application-level environment settings.
+
+Named accounts use only the selected KWallet keys. They ignore environment keys, DeepSeek's compatibility alias, and Kimi's CLI credentials. **Default** restores the existing environment/wallet precedence and Kimi CLI discovery. Only the selected account is polled; applying a selection clears that provider's old data and queues a normal refresh, even with automatic refresh disabled.
 
 Account names and keys are stored together in KWallet and shared by widgets using that wallet. Saves, key replacements, and removals take effect immediately; Cancel does not undo them. Each widget stores only its selected account UUIDs in Plasma configuration. Selections follow Apply/Cancel/Defaults, and Defaults does not delete wallet entries. The entry fields never reveal saved keys.
 
@@ -261,7 +263,7 @@ Development follows Git Flow and Conventional Commits.
 
 ## Security and privacy
 
-Kodometer reads OAuth credentials only from the expected Codex, Claude, Gemini, and Kimi Code authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state. Kimi Code credentials remain read-only; Kodometer creates only a missing owner-only device ID required by the official API. Manually entered API keys are held by KDE Wallet, not plaintext Plasma configuration. Non-empty API-key environment values retain precedence over corresponding Default KWallet entries. Explicit named DeepSeek and Kimi Code accounts bypass that discovery and have no credential fallback. BigModel CN and Zhipu key files are read-only inputs.
+Kodometer reads OAuth credentials only from the expected Codex, Claude, Gemini, and Kimi Code authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state. Kimi Code credentials remain read-only; Kodometer creates only a missing owner-only device ID required by the official API. Manually entered API keys are held by KDE Wallet, not plaintext Plasma configuration. Non-empty API-key environment values retain precedence over corresponding Default KWallet entries. Explicit named DeepSeek, Kimi Code, and OpenRouter accounts bypass that discovery and have no credential fallback. BigModel CN and Zhipu key files are read-only inputs.
 
 Network requests use fixed provider endpoints, bounded response buffers, explicit timeouts, and disabled automatic redirects. Account email addresses are redacted before data reaches QML. Tokens are never added to the presentation model or logs.
 

@@ -366,7 +366,7 @@ void CodexProviderAdapterTest::reportsTokenFailures()
     adapter.setCredentialPath(credentialPath);
     adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
     adapter.setTokenEndpoint(server.url(QStringLiteral("/token")));
-    adapter.setTimeoutMilliseconds(25);
+    adapter.setTimeoutMilliseconds(1000);
     QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
 
     server.enqueue({400, R"({"error":"invalid_grant"})"});
@@ -380,6 +380,7 @@ void CodexProviderAdapterTest::reportsTokenFailures()
     QCOMPARE(adapter.error(), QStringLiteral("Codex token endpoint returned invalid JSON"));
 
     server.enqueue({200, "{}", {}, false});
+    adapter.setTimeoutMilliseconds(25);
     adapter.refresh();
     QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 3, 1000);
     QCOMPARE(adapter.error(), QStringLiteral("Codex token request timed out"));

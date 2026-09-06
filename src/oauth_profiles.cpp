@@ -11,10 +11,13 @@
 namespace Kodometer {
 namespace {
 
-const QStringList ProviderIds{QStringLiteral("codex"), QStringLiteral("claude")};
+const QStringList ProviderIds{QStringLiteral("codex"), QStringLiteral("claude"),
+                              QStringLiteral("gemini")};
 
 QString selectionKey(const QString &provider)
 {
+    if (provider == QLatin1String("gemini"))
+        return QStringLiteral("selectedGemini");
     return provider == QLatin1String("codex") ? QStringLiteral("selectedCodex")
                                               : QStringLiteral("selectedClaude");
 }
@@ -125,9 +128,10 @@ std::optional<QJsonObject> OAuthProfiles::parse(const QString &configuration)
         return std::nullopt;
     }
     const QJsonObject root = document.object();
-    const QStringList keys{QStringLiteral("version"), QStringLiteral("codex"),
-                           QStringLiteral("claude"), QStringLiteral("selectedCodex"),
-                           QStringLiteral("selectedClaude")};
+    const QStringList keys{QStringLiteral("version"),        QStringLiteral("codex"),
+                           QStringLiteral("claude"),         QStringLiteral("selectedCodex"),
+                           QStringLiteral("selectedClaude"), QStringLiteral("gemini"),
+                           QStringLiteral("selectedGemini")};
     for (auto it = root.constBegin(); it != root.constEnd(); ++it) {
         if (!keys.contains(it.key())) {
             return std::nullopt;
@@ -212,9 +216,11 @@ void OAuthProfiles::setConfiguration(const QString &configuration)
     m_configuration = configuration;
     m_valid = parsed.has_value();
     m_document = parsed.value_or(QJsonObject{});
-    setError(m_valid ? QString{}
-                     : tr("OAuth profile configuration is invalid; Codex and Claude are paused. "
-                          "Restore Defaults or correct the profile settings."));
+    setError(
+        m_valid
+            ? QString{}
+            : tr("OAuth profile configuration is invalid; Codex, Claude, and Gemini are paused. "
+                 "Restore Defaults or correct the profile settings."));
     for (const QString &provider : ProviderIds) {
         if (before.value(provider) != contextKey(provider)) {
             emit contextChanged(provider);
@@ -240,7 +246,7 @@ bool OAuthProfiles::addProfile(const QString &provider, const QString &name,
                                const QString &directory)
 {
     if (!m_valid || !supportsProvider(provider)) {
-        setError(tr("Choose a valid Codex or Claude profile configuration."));
+        setError(tr("Choose a valid Codex, Claude, or Gemini profile configuration."));
         return false;
     }
     QJsonObject next = m_document;
@@ -257,7 +263,7 @@ bool OAuthProfiles::addProfile(const QString &provider, const QString &name,
 bool OAuthProfiles::selectProfile(const QString &provider, const QString &id)
 {
     if (!m_valid || !supportsProvider(provider)) {
-        setError(tr("Choose a valid Codex or Claude profile configuration."));
+        setError(tr("Choose a valid Codex, Claude, or Gemini profile configuration."));
         return false;
     }
     const QVariantList choices = entries(provider);
@@ -275,7 +281,7 @@ bool OAuthProfiles::selectProfile(const QString &provider, const QString &id)
 bool OAuthProfiles::removeProfile(const QString &provider, const QString &id)
 {
     if (!m_valid || !supportsProvider(provider) || id == QLatin1String("default")) {
-        setError(tr("Only named Codex or Claude profiles can be removed."));
+        setError(tr("Only named Codex, Claude, or Gemini profiles can be removed."));
         return false;
     }
     QJsonObject next = m_document;

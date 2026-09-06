@@ -10,6 +10,8 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+using Kodometer::GeminiAuthType;
+using Kodometer::GeminiCredentialStore;
 using Kodometer::GeminiProviderAdapter;
 
 namespace {
@@ -136,9 +138,10 @@ QString identityToken()
 }
 
 bool writeCredentials(const QString &path, qint64 expiresAt,
-                      const QString &refreshToken = QStringLiteral("refresh-token"))
+                      const QString &refreshToken = QStringLiteral("refresh-token"),
+                      const QString &accessToken = QStringLiteral("access-token"))
 {
-    const QJsonObject root{{QStringLiteral("access_token"), QStringLiteral("access-token")},
+    const QJsonObject root{{QStringLiteral("access_token"), accessToken},
                            {QStringLiteral("refresh_token"), refreshToken},
                            {QStringLiteral("id_token"), identityToken()},
                            {QStringLiteral("expiry_date"), expiresAt},
@@ -190,6 +193,9 @@ class GeminiProviderAdapterTest final : public QObject
     Q_OBJECT
 
   private slots:
+    void isolatesProfileFilesAndRestoresDefault();
+    void pinsProfileRotation_data();
+    void pinsProfileRotation();
     void fetchesCodeAssistAndQuotaWithExistingToken();
     void refreshesExpiringTokenAndPersistsRotation();
     void discoversProjectWhenCodeAssistHasNone();
@@ -200,6 +206,141 @@ class GeminiProviderAdapterTest final : public QObject
     void handlesOptionalProbeFailuresAndLimitsResponses();
     void rejectsConcurrentRefreshAndTimesOut();
 };
+
+void GeminiProviderAdapterTest::isolatesProfileFilesAndRestoresDefault()
+{
+    QTemporaryDir defaults;
+    QTemporaryDir named;
+    QVERIFY(defaults.isValid() && named.isValid());
+    const QString defaultKey = defaults.filePath("oauth_creds.json");
+    const QString defaultSettings = defaults.filePath("settings.json");
+    const QString namedKey = named.filePath("oauth_creds.json");
+    const QString namedSettings = named.filePath("settings.json");
+    QVERIFY(writeCredentials(defaultKey, 2'000'000'000'000, "default-refresh", "default-access"));
+    QVERIFY(writeSettings(defaultSettings, "api-key"));
+    QVERIFY(writeCredentials(namedKey, 2'000'000'000'000, "named-refresh", "named-access"));
+    HttpServer server;
+    server.enqueue({200, R"({"cloudaicompanionProject":"named-project"})"});
+    server.enqueue({200, quotaPayload()});
+    QNetworkAccessManager network;
+    GeminiProviderAdapter adapter(&network);
+    configure(adapter, defaultKey, defaultSettings, server);
+    QSignalSpy finished(&adapter, &GeminiProviderAdapter::refreshFinished);
+    adapter.setProfileDirectory(named.path());
+    adapter.refresh(); // Missing named settings must not inherit Default's API-key selection.
+    QTRY_COMPARE(finished.count(), 1);
+    QVERIFY(finished.last().first().toBool());
+    QCOMPARE(server.requests.first().headers.value("authorization"),
+             QByteArray("Bearer named-access"));
+    QVERIFY(server.requests.last().body.contains("named-project"));
+    for (const QString &type : {QStringLiteral("api-key"), QStringLiteral("vertex-ai")}) {
+        QVERIFY(writeSettings(namedSettings, type));
+        adapter.refresh();
+        QVERIFY(!finished.last().first().toBool());
+        QCOMPARE(server.requests.size(), 2);
+    }
+    QVERIFY(QFile::remove(namedSettings));
+    QVERIFY(QFile::remove(namedKey));
+    adapter.refresh();
+    QCOMPARE(finished.count(), 4);
+    QVERIFY(!finished.last().first().toBool());
+    QCOMPARE(server.requests.size(), 2); // No fallback to valid Default credentials.
+    adapter.setProfileDirectory({});
+    adapter.refresh();
+    QCOMPARE(finished.count(), 5);
+    QVERIFY(!finished.last().first().toBool()); // Restored Default settings.
+    QVERIFY(writeSettings(defaultSettings, "oauth-personal"));
+    server.enqueue({200, "{}"});
+    server.enqueue({200, "{}"});
+    server.enqueue({200, quotaPayload()});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 6);
+    QVERIFY(finished.last().first().toBool());
+    QCOMPARE(server.requests.at(2).headers.value("authorization"),
+             QByteArray("Bearer default-access"));
+    QCOMPARE(server.requests.at(3).path, QByteArray("/projects"));
+    QVERIFY(!server.requests.last().body.contains("named-project"));
+}
+
+void GeminiProviderAdapterTest::pinsProfileRotation_data()
+{
+    QTest::addColumn<int>("mode");
+    QTest::newRow("proactive") << 0;
+    QTest::newRow("code-assist-401") << 1;
+    QTest::newRow("quota-401") << 2;
+}
+
+void GeminiProviderAdapterTest::pinsProfileRotation()
+{
+    QFETCH(int, mode);
+    QTemporaryDir defaults;
+    QTemporaryDir alpha;
+    QTemporaryDir beta;
+    QVERIFY(defaults.isValid() && alpha.isValid() && beta.isValid());
+    const QString defaultKey = defaults.filePath("oauth_creds.json");
+    const QString alphaKey = alpha.filePath("oauth_creds.json");
+    const QString betaKey = beta.filePath("oauth_creds.json");
+    QVERIFY(writeCredentials(defaultKey, 2'000'000'000'000, "default-refresh", "default-access"));
+    QVERIFY(writeCredentials(alphaKey, mode == 0 ? 1 : 2'000'000'000'000, "alpha-refresh",
+                             "alpha-access"));
+    QVERIFY(writeCredentials(betaKey, 2'000'000'000'000, "beta-refresh", "beta-access"));
+    QVERIFY(writeSettings(defaults.filePath("settings.json"), "api-key"));
+    QVERIFY(writeSettings(alpha.filePath("settings.json"), "oauth-personal"));
+    QVERIFY(writeSettings(beta.filePath("settings.json"), "vertex-ai"));
+    HttpServer server;
+    if (mode == 1)
+        server.enqueue({401, "{}"});
+    if (mode == 2) {
+        server.enqueue({200, R"({"cloudaicompanionProject":"alpha-project"})"});
+        server.enqueue({401, "{}"});
+    }
+    server.enqueue(
+        {200,
+         R"({"access_token":"rotated-alpha","refresh_token":"rotated-refresh","expires_in":3600})"});
+    server.enqueue({200, R"({"cloudaicompanionProject":"alpha-project"})"});
+    server.enqueue({200, quotaPayload()});
+    QNetworkAccessManager network;
+    GeminiProviderAdapter adapter(&network);
+    configure(adapter, defaultKey, defaults.filePath("settings.json"), server);
+    QSignalSpy finished(&adapter, &GeminiProviderAdapter::refreshFinished);
+    adapter.setProfileDirectory(alpha.path());
+    // Synchronous presentation callbacks cannot redirect the starting request either.
+    connect(&adapter, &GeminiProviderAdapter::busyChanged, &adapter, [&] {
+        if (adapter.busy())
+            adapter.setProfileDirectory(beta.path());
+    });
+    adapter.refresh();
+    adapter.setCredentialPath(defaultKey);
+    adapter.setSettingsPath(defaults.filePath("settings.json"));
+    adapter.setProfileDirectory(beta.path());
+    QTRY_COMPARE(finished.count(), 1);
+    QVERIFY(finished.last().first().toBool());
+    const auto rotated = GeminiCredentialStore::load(alphaKey);
+    QVERIFY(rotated);
+    QCOMPARE(rotated->accessToken, QStringLiteral("rotated-alpha"));
+    QCOMPARE(rotated->refreshToken, QStringLiteral("rotated-refresh"));
+    QCOMPARE(rotated->document.value("preserved").toInt(), 7);
+    QCOMPARE(GeminiCredentialStore::load(betaKey)->accessToken, QStringLiteral("beta-access"));
+    QCOMPARE(GeminiCredentialStore::load(defaultKey)->accessToken,
+             QStringLiteral("default-access"));
+    QCOMPARE(QFileInfo(alphaKey).permissions() &
+                 (QFile::ReadGroup | QFile::WriteGroup | QFile::ReadOther | QFile::WriteOther),
+             QFile::Permissions{});
+    QVERIFY(server.requests.at(mode).body.contains("refresh_token=alpha-refresh"));
+    QVERIFY(server.requests.at(mode).body.contains("client_id=test-client"));
+    QVERIFY(server.requests.at(mode).body.contains("client_secret=test-secret"));
+    QCOMPARE(server.requests.last().headers.value("authorization"),
+             QByteArray("Bearer rotated-alpha"));
+    QCOMPARE(GeminiCredentialStore::selectedAuthentication(alpha.filePath("settings.json")),
+             GeminiAuthType::OAuthPersonal);
+    adapter.refresh();
+    QCOMPARE(finished.count(), 2);
+    QVERIFY(!finished.last().first().toBool()); // Next cycle honors beta's Vertex selection.
+    adapter.setProfileDirectory({});
+    adapter.refresh();
+    QCOMPARE(finished.count(), 3);
+    QVERIFY(adapter.error().contains("API key"));
+}
 
 void GeminiProviderAdapterTest::fetchesCodeAssistAndQuotaWithExistingToken()
 {

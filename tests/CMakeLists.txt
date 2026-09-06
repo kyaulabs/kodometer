@@ -183,7 +183,7 @@ if(KODOMETER_BUILD_APPLET)
         "QT_QPA_PLATFORM=offscreen;KODOMETER_TEST_PRIVATE_BUS=1;XDG_DATA_DIRS=${CMAKE_CURRENT_BINARY_DIR}/notification-data:/usr/share")
 
     add_executable(applet-configuration-test tst_applet_configuration.cpp)
-    target_link_libraries(applet-configuration-test PRIVATE Qt6::Test Qt6::Quick Qt6::Qml KF6::ConfigCore KF6::ConfigGui)
+    target_link_libraries(applet-configuration-test PRIVATE Qt6::Test Qt6::Quick Qt6::Qml KF6::ConfigCore KF6::ConfigGui KF6::ConfigQml)
     target_compile_definitions(applet-configuration-test PRIVATE
         KODOMETER_APPLET_LIBRARY="$<TARGET_FILE:org.kyaulabs.kodometer>")
     add_dependencies(applet-configuration-test org.kyaulabs.kodometer)

@@ -2,6 +2,7 @@
 #include <QtTest>
 #include <kodometer/account_switch_model.hpp>
 #include <kodometer/credential_store.hpp>
+#include <kodometer/oauth_profiles.hpp>
 #include <kodometer/wallet_accounts.hpp>
 
 using namespace Kodometer;

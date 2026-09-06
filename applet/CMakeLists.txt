@@ -1,5 +1,9 @@
 plasma_add_applet(org.kyaulabs.kodometer
     QML_SOURCES
+        AccountSwitching.qml
+        AccountSwitchDialog.qml
+        AccountSelector.qml
+        UsageNavigation.qml
         CompactMeter.qml
         CostHistory.qml
         DetailSection.qml
@@ -26,6 +30,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../include/kodometer/codex_usage_parser.hpp
         ../include/kodometer/credential_store.hpp
         ../include/kodometer/wallet_accounts.hpp
+        ../include/kodometer/account_switch_model.hpp
         ../include/kodometer/kwallet_credential_store.hpp
         ../include/kodometer/claude_credentials.hpp
         ../include/kodometer/claude_provider_adapter.hpp
@@ -62,6 +67,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../src/codex_usage_parser.cpp
         ../src/credential_store.cpp
         ../src/wallet_accounts.cpp
+        ../src/account_switch_model.cpp
         ../src/kwallet_credential_store.cpp
         ../src/claude_credentials.cpp
         ../src/claude_provider_adapter.cpp

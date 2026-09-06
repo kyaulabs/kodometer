@@ -12,6 +12,8 @@ Flickable {
     required property var provider
     property int clockTick: 0
     property bool showIdleWindows: false
+    property var switching: null
+    property bool loading: false
     readonly property color accentColor: provider.display && provider.display.accentColor
                                          ? provider.display.accentColor :
                                            Kirigami.Theme.highlightColor
@@ -92,10 +94,26 @@ Flickable {
             }
         }
 
+        AccountSelector {
+            objectName: "detailAccountSelector"
+            Layout.fillWidth: true
+            switching: root.switching
+            providerId: String(root.provider.id || "")
+        }
+
+        QQC2.Label {
+            objectName: "pendingAccountUsage"
+            Layout.fillWidth: true
+            visible: Boolean(root.provider.pendingSelection)
+            text: root.loading ? qsTr("Loading usage for this selection…") : qsTr(
+                                     "No usage for this selection. Refresh or choose another account.")
+            wrapMode: Text.WordWrap
+        }
+
         QQC2.Label {
             objectName: "selectedOAuthProfile"
             Layout.fillWidth: true
-            visible: Boolean(root.provider.profileName)
+            visible: !root.switching && Boolean(root.provider.profileName)
             text: qsTr("Profile: %1").arg(root.provider.profileName || "")
             textFormat: Text.PlainText
             wrapMode: Text.WordWrap
@@ -104,7 +122,7 @@ Flickable {
         QQC2.Label {
             objectName: "selectedWalletAccount"
             Layout.fillWidth: true
-            visible: Boolean(root.provider.accountName)
+            visible: !root.switching && Boolean(root.provider.accountName)
             text: qsTr("Account: %1").arg(root.provider.accountName || "")
             textFormat: Text.PlainText
             wrapMode: Text.WordWrap

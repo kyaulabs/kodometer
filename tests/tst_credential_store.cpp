@@ -3,6 +3,9 @@
 
 #include <QtTest>
 
+#include <functional>
+#include <utility>
+
 using Kodometer::CredentialBackend;
 using Kodometer::CredentialStore;
 using Kodometer::ProviderAdapter;
@@ -21,6 +24,10 @@ class FakeCredentialBackend final : public CredentialBackend
                                                       QString *error) override
     {
         ++readCount;
+        const auto snapshot = values;
+        auto callback = std::exchange(duringRead, {});
+        if (callback)
+            callback();
         if (readFails || !readError.isEmpty()) {
             if (error != nullptr) {
                 *error = readError;
@@ -29,8 +36,8 @@ class FakeCredentialBackend final : public CredentialBackend
         }
         QMap<QString, QString> result;
         for (const QString &key : keys) {
-            if (values.contains(key)) {
-                result.insert(key, values.value(key));
+            if (snapshot.contains(key)) {
+                result.insert(key, snapshot.value(key));
             }
         }
         return result;
@@ -77,6 +84,7 @@ class FakeCredentialBackend final : public CredentialBackend
         emit changed();
     }
 
+    std::function<void()> duringRead;
     QMap<QString, QString> values;
     QString readError;
     QString writeError;
@@ -114,6 +122,13 @@ class CredentialStoreTest final : public QObject
     void clearsSecretsWhenWalletCloses();
     void appliesCredentialOverridesWithoutReplacingEnvironment();
     void preservesBackendOwnership();
+    void retriesDefaultCredentialsWhileAlreadyOpen();
+    void invalidatesFailedReadsAndRecovers_data();
+    void invalidatesFailedReadsAndRecovers();
+    void discardsReentrantReads_data();
+    void discardsReentrantReads();
+    void ignoresLateOpenAfterClose();
+    void closeDuringCompletionNotificationWins();
 };
 
 void CredentialStoreTest::opensLoadsAndTracksSecrets()
@@ -316,6 +331,130 @@ void CredentialStoreTest::appliesCredentialOverridesWithoutReplacingEnvironment(
 
     adapter.setCredentialOverrides({});
     QVERIFY(adapter.environmentWithCredentialOverrides({}).isEmpty());
+}
+
+void CredentialStoreTest::retriesDefaultCredentialsWhileAlreadyOpen()
+{
+    auto *backend = new FakeCredentialBackend;
+    CredentialStore store(backend);
+    store.open();
+    backend->finishOpen(true);
+    backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("recovered"));
+    store.open(); // Manual retry must not depend on a folderUpdated notification.
+    QCOMPARE(store.secrets().value(QStringLiteral("DEEPSEEK_API_KEY")),
+             QStringLiteral("recovered"));
+    QCOMPARE(backend->openCount, 1);
+}
+
+void CredentialStoreTest::invalidatesFailedReadsAndRecovers_data()
+{
+    QTest::addColumn<bool>("invalid");
+    QTest::newRow("read-error") << false;
+    QTest::newRow("malformed-entry") << true;
+}
+
+void CredentialStoreTest::invalidatesFailedReadsAndRecovers()
+{
+    QFETCH(bool, invalid);
+    auto *backend = new FakeCredentialBackend;
+    backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("old"));
+    CredentialStore store(backend);
+    store.open();
+    backend->finishOpen(true);
+    backend->readFails = !invalid;
+    if (invalid)
+        backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("bad\nkey"));
+    backend->notifyChanged();
+    QVERIFY(!store.ready());
+    QVERIFY(store.secrets().isEmpty());
+    QVERIFY(store.configuredKeys().isEmpty());
+    QVERIFY(!store.error().isEmpty());
+    backend->readFails = false;
+    backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("repaired"));
+    backend->notifyChanged();
+    QVERIFY(store.ready());
+    QVERIFY(store.error().isEmpty());
+    QCOMPARE(store.secrets().value(QStringLiteral("DEEPSEEK_API_KEY")), QStringLiteral("repaired"));
+    QCOMPARE(backend->openCount, 1);
+}
+
+void CredentialStoreTest::discardsReentrantReads_data()
+{
+    QTest::addColumn<bool>("opening");
+    QTest::addColumn<bool>("closing");
+    for (bool opening : {false, true})
+        for (bool closing : {false, true})
+            QTest::newRow(qPrintable(QStringLiteral("%1-%2").arg(opening).arg(closing)))
+                << opening << closing;
+}
+
+void CredentialStoreTest::discardsReentrantReads()
+{
+    QFETCH(bool, opening);
+    QFETCH(bool, closing);
+    auto *backend = new FakeCredentialBackend;
+    backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("obsolete"));
+    CredentialStore store(backend);
+    store.open();
+    if (!opening)
+        backend->finishOpen(true);
+    backend->duringRead = [&] {
+        if (closing) {
+            backend->close();
+        }
+        else {
+            backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("latest"));
+            backend->notifyChanged();
+        }
+    };
+    if (opening)
+        backend->finishOpen(true);
+    else
+        backend->notifyChanged();
+    QCOMPARE(store.ready(), !closing);
+    QVERIFY(!store.busy());
+    if (closing) {
+        QVERIFY(store.secrets().isEmpty());
+        QCOMPARE(store.error(), QStringLiteral("KWallet was closed"));
+    }
+    else {
+        QCOMPARE(store.secrets().value(QStringLiteral("DEEPSEEK_API_KEY")),
+                 QStringLiteral("latest"));
+        QVERIFY(store.error().isEmpty());
+    }
+}
+
+void CredentialStoreTest::ignoresLateOpenAfterClose()
+{
+    auto *backend = new FakeCredentialBackend;
+    backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("obsolete"));
+    CredentialStore store(backend);
+    store.open();
+    backend->close();
+    backend->finishOpen(true);
+    QVERIFY(!store.ready());
+    QVERIFY(!store.busy());
+    QVERIFY(store.secrets().isEmpty());
+    QCOMPARE(store.error(), QStringLiteral("KWallet was closed"));
+    store.open();
+    backend->finishOpen(true);
+    QVERIFY(store.ready());
+}
+
+void CredentialStoreTest::closeDuringCompletionNotificationWins()
+{
+    auto *backend = new FakeCredentialBackend;
+    backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("obsolete"));
+    CredentialStore store(backend);
+    store.open();
+    connect(&store, &CredentialStore::busyChanged, &store, [&] {
+        if (!store.busy())
+            backend->close();
+    });
+    backend->finishOpen(true);
+    QVERIFY(!store.ready());
+    QVERIFY(store.secrets().isEmpty());
+    QCOMPARE(store.error(), QStringLiteral("KWallet was closed"));
 }
 
 QTEST_GUILESS_MAIN(CredentialStoreTest)

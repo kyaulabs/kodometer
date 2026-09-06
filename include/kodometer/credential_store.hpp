@@ -77,14 +77,15 @@ class CredentialStore : public QObject
     [[nodiscard]] bool reload();
     void handleOpenFinished(bool success, const QString &error);
     void handleClosed();
-    void setReady(bool ready);
     void setBusy(bool busy);
     void setError(const QString &error);
-    void setSecrets(const QMap<QString, QString> &secrets);
+    void publishState(const QMap<QString, QString> &secrets, bool ready, const QString &error);
 
     CredentialBackend *m_backend = nullptr;
     WalletAccounts m_accounts;
     bool m_backendOpen = false;
+    quint64 m_sessionRevision = 0;
+    quint64 m_readRevision = 0;
     QMap<QString, QString> m_secrets;
     QString m_error;
     bool m_ready = false;

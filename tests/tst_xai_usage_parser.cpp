@@ -20,6 +20,8 @@ class XaiUsageParserTest final : public QObject
     void aggregatesDailySpendHistory();
     void acceptsEmptyHistoryAndRejectsMalformedHistory();
     void mapsProviderWithAndWithoutHistory();
+    void rejectsSpendAggregateOverflow();
+    void doesNotInventTodaysSpend();
 };
 
 void XaiUsageParserTest::parsesInvertedLedgerBalances_data()
@@ -123,7 +125,9 @@ void XaiUsageParserTest::mapsProviderWithAndWithoutHistory()
 {
     const XaiBalance balance{10.0};
     XaiUsageHistory history;
-    history.daily = {{QStringLiteral("2027-01-13"), 0.5},
+    history.daily = {{QStringLiteral("2026-12-16"), 500},
+                     {QStringLiteral("2027-01-16"), 900},
+                     {QStringLiteral("2027-01-13"), 0.5},
                      {QStringLiteral("2027-01-14"), 0.01},
                      {QStringLiteral("2027-01-15"), 1.25}};
     history.partial = true;
@@ -161,6 +165,29 @@ void XaiUsageParserTest::mapsProviderWithAndWithoutHistory()
     QVERIFY(!balanceCost.contains(QStringLiteral("historyEndDate")));
     QCOMPARE(balanceOnly.value(QStringLiteral("dataConfidence")).toString(),
              QStringLiteral("exact"));
+}
+
+void XaiUsageParserTest::doesNotInventTodaysSpend()
+{
+    XaiUsageHistory history;
+    history.daily = {{QStringLiteral("2027-01-14"), 1.0}};
+    const QDateTime timestamp =
+        QDateTime::fromString(QStringLiteral("2027-01-16T01:00:00+02:00"), Qt::ISODate);
+    const QVariantMap cost =
+        XaiUsageParser::provider({10.0}, history, timestamp).value(QStringLiteral("cost")).toMap();
+    QCOMPARE(cost.value(QStringLiteral("historyEndDate")).toString(), QStringLiteral("2027-01-15"));
+    QVERIFY(!cost.contains(QStringLiteral("todayUSD")));
+    QCOMPARE(cost.value(QStringLiteral("last30DaysUSD")).toDouble(), 1.0);
+}
+
+void XaiUsageParserTest::rejectsSpendAggregateOverflow()
+{
+    QString error;
+    const auto history = XaiUsageParser::parseHistory(
+        R"({"timeSeries":[{"dataPoints":[{"timestamp":"2027-01-14T00:00:00Z","values":[1e308]},{"timestamp":"2027-01-15T00:00:00Z","values":[1e308]}]}]})",
+        &error);
+    QVERIFY(!history);
+    QCOMPARE(error, QStringLiteral("xAI usage API spend aggregate overflowed"));
 }
 
 QTEST_GUILESS_MAIN(XaiUsageParserTest)

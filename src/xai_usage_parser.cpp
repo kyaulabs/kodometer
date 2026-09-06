@@ -73,6 +73,7 @@ std::optional<XaiUsageHistory> XaiUsageParser::parseHistory(const QByteArray &da
     }
 
     XaiUsageHistory history;
+    double total = 0.0;
     history.partial = root->value(QStringLiteral("limitReached")).toBool();
     for (const QJsonValue &seriesValueEntry : seriesValue.toArray()) {
         if (!seriesValueEntry.isObject()) {
@@ -103,6 +104,11 @@ std::optional<XaiUsageHistory> XaiUsageParser::parseHistory(const QByteArray &da
                 return std::nullopt;
             }
             // GCOVR_EXCL_BR_STOP
+            total += amount;
+            if (!std::isfinite(total)) {
+                setError(error, QStringLiteral("xAI usage API spend aggregate overflowed"));
+                return std::nullopt;
+            }
             const QString day = timestamp.toUTC().date().toString(Qt::ISODate);
             history.daily.insert(day, history.daily.value(day) + amount);
         }
@@ -125,18 +131,28 @@ QVariantMap XaiUsageParser::provider(const XaiBalance &balance,
     if (history) {
         QVariantList daily;
         double total = 0.0;
+        const QDate end = updatedAt.toUTC().date();
+        const QDate start = end.addDays(-29);
+        const QString today = end.toString(Qt::ISODate);
         for (auto point = history->daily.cbegin(); point != history->daily.cend(); ++point) {
+            const QDate date = QDate::fromString(point.key(), Qt::ISODate);
+            if (date < start || date > end) {
+                continue;
+            }
             // GCOVR_EXCL_BR_START -- Qt container allocation branches
             daily.append(QVariantMap{{QStringLiteral("label"), point.key()},
                                      {QStringLiteral("value"), point.value()}});
             // GCOVR_EXCL_BR_STOP
             total += point.value();
         }
-        const QString today = updatedAt.toUTC().date().toString(Qt::ISODate);
-        cost.insert(QStringLiteral("todayUSD"), history->daily.value(today));
+        if (history->daily.contains(today)) {
+            cost.insert(QStringLiteral("todayUSD"), history->daily.value(today));
+        }
         cost.insert(QStringLiteral("last30DaysUSD"), total);
         cost.insert(QStringLiteral("historyPartial"), history->partial);
         cost.insert(QStringLiteral("daily"), daily);
+        cost.insert(QStringLiteral("historyEndDate"), today);
+        cost.insert(QStringLiteral("historyIncludesCurrentDay"), true);
         if (history->partial) {
             confidence = QStringLiteral("estimated");
         }

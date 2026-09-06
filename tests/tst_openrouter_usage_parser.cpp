@@ -165,6 +165,7 @@ void OpenRouterUsageParserTest::parsesAndMergesActivity()
     QCOMPARE(cost.value(QStringLiteral("daily")).toList().size(), 2);
     QCOMPARE(cost.value(QStringLiteral("historyEndDate")).toString(), QStringLiteral("2027-01-14"));
     QCOMPARE(cost.value(QStringLiteral("historyIncludesCurrentDay")), QVariant(false));
+    QVERIFY(cost.value(QStringLiteral("historyEstimated")).toBool());
     QCOMPARE(provider.value(QStringLiteral("dataConfidence")).toString(), QStringLiteral("exact"));
     QVERIFY(error.isEmpty());
 }

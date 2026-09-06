@@ -29,15 +29,18 @@ class WalletAccounts : public QObject
     [[nodiscard]] std::optional<QString> key(const QString &provider, const QString &id) const;
     [[nodiscard]] QString managementKey(const QString &provider, const QString &id) const;
     [[nodiscard]] QString teamId(const QString &provider, const QString &id) const;
+    [[nodiscard]] QVariantMap zaiOptions(const QString &provider, const QString &id) const;
     [[nodiscard]] static bool supportsProvider(const QString &provider);
     [[nodiscard]] static bool isAccountEntry(const QString &entry);
 
     void setAvailable(bool available);
     bool reload();
     Q_INVOKABLE QString addAccount(const QString &provider, const QString &name, const QString &key,
-                                   const QString &managementKey = {}, const QString &teamId = {});
+                                   const QString &managementKey = {}, const QString &teamId = {},
+                                   const QVariantMap &zaiOptions = {});
     Q_INVOKABLE bool replaceAccount(const QString &provider, const QString &id, const QString &key,
-                                    const QString &managementKey = {}, const QString &teamId = {});
+                                    const QString &managementKey = {}, const QString &teamId = {},
+                                    const QVariantMap &zaiOptions = {});
     Q_INVOKABLE bool removeAccount(const QString &provider, const QString &id);
 
   signals:
@@ -50,12 +53,12 @@ class WalletAccounts : public QObject
         QString key;
         QString managementKey;
         QString teamId;
+        QVariantMap zaiOptions;
         bool operator==(const Account &) const = default;
     };
-    [[nodiscard]] static std::optional<Account> validated(const QString &provider,
-                                                          const QString &name, const QString &key,
-                                                          const QString &managementKey,
-                                                          const QString &teamId);
+    [[nodiscard]] static std::optional<Account>
+    validated(const QString &provider, const QString &name, const QString &key,
+              const QString &managementKey, const QString &teamId, const QVariantMap &zaiOptions);
     [[nodiscard]] static QString entryName(const QString &provider, const QString &id);
     bool editable();
     bool write(const QString &entry, const Account &account);

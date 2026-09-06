@@ -2,6 +2,7 @@
 
 #include <QMap>
 #include <QString>
+#include <QVariantMap>
 
 #include <optional>
 
@@ -22,7 +23,8 @@ enum class ZaiUsageScope
 enum class ZaiCredentialSource
 {
     Environment,
-    CredentialFile
+    CredentialFile,
+    WalletAccount
 };
 
 struct ZaiCredentials
@@ -39,6 +41,10 @@ class ZaiCredentialResolver
 {
   public:
     static constexpr qsizetype MaximumCredentialFileSize = 1024 * 1024;
+
+    [[nodiscard]] static bool validAccountOptions(const QVariantMap &options);
+    [[nodiscard]] static std::optional<ZaiCredentials>
+    resolveNamed(const QString &key, const QVariantMap &options, QString *error = nullptr);
 
     [[nodiscard]] static std::optional<ZaiCredentials>
     resolve(const QMap<QString, QString> &environment, const QString &homeDirectory = {},

@@ -4,11 +4,17 @@ namespace Kodometer {
 
 void ProviderAdapter::setAccountCredential(const std::optional<QString> &credential,
                                            const QString &managementCredential,
-                                           const QString &teamId)
+                                           const QString &teamId, const QVariantMap &zaiOptions)
 {
     m_accountCredential = credential;
     m_accountManagementCredential = credential ? managementCredential : QString{};
     m_accountTeamId = credential ? teamId : QString{};
+    m_accountZaiOptions = credential ? zaiOptions : QVariantMap{};
+}
+
+QVariantMap ProviderAdapter::selectedAccountZaiOptions() const
+{
+    return m_accountZaiOptions;
 }
 
 QString ProviderAdapter::selectedAccountTeamId() const

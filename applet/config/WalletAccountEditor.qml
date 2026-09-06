@@ -14,8 +14,29 @@ ColumnLayout {
     property string selectedId: ""
     readonly property bool pairedKeys: providerId === "openrouter"
     readonly property bool teamAccount: providerId === "xai"
+    readonly property bool regionalAccount: providerId === "zai"
     readonly property bool completeCredentials: secret.text.length > 0 && (!teamAccount
                                                                            || team.text.length > 0)
+                                                && (!regionalAccount || (region.currentIndex >= 0
+                                                                         && usageScope.currentIndex
+                                                                         >= 0 && (usageScope.currentIndex
+                                                                                  === 0 || (
+                                                                                      organization.text.length
+                                                                                      > 0 && project.text.length
+                                                                                      > 0))))
+    readonly property var zaiOptions: {
+        if (!regionalAccount)
+            return {}
+        const options = {
+            region: region.currentIndex === 1 ? "bigmodel-cn" : "global",
+            scope: usageScope.currentIndex === 1 ? "team" : "personal"
+        }
+        if (usageScope.currentIndex === 1) {
+            options.organizationId = organization.text.trim()
+            options.projectId = project.text.trim()
+        }
+        return options
+    }
     readonly property var entries: accountStore.providers[providerId] || []
     readonly property bool available: entries.some(entry => entry.id === root.selectedId)
     readonly property var choices: {
@@ -40,6 +61,14 @@ ColumnLayout {
             management.clear()
         if (team)
             team.clear()
+        if (region)
+            region.currentIndex = -1
+        if (usageScope)
+            usageScope.currentIndex = -1
+        if (organization)
+            organization.clear()
+        if (project)
+            project.clear()
     }
 
     onSelectedIdChanged: clearCredentials()
@@ -152,6 +181,64 @@ ColumnLayout {
                   "Re-enter the Management key and team ID to replace this account. Team IDs use 1–256 ASCII letters, digits, underscores, or hyphens. Neither value falls back to the environment.")
     }
 
+    QQC2.ComboBox {
+        id: region
+        objectName: root.providerId + "-wallet-region"
+        Layout.fillWidth: true
+        visible: root.regionalAccount
+        enabled: root.accountStore.ready
+        model: [qsTr("Global"), qsTr("BigModel CN")]
+        currentIndex: -1
+        displayText: currentIndex < 0 ? qsTr("Choose z.ai region") : currentText
+        Accessible.name: qsTr("z.ai region")
+    }
+
+    QQC2.ComboBox {
+        id: usageScope
+        objectName: root.providerId + "-wallet-scope"
+        Layout.fillWidth: true
+        visible: root.regionalAccount
+        enabled: root.accountStore.ready
+        model: [qsTr("Personal"), qsTr("Team")]
+        currentIndex: -1
+        displayText: currentIndex < 0 ? qsTr("Choose z.ai usage scope") : currentText
+        Accessible.name: qsTr("z.ai usage scope")
+        onActivated: {
+            organization.clear()
+            project.clear()
+        }
+    }
+
+    QQC2.TextField {
+        id: organization
+        objectName: root.providerId + "-wallet-organization"
+        Layout.fillWidth: true
+        visible: root.regionalAccount && usageScope.currentIndex === 1
+        enabled: root.accountStore.ready
+        maximumLength: 256
+        placeholderText: qsTr("Required organization ID")
+        Accessible.name: qsTr("z.ai organization ID")
+    }
+
+    QQC2.TextField {
+        id: project
+        objectName: root.providerId + "-wallet-project"
+        Layout.fillWidth: true
+        visible: root.regionalAccount && usageScope.currentIndex === 1
+        enabled: root.accountStore.ready
+        maximumLength: 256
+        placeholderText: qsTr("Required project ID")
+        Accessible.name: qsTr("z.ai project ID")
+    }
+
+    QQC2.Label {
+        Layout.fillWidth: true
+        visible: root.regionalAccount
+        wrapMode: Text.WordWrap
+        text: qsTr(
+                  "Re-enter the key and choose its region and scope for every save. Team scope requires organization and project IDs of 1–256 ASCII letters, digits, underscores, or hyphens. No value falls back to environment settings or credential files.")
+    }
+
     Flow {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
@@ -163,7 +250,7 @@ ColumnLayout {
             enabled: root.accountStore.ready && name.text.length > 0 && root.completeCredentials
             onClicked: {
                 const id = root.accountStore.addAccount(root.providerId, name.text, secret.text,
-                                                        management.text, team.text)
+                                                        management.text, team.text, root.zaiOptions)
                 if (id.length > 0) {
                     root.selectedId = id
                     name.clear()
@@ -173,13 +260,15 @@ ColumnLayout {
         }
         QQC2.Button {
             objectName: root.providerId + "-wallet-replace"
-            text: root.teamAccount ? qsTr("Replace key and team") : root.pairedKeys ? qsTr(
-                                                                                          "Replace selected keys") :
-                                                                                      qsTr("Replace selected key")
+            text: root.regionalAccount ? qsTr("Replace key and settings") : root.teamAccount ? qsTr(
+                                                                                                   "Replace key and team") :
+                                                                                               root.pairedKeys
+                                                                                               ? qsTr("Replace selected keys") :
+                                                                                                 qsTr("Replace selected key")
             enabled: root.accountStore.ready && root.available && root.completeCredentials
             onClicked: {
                 if (root.accountStore.replaceAccount(root.providerId, root.selectedId, secret.text,
-                                                     management.text, team.text))
+                                                     management.text, team.text, root.zaiOptions))
                     root.clearCredentials()
             }
         }

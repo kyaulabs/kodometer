@@ -1,5 +1,6 @@
 #include <kodometer/credential_store.hpp>
 #include <kodometer/wallet_accounts.hpp>
+#include <kodometer/zai_credentials.hpp>
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -12,7 +13,8 @@
 namespace Kodometer {
 namespace {
 const QStringList Providers{QStringLiteral("deepseek"), QStringLiteral("kimi"),
-                            QStringLiteral("openrouter"), QStringLiteral("xai")};
+                            QStringLiteral("openrouter"), QStringLiteral("xai"),
+                            QStringLiteral("zai")};
 
 bool validKey(const QString &key)
 {
@@ -59,7 +61,8 @@ bool WalletAccounts::isAccountEntry(const QString &entry)
     return entry.startsWith(QLatin1String("accounts/deepseek/")) ||
            entry.startsWith(QLatin1String("accounts/kimi/")) ||
            entry.startsWith(QLatin1String("accounts/openrouter/")) ||
-           entry.startsWith(QLatin1String("accounts/xai/"));
+           entry.startsWith(QLatin1String("accounts/xai/")) ||
+           entry.startsWith(QLatin1String("accounts/zai/"));
 }
 
 QString WalletAccounts::entryName(const QString &provider, const QString &id)
@@ -116,9 +119,15 @@ QString WalletAccounts::teamId(const QString &provider, const QString &id) const
     return m_entries.value(entryName(provider, id)).teamId;
 }
 
+QVariantMap WalletAccounts::zaiOptions(const QString &provider, const QString &id) const
+{
+    return m_entries.value(entryName(provider, id)).zaiOptions;
+}
+
 std::optional<WalletAccounts::Account>
 WalletAccounts::validated(const QString &provider, const QString &name, const QString &key,
-                          const QString &managementKey, const QString &teamId)
+                          const QString &managementKey, const QString &teamId,
+                          const QVariantMap &zaiOptions)
 {
     const QString label = name.trimmed();
     const QString secret = key.trimmed();
@@ -134,7 +143,12 @@ WalletAccounts::validated(const QString &provider, const QString &name, const QS
         provider != QLatin1String("openrouter") && !management.isEmpty();
     if (badName || unsupportedManagement || !validTeam(provider, team))
         return std::nullopt;
-    return Account{label, secret, management, team};
+    const bool validOptions = provider == QLatin1String("zai")
+                                  ? ZaiCredentialResolver::validAccountOptions(zaiOptions)
+                                  : zaiOptions.isEmpty();
+    if (!validOptions)
+        return std::nullopt;
+    return Account{label, secret, management, team, zaiOptions};
 }
 
 void WalletAccounts::setAvailable(bool available)
@@ -164,7 +178,7 @@ bool WalletAccounts::reload()
     QMap<QString, Account> parsed;
     QMap<QString, int> counts;
     QSet<QString> names;
-    bool valid = loaded->size() <= 32;
+    bool valid = loaded->size() <= 40;
     for (auto it = loaded->cbegin(); valid && it != loaded->cend(); ++it) {
         const QStringList parts = it.key().split(QLatin1Char('/'));
         if (parts.size() != 3 || parts.first() != QLatin1String("accounts")) {
@@ -192,14 +206,18 @@ bool WalletAccounts::reload()
         const QJsonValue team = object.value(QStringLiteral("teamId"));
         const bool scoped = provider == QLatin1String("xai");
         const bool validTeamType = !scoped || team.isString();
-        const int fieldCount = 2 + (paired ? 1 : 0) + (scoped ? 1 : 0);
+        const QJsonValue options = object.value(QStringLiteral("zai"));
+        const bool regional = provider == QLatin1String("zai");
+        const bool validOptionsType = !regional || options.isObject();
+        const int fieldCount = 2 + (paired ? 1 : 0) + (scoped ? 1 : 0) + (regional ? 1 : 0);
         if (object.size() != fieldCount || !label.isString() || !key.isString() ||
-            !validManagement || !validTeamType) {
+            !validManagement || !validTeamType || !validOptionsType) {
             valid = false;
             break;
         }
-        const auto account = validated(provider, label.toString(), key.toString(),
-                                       management.toString(), team.toString());
+        const auto account =
+            validated(provider, label.toString(), key.toString(), management.toString(),
+                      team.toString(), options.toObject().toVariantMap());
         if (!account) {
             valid = false;
             break;
@@ -236,20 +254,24 @@ bool WalletAccounts::editable()
 }
 
 QString WalletAccounts::addAccount(const QString &provider, const QString &name, const QString &key,
-                                   const QString &managementKey, const QString &teamId)
+                                   const QString &managementKey, const QString &teamId,
+                                   const QVariantMap &zaiOptions)
 {
     if (!supportsProvider(provider)) {
-        setError(tr("Choose DeepSeek, Kimi Code, OpenRouter, or xAI."));
+        setError(tr("Choose DeepSeek, Kimi Code, OpenRouter, xAI, or z.ai."));
         return {};
     }
     if (!editable())
         return {};
-    const auto account = validated(provider, name, key, managementKey, teamId);
+    const auto account = validated(provider, name, key, managementKey, teamId, zaiOptions);
     if (!account) {
-        setError(tr("Use a name of 1–64 characters and a required API key. An optional Management "
-                    "key is supported only for OpenRouter. Keys must be printable ASCII without "
-                    "internal whitespace, at most 64 KiB each. xAI also requires a team ID of "
-                    "1–256 ASCII letters, digits, underscores, or hyphens."));
+        setError(
+            tr("Use a name of 1–64 characters and a required API key. An optional Management "
+               "key is supported only for OpenRouter. Keys must be printable ASCII without "
+               "internal whitespace, at most 64 KiB each. xAI also requires a team ID of "
+               "1–256 ASCII letters, digits, underscores, or hyphens. z.ai requires a region and "
+               "scope; team scope also requires organization and project IDs with the same "
+               "identifier limits."));
         return {};
     }
     const QVariantList existing = entries(provider);
@@ -268,7 +290,8 @@ QString WalletAccounts::addAccount(const QString &provider, const QString &name,
 }
 
 bool WalletAccounts::replaceAccount(const QString &provider, const QString &id, const QString &key,
-                                    const QString &managementKey, const QString &teamId)
+                                    const QString &managementKey, const QString &teamId,
+                                    const QVariantMap &zaiOptions)
 {
     if (!editable())
         return false;
@@ -278,12 +301,14 @@ bool WalletAccounts::replaceAccount(const QString &provider, const QString &id, 
         setError(tr("Select an available named account."));
         return false;
     }
-    const auto replacement = validated(provider, it->name, key, managementKey, teamId);
+    const auto replacement = validated(provider, it->name, key, managementKey, teamId, zaiOptions);
     if (!replacement) {
         setError(
             tr("Enter the required API key and, optionally, an OpenRouter Management key. Keys "
                "must be printable ASCII without internal whitespace, at most 64 KiB each. xAI also "
-               "requires a team ID of 1–256 ASCII letters, digits, underscores, or hyphens."));
+               "requires a team ID of 1–256 ASCII letters, digits, underscores, or hyphens. z.ai "
+               "requires a region and scope; team scope also requires organization and project IDs "
+               "with the same identifier limits."));
         return false;
     }
     return write(entry, *replacement);
@@ -315,6 +340,9 @@ bool WalletAccounts::write(const QString &entry, const Account &account)
     }
     if (!account.teamId.isEmpty()) {
         object.insert(QStringLiteral("teamId"), account.teamId);
+    }
+    if (!account.zaiOptions.isEmpty()) {
+        object.insert(QStringLiteral("zai"), QJsonObject::fromVariantMap(account.zaiOptions));
     }
     const QString payload = QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact));
     QString error;

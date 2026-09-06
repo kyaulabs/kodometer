@@ -44,6 +44,7 @@ class AccountUiStore final : public QObject
     QString savedKey;
     QString savedManagement;
     QString savedTeam;
+    QVariantMap savedZai;
     QString removedId;
     const QString id = QStringLiteral("11111111-1111-4111-8111-111111111111");
     QVariantMap records;
@@ -52,25 +53,29 @@ class AccountUiStore final : public QObject
         return records;
     }
     Q_INVOKABLE QString addAccount(const QString &provider, const QString &name, const QString &key,
-                                   const QString &management = {}, const QString &team = {})
+                                   const QString &management = {}, const QString &team = {},
+                                   const QVariantMap &zai = {})
     {
         if (failWrites)
             return {};
         savedKey = key;
         savedManagement = management;
         savedTeam = team;
+        savedZai = zai;
         records.insert(provider, QVariantList{QVariantMap{{"id", id}, {"name", name}}});
         emit changed();
         return id;
     }
     Q_INVOKABLE bool replaceAccount(const QString &, const QString &, const QString &key,
-                                    const QString &management = {}, const QString &team = {})
+                                    const QString &management = {}, const QString &team = {},
+                                    const QVariantMap &zai = {})
     {
         if (failWrites)
             return false;
         savedKey = key;
         savedManagement = management;
         savedTeam = team;
+        savedZai = zai;
         return true;
     }
     Q_INVOKABLE bool removeAccount(const QString &provider, const QString &selected)
@@ -121,6 +126,7 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(loader.property("kimiAccountId").toString().isEmpty());
         QVERIFY(loader.property("openrouterAccountId").toString().isEmpty());
         QVERIFY(loader.property("xaiAccountId").toString().isEmpty());
+        QVERIFY(loader.property("zaiAccountId").toString().isEmpty());
         const auto roles = categories->roleNames();
         const int sourceRole = roles.key(QByteArray("source"), -1);
         QVERIFY(sourceRole >= 0);
@@ -140,7 +146,7 @@ class AppletConfigurationTest final : public QObject
         {
             KConfig config(path, KConfig::SimpleConfig);
             KConfigLoader loader(KConfigGroup(&config, "Widget"), &schema);
-            QCOMPARE(loader.items().size(), 11);
+            QCOMPARE(loader.items().size(), 12);
             const QVariantMap preferences{
                 {QStringLiteral("autoRefresh"), false},
                 {QStringLiteral("refreshIntervalMinutes"), 15},
@@ -156,6 +162,8 @@ class AppletConfigurationTest final : public QObject
                  QStringLiteral("33333333-3333-4333-8333-333333333333")},
                 {QStringLiteral("xaiAccountId"),
                  QStringLiteral("44444444-4444-4444-8444-444444444444")},
+                {QStringLiteral("zaiAccountId"),
+                 QStringLiteral("55555555-5555-4555-8555-555555555555")},
                 {QStringLiteral("oauthProfiles"),
                  QStringLiteral(
                      R"({"version":1,"codex":[{"id":"11111111-1111-4111-8111-111111111111","name":"Work","directory":"/profiles/work"}],"selectedCodex":"11111111-1111-4111-8111-111111111111"})")}};
@@ -184,6 +192,8 @@ class AppletConfigurationTest final : public QObject
                  QStringLiteral("33333333-3333-4333-8333-333333333333"));
         QCOMPARE(reloaded.property("xaiAccountId").toString(),
                  QStringLiteral("44444444-4444-4444-8444-444444444444"));
+        QCOMPARE(reloaded.property("zaiAccountId").toString(),
+                 QStringLiteral("55555555-5555-4555-8555-555555555555"));
         QVERIFY(reloaded.property("oauthProfiles")
                     .toString()
                     .contains(QStringLiteral("/profiles/work")));
@@ -429,6 +439,81 @@ class AppletConfigurationTest final : public QObject
         page.reset();
         QCOMPARE(accounts.savedTeam,
                  QStringLiteral("team-b")); // Cancel preserves the wallet mutation.
+    }
+
+    void stagesZaiSelectionAndRequiresExplicitSelectors()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
+        QQmlEngine engine;
+        AccountUiStore accounts;
+        QQmlComponent component(
+            &engine,
+            QUrl(QStringLiteral(
+                "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ConfigWalletAccounts.qml")));
+        QScopedPointer<QObject> page(component.createWithInitialProperties(
+            {{"accountStore", QVariant::fromValue<QObject *>(&accounts)}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        const auto field = [&](const char *suffix) {
+            return page->findChild<QObject *>(QStringLiteral("zai-wallet-") +
+                                              QLatin1String(suffix));
+        };
+        auto *name = field("name");
+        auto *key = field("key");
+        auto *region = field("region");
+        auto *scope = field("scope");
+        auto *org = field("organization");
+        auto *project = field("project");
+        auto *add = field("add");
+        auto *replace = field("replace");
+        QVERIFY(name && key && region && scope && org && project && add && replace);
+        QVERIFY(page->property("cfg_zaiAccountId").toString().isEmpty());
+        QCOMPARE(region->property("currentIndex").toInt(), -1);
+        QCOMPARE(scope->property("currentIndex").toInt(), -1);
+        name->setProperty("text", "Work");
+        key->setProperty("text", "key");
+        QVERIFY(!add->property("enabled").toBool());
+        region->setProperty("currentIndex", 1);
+        scope->setProperty("currentIndex", 1);
+        QVERIFY(!add->property("enabled").toBool());
+        org->setProperty("text", "org");
+        project->setProperty("text", "project");
+        QVERIFY(add->property("enabled").toBool());
+        accounts.failWrites = true;
+        QVERIFY(QMetaObject::invokeMethod(add, "clicked"));
+        QCOMPARE(key->property("text").toString(), QStringLiteral("key"));
+        QCOMPARE(region->property("currentIndex").toInt(), 1);
+        accounts.failWrites = false;
+        QVERIFY(QMetaObject::invokeMethod(add, "clicked"));
+        QCOMPARE(accounts.savedZai, (QVariantMap{{"region", "bigmodel-cn"},
+                                                 {"scope", "team"},
+                                                 {"organizationId", "org"},
+                                                 {"projectId", "project"}}));
+        QCOMPARE(page->property("cfg_zaiAccountId").toString(), accounts.id);
+        QVERIFY(key->property("text").toString().isEmpty());
+        QVERIFY(org->property("text").toString().isEmpty());
+        QCOMPARE(region->property("currentIndex").toInt(), -1);
+        key->setProperty("text", "replacement");
+        QVERIFY(!replace->property("enabled").toBool());
+        region->setProperty("currentIndex", 0);
+        scope->setProperty("currentIndex", 0);
+        QVERIFY(replace->property("enabled").toBool());
+        accounts.failWrites = true;
+        QVERIFY(QMetaObject::invokeMethod(replace, "clicked"));
+        QCOMPARE(key->property("text").toString(), QStringLiteral("replacement"));
+        QCOMPARE(region->property("currentIndex").toInt(), 0);
+        accounts.failWrites = false;
+        QVERIFY(QMetaObject::invokeMethod(replace, "clicked"));
+        QCOMPARE(accounts.savedZai, (QVariantMap{{"region", "global"}, {"scope", "personal"}}));
+        org->setProperty("text", "draft");
+        page->setProperty("cfg_zaiAccountId", QString{});
+        QVERIFY(org->property("text").toString().isEmpty());
+        project->setProperty("text", "draft");
+        region->setProperty("currentIndex", 1);
+        QVERIFY(accounts.setProperty("ready", false));
+        QVERIFY(project->property("text").toString().isEmpty());
+        QCOMPARE(region->property("currentIndex").toInt(), -1);
+        page.reset(); // Cancel cannot undo the immediate wallet replacement.
+        QCOMPARE(accounts.savedKey, QStringLiteral("replacement"));
     }
 
     void presentsWalletNamesAsPlainText()

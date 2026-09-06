@@ -11,6 +11,8 @@
 
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include <algorithm>
 
@@ -110,6 +112,23 @@ QString UsageController::selectedAccountTeamId(const QString &provider) const
     return m_credentialStore->accounts()->teamId(provider, m_accountSelections.value(provider));
 }
 
+QString UsageController::zaiAccountId() const
+{
+    return m_accountSelections.value(QStringLiteral("zai"));
+}
+
+void UsageController::setZaiAccountId(const QString &id)
+{
+    setAccountSelection(QStringLiteral("zai"), id);
+}
+
+QVariantMap UsageController::selectedAccountZaiOptions(const QString &provider) const
+{
+    if (m_credentialStore == nullptr)
+        return {};
+    return m_credentialStore->accounts()->zaiOptions(provider, m_accountSelections.value(provider));
+}
+
 void UsageController::setAccountSelection(const QString &provider, const QString &id)
 {
     if (m_accountSelections.value(provider) == id)
@@ -139,6 +158,9 @@ QString UsageController::contextKey(const QString &provider) const
         pair.append(selectedAccountManagementKey(provider).toUtf8());
         pair.append('\0');
         pair.append(selectedAccountTeamId(provider).toUtf8());
+        pair.append('\0');
+        pair.append(QJsonDocument(QJsonObject::fromVariantMap(selectedAccountZaiOptions(provider)))
+                        .toJson(QJsonDocument::Compact));
         fingerprint =
             QString::fromLatin1(QCryptographicHash::hash(pair, QCryptographicHash::Sha256).toHex());
     }
@@ -354,7 +376,8 @@ void UsageController::refresh()
         if (WalletAccounts::supportsProvider(id)) {
             adapter->setAccountCredential(
                 m_accountSelections.value(id).isEmpty() ? std::nullopt : selectedAccountKey(id),
-                selectedAccountManagementKey(id), selectedAccountTeamId(id));
+                selectedAccountManagementKey(id), selectedAccountTeamId(id),
+                selectedAccountZaiOptions(id));
         }
     }
     setBusy(true);

@@ -95,7 +95,7 @@ class WalletAccountsTest final : public QObject
         store.open();
         QVERIFY(accounts->ready());
         QVERIFY(accounts->error().isEmpty());
-        QCOMPARE(accounts->providers().size(), 4);
+        QCOMPARE(accounts->providers().size(), 5);
         QSignalSpy changed(accounts, &WalletAccounts::changed);
         const QString id = accounts->addAccount("deepseek", " Work ", " key-one ");
         QVERIFY(!id.isEmpty());
@@ -140,7 +140,7 @@ class WalletAccountsTest final : public QObject
         CredentialStore store(backend);
         store.open();
         auto *accounts = store.accounts();
-        QVERIFY(accounts->addAccount("zai", "Work", "key").isEmpty());
+        QVERIFY(accounts->addAccount("unknown", "Work", "key").isEmpty());
         for (const auto &pair : QList<QPair<QString, QString>>{{"", "key"},
                                                                {QString(65, 'a'), "key"},
                                                                {"Bad\nName", "key"},
@@ -219,7 +219,7 @@ class WalletAccountsTest final : public QObject
         auto *backend = new AccountBackend;
         CredentialStore store(backend);
         store.open();
-        for (int count : {2, 9, 33}) {
+        for (int count : {2, 9, 41}) {
             backend->values.clear();
             for (int i = 0; i < count; ++i) {
                 const QString id =
@@ -263,7 +263,7 @@ class WalletAccountsTest final : public QObject
         QCOMPARE(*accounts->key("openrouter", id), QStringLiteral("replacement"));
     }
 
-    void boundsPairedKeysAndAcceptsAllFourProviders()
+    void boundsPairedKeysAndAcceptsAllFiveProviders()
     {
         auto *backend = new AccountBackend;
         CredentialStore store(backend);
@@ -278,14 +278,17 @@ class WalletAccountsTest final : public QObject
         QVERIFY(!accounts->replaceAccount("openrouter", id, "key", QString(65537, 'x')));
         QVERIFY(!accounts->replaceAccount("openrouter", id, "key", QStringLiteral("bad\u00e9key")));
         QVERIFY(accounts->removeAccount("openrouter", id));
-        for (const QString &provider : {QStringLiteral("deepseek"), QStringLiteral("kimi"),
-                                        QStringLiteral("openrouter"), QStringLiteral("xai")}) {
+        for (const QString &provider :
+             {QStringLiteral("deepseek"), QStringLiteral("kimi"), QStringLiteral("openrouter"),
+              QStringLiteral("xai"), QStringLiteral("zai")}) {
             for (int i = 0; i < 8; ++i) {
                 const QString uuid =
                     QStringLiteral("11111111-1111-4111-8111-%1").arg(i, 12, 10, QLatin1Char('0'));
                 QJsonObject record{{"name", QString::number(i)}, {"key", "key"}};
                 if (provider == QLatin1String("xai"))
                     record.insert("teamId", "Team_012");
+                if (provider == QLatin1String("zai"))
+                    record.insert("zai", QJsonObject{{"region", "global"}, {"scope", "personal"}});
                 backend->values.insert(
                     "accounts/" + provider + "/" + uuid,
                     QString::fromUtf8(QJsonDocument(record).toJson(QJsonDocument::Compact)));
@@ -293,7 +296,12 @@ class WalletAccountsTest final : public QObject
         }
         backend->update();
         QVERIFY(accounts->ready());
-        QCOMPARE(backend->values.size(), 32);
+        QCOMPARE(backend->values.size(), 40);
+        QCOMPARE(accounts->entries("zai").size(), 8);
+        QVERIFY(accounts
+                    ->addAccount("zai", "Nine", "key", {}, {},
+                                 {{"region", "global"}, {"scope", "personal"}})
+                    .isEmpty());
         QCOMPARE(accounts->entries("xai").size(), 8);
         QVERIFY(accounts->addAccount("xai", "Nine", "key", {}, "team").isEmpty());
         QCOMPARE(accounts->entries("openrouter").size(), 8);
@@ -399,6 +407,24 @@ class WalletAccountsTest final : public QObject
         QTest::newRow("bad-name") << key << entry("Bad\nName");
         QTest::newRow("large") << key << QString(262145, ' ');
         QTest::newRow("bad-id") << QStringLiteral("accounts/deepseek/default") << entry();
+        const QString zai = "accounts/zai/" + Id;
+        QTest::newRow("zai-no-options") << zai << entry();
+        QTest::newRow("zai-options-type")
+            << zai << QStringLiteral(R"({"name":"Work","key":"key","zai":2})");
+        QTest::newRow("zai-empty-options")
+            << zai << QStringLiteral(R"({"name":"Work","key":"key","zai":{}})");
+        QTest::newRow("zai-missing-team")
+            << zai
+            << QStringLiteral(
+                   R"({"name":"Work","key":"key","zai":{"region":"global","scope":"team"}})");
+        QTest::newRow("zai-extra")
+            << zai
+            << QStringLiteral(
+                   R"({"name":"Work","key":"key","zai":{"region":"global","scope":"personal"},"managementKey":"wrong"})");
+        QTest::newRow("zai-unsupported")
+            << key
+            << QStringLiteral(
+                   R"({"name":"Work","key":"key","zai":{"region":"global","scope":"personal"}})");
         const QString xai = "accounts/xai/" + Id;
         QTest::newRow("xai-no-team") << xai << entry();
         QTest::newRow("xai-team-type")

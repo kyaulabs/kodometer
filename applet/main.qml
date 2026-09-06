@@ -45,6 +45,7 @@ PlasmoidItem {
         kimiAccountId: Plasmoid.configuration.kimiAccountId
         openrouterAccountId: Plasmoid.configuration.openrouterAccountId
         xaiAccountId: Plasmoid.configuration.xaiAccountId
+        zaiAccountId: Plasmoid.configuration.zaiAccountId
         profiles.configuration: Plasmoid.configuration.oauthProfiles
         onProviderContextChanged: provider => {
             if (quotaNotifier)

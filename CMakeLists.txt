@@ -30,12 +30,11 @@ endif()
 
 option(KODOMETER_BUILD_APPLET "Build the KDE Plasma applet" ON)
 if(KODOMETER_BUILD_APPLET)
-    set(KDE_INSTALL_USE_QT_SYS_PATHS ON CACHE BOOL "Install to the active Qt paths")
     find_package(ECM 6.0 NO_MODULE REQUIRED)
     list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
     include(KDEInstallDirs6)
     find_package(KF6 6.0 REQUIRED COMPONENTS Config CoreAddons Notifications Wallet)
-    find_package(Plasma 6.0 REQUIRED)
+    find_package(Plasma 6.4 REQUIRED)
 endif()
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Network Qml)

@@ -1,4 +1,9 @@
 # Exercise real generated install rules without writing to the host prefix.
+foreach(required IN ITEMS TEST_BINARY_DIR TEST_SOURCE_DIR TEST_PLUGIN TEST_ECM_DIR)
+    if(NOT DEFINED ${required} OR "${${required}}" STREQUAL "")
+        message(FATAL_ERROR "Missing install-test input: ${required}")
+    endif()
+endforeach()
 set(work "${TEST_BINARY_DIR}/install check")
 file(REMOVE_RECURSE "${work}")
 file(MAKE_DIRECTORY "${work}")
@@ -13,9 +18,14 @@ function(run)
     endif()
 endfunction()
 
-run("${CMAKE_COMMAND}" -S "${TEST_SOURCE_DIR}" -B "${nested}" -G Ninja
+# Keep a multi-prefix list as one argument rather than expanding it through ARGV.
+execute_process(COMMAND "${CMAKE_COMMAND}" -S "${TEST_SOURCE_DIR}" -B "${nested}" -G Ninja
     "-DCMAKE_PREFIX_PATH=${TEST_PREFIX_PATH}" "-DECM_DIR=${TEST_ECM_DIR}"
-    "-DCMAKE_INSTALL_PREFIX=${prefix}" -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Debug)
+    "-DCMAKE_INSTALL_PREFIX=${prefix}" -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Debug
+    RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE error)
+if(NOT status EQUAL 0)
+    message(FATAL_ERROR "Install-test configure failed (${status}):\n${output}\n${error}")
+endif()
 # Reuse the tested binary. Configuring the install tree need not compile it a second time.
 file(MAKE_DIRECTORY "${nested}/lib/plasma/applets")
 file(COPY_FILE "${TEST_PLUGIN}" "${nested}/lib/plasma/applets/org.kyaulabs.kodometer.so")
@@ -71,6 +81,7 @@ run("${CMAKE_COMMAND}" -E env "DESTDIR=${stage}" "${CMAKE_COMMAND}" --install "$
 check_install("${prefix}")
 # A loadable previous binary with different bytes must be replaced on upgrade.
 file(APPEND "${installed_plugin}" "previous installation marker")
+run(touch -d @1 "${installed_plugin}")
 run("${CMAKE_COMMAND}" -E env "DESTDIR=${stage}" "${CMAKE_COMMAND}" --install "${nested}")
 check_install("${prefix}")
 file(REMOVE_RECURSE "${stage}")

@@ -5,6 +5,9 @@
 #include <QJsonObject>
 #include <QtTest>
 
+#include <functional>
+#include <utility>
+
 using Kodometer::CredentialBackend;
 using Kodometer::CredentialStore;
 using Kodometer::WalletAccounts;
@@ -24,7 +27,12 @@ class AccountBackend final : public CredentialBackend
     {
         if (readFails)
             return std::nullopt;
-        return values;
+        const auto snapshot = values;
+        if (duringRead) {
+            const auto callback = std::exchange(duringRead, {});
+            callback();
+        }
+        return snapshot;
     }
     bool writeSecret(const QString &key, const QString &value, QString *) override
     {
@@ -51,6 +59,7 @@ class AccountBackend final : public CredentialBackend
         emit changed();
     }
     QMap<QString, QString> values;
+    std::function<void()> duringRead;
     bool readFails = false;
     bool writeFails = false;
 };
@@ -75,6 +84,12 @@ class WalletAccountsTest final : public QObject
         CredentialStore store(backend);
         auto *accounts = store.accounts();
         QVERIFY(!accounts->ready());
+        QVERIFY(!accounts->reload());
+        QCOMPARE(accounts->metaObject()->indexOfMethod("key(QString,QString)"), -1);
+        QVERIFY(!accounts->property("key").isValid());
+        QVERIFY(WalletAccounts::isAccountEntry("accounts/deepseek/" + Id));
+        QVERIFY(WalletAccounts::isAccountEntry("accounts/kimi/" + Id));
+        QVERIFY(!WalletAccounts::isAccountEntry("DEEPSEEK_API_KEY"));
         QVERIFY(!accounts->key("deepseek", Id));
         QVERIFY(accounts->addAccount("deepseek", "Work", "secret").isEmpty());
         store.open();
@@ -103,7 +118,7 @@ class WalletAccountsTest final : public QObject
         QVERIFY(accounts->replaceAccount("deepseek", id, "replacement"));
         QCOMPARE(*accounts->key("deepseek", id), QStringLiteral("replacement"));
         QCOMPARE(*accounts->key("kimi", second), QStringLiteral("key-two"));
-        const int count = changed.count();
+        const qsizetype count = changed.count();
         backend->update();
         QCOMPARE(changed.count(), count);
         QVERIFY(accounts->removeAccount("deepseek", id));
@@ -178,6 +193,50 @@ class WalletAccountsTest final : public QObject
         QVERIFY(accounts->key("deepseek", Id));
     }
 
+    void preventsReentrantReadsFromRestoringStaleKeys()
+    {
+        auto *backend = new AccountBackend;
+        backend->values.insert("accounts/deepseek/" + Id, entry());
+        CredentialStore store(backend);
+        store.open();
+        auto *accounts = store.accounts();
+        backend->duringRead = [backend] { backend->close(); };
+        backend->update();
+        QVERIFY(!accounts->ready());
+        QVERIFY(!accounts->key("deepseek", Id));
+        store.open();
+        backend->duringRead = [backend] {
+            backend->values["accounts/deepseek/" + Id] = entry("New name", "new-key");
+            backend->update();
+        };
+        backend->update();
+        QCOMPARE(*accounts->key("deepseek", Id), QStringLiteral("new-key"));
+        QCOMPARE(accounts->name("deepseek", Id), QStringLiteral("New name"));
+    }
+
+    void rejectsDuplicateNamesAndOversizedRegistries()
+    {
+        auto *backend = new AccountBackend;
+        CredentialStore store(backend);
+        store.open();
+        for (int count : {2, 9, 17}) {
+            backend->values.clear();
+            for (int i = 0; i < count; ++i) {
+                const QString id =
+                    QStringLiteral("11111111-1111-4111-8111-%1").arg(i, 12, 10, QLatin1Char('0'));
+                backend->values.insert(
+                    "accounts/deepseek/" + id,
+                    entry(count == 2 ? QStringLiteral("Duplicate") : QString::number(i)));
+            }
+            backend->update();
+            QVERIFY(!store.accounts()->ready());
+            QVERIFY(store.accounts()->entries("deepseek").isEmpty());
+        }
+        backend->values.clear();
+        store.open();
+        QVERIFY(store.accounts()->ready());
+    }
+
     void rejectsMalformedStoredAccounts_data()
     {
         QTest::addColumn<QString>("walletKey");
@@ -195,6 +254,12 @@ class WalletAccountsTest final : public QObject
         QTest::newRow("large") << key << QString(262145, ' ');
         QTest::newRow("bad-id") << QStringLiteral("accounts/deepseek/default") << entry();
         QTest::newRow("wrong-provider") << ("accounts/other/" + Id) << entry();
+        QTest::newRow("wrong-prefix") << ("elsewhere/deepseek/" + Id) << entry();
+        QTest::newRow("missing-parts") << QStringLiteral("accounts/deepseek") << entry();
+        QTest::newRow("noncanonical-id") << ("accounts/deepseek/{" + Id + "}") << entry();
+        QTest::newRow("format-name") << key << entry(QStringLiteral("Bad\u200bName"));
+        QTest::newRow("unicode-key") << key << entry("Work", QStringLiteral("bad\u00e9key"));
+        QTest::newRow("control-key") << key << entry("Work", QStringLiteral("bad\tkey"));
     }
 
     void rejectsMalformedStoredAccounts()

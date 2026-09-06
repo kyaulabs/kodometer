@@ -132,9 +132,21 @@ void KimiProviderAdapter::refresh()
     setBusy(true);
     setError({});
     QString credentialError;
+    const auto account = selectedAccountCredential();
+    m_requestUsesNamedAccount = account.has_value();
+    QMap<QString, QString> environment;
+    if (account) {
+        if (account->trimmed().isEmpty()) {
+            completeFailure(QStringLiteral("Selected KWallet account has no API key"));
+            return;
+        }
+        environment.insert(QStringLiteral("KIMI_CODE_API_KEY"), *account);
+    }
+    else {
+        environment = environmentWithCredentialOverrides(m_environment);
+    }
     const auto credentials =
-        KimiCredentialStore::resolve(environmentWithCredentialOverrides(m_environment), {}, {},
-                                     currentDateTime(), &credentialError);
+        KimiCredentialStore::resolve(environment, {}, {}, currentDateTime(), &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;
@@ -197,6 +209,9 @@ void KimiProviderAdapter::requestUsage()
 
 bool KimiProviderAdapter::tryCliFallback()
 {
+    if (m_requestUsesNamedAccount) {
+        return false;
+    }
     if (m_credentials.source != KimiCredentialSource::ApiKey ||
         m_triedCliFallback) { // GCOVR_EXCL_BR_LINE -- API and CLI rejection paths are tested
         return false;

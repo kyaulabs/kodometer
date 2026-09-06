@@ -9,6 +9,7 @@
 #include <kodometer/xai_provider_adapter.hpp>
 #include <kodometer/zai_provider_adapter.hpp>
 
+#include <QCryptographicHash>
 #include <QDateTime>
 
 #include <algorithm>
@@ -57,12 +58,60 @@ OAuthProfiles *UsageController::profiles() noexcept
     return &m_profiles;
 }
 
+QString UsageController::deepseekAccountId() const
+{
+    return m_accountSelections.value(QStringLiteral("deepseek"));
+}
+QString UsageController::kimiAccountId() const
+{
+    return m_accountSelections.value(QStringLiteral("kimi"));
+}
+void UsageController::setDeepseekAccountId(const QString &id)
+{
+    setAccountSelection(QStringLiteral("deepseek"), id);
+}
+void UsageController::setKimiAccountId(const QString &id)
+{
+    setAccountSelection(QStringLiteral("kimi"), id);
+}
+
+void UsageController::setAccountSelection(const QString &provider, const QString &id)
+{
+    if (m_accountSelections.value(provider) == id)
+        return;
+    m_accountSelections.insert(provider, id);
+    profileSettingsChanged();
+    emit accountSelectionChanged();
+}
+
+std::optional<QString> UsageController::selectedAccountKey(const QString &provider) const
+{
+    if (m_credentialStore == nullptr)
+        return std::nullopt;
+    return m_credentialStore->accounts()->key(provider, m_accountSelections.value(provider));
+}
+
+QString UsageController::contextKey(const QString &provider) const
+{
+    const QString id = m_accountSelections.value(provider);
+    if (id.isEmpty())
+        return m_profiles.contextKey(provider);
+    const auto key = selectedAccountKey(provider);
+    QString fingerprint = QStringLiteral("unavailable");
+    if (key) {
+        fingerprint = QString::fromLatin1(
+            QCryptographicHash::hash(key->toUtf8(), QCryptographicHash::Sha256).toHex());
+    }
+    // Internal only; neither keys nor fingerprints are exposed to QML or notifications.
+    return id + QLatin1Char('\n') + fingerprint;
+}
+
 void UsageController::profileSettingsChanged()
 {
     QStringList changed;
     for (ProviderAdapter *adapter : std::as_const(m_adapters)) {
         const QString id = adapter->providerId();
-        const QString context = m_profiles.contextKey(id);
+        const QString context = contextKey(id);
         if (m_profileContexts.value(id) != context) {
             m_profileContexts.insert(id, context);
             ++m_profileRevisions[id];
@@ -136,18 +185,23 @@ void UsageController::setCredentialStore(CredentialStore *store)
     }
     if (m_credentialStore != nullptr) {
         disconnect(m_credentialStore, nullptr, this, nullptr);
+        disconnect(m_credentialStore->accounts(), nullptr, this, nullptr);
     }
     m_credentialStore = store;
     applyCredentialOverrides();
     if (m_credentialStore != nullptr) {
         connect(m_credentialStore, &CredentialStore::secretsChanged, this,
                 &UsageController::credentialsChanged);
+        connect(m_credentialStore->accounts(), &WalletAccounts::changed, this,
+                &UsageController::profileSettingsChanged);
         connect(m_credentialStore, &QObject::destroyed, this, [this] {
             m_credentialStore = nullptr;
             applyCredentialOverrides();
+            profileSettingsChanged();
             emit credentialStoreChanged();
         });
     }
+    profileSettingsChanged();
     emit credentialStoreChanged();
 }
 
@@ -215,7 +269,9 @@ QList<ProviderAdapter *> UsageController::enabledAdapters() const
     for (ProviderAdapter *adapter : m_adapters) {
         const QString id = adapter->providerId();
         const bool profileAllowed = !OAuthProfiles::supportsProvider(id) || m_profiles.valid();
-        if (!m_disabledProviders.contains(id) && profileAllowed) {
+        const bool accountAllowed =
+            m_accountSelections.value(id).isEmpty() || selectedAccountKey(id).has_value();
+        if (!m_disabledProviders.contains(id) && profileAllowed && accountAllowed) {
             enabled.append(adapter);
         }
     }
@@ -242,7 +298,8 @@ void UsageController::refresh()
     setError({});
     const QList<ProviderAdapter *> active = enabledAdapters();
     if (active.isEmpty()) {
-        emit refreshFinished(true);
+        rebuildErrors();
+        emit refreshFinished(m_error.isEmpty());
         return;
     }
 
@@ -253,6 +310,10 @@ void UsageController::refresh()
         m_pendingProfileRevisions.insert(adapter, m_profileRevisions.value(id));
         if (OAuthProfiles::supportsProvider(id)) {
             adapter->setProfileDirectory(m_profiles.selectedDirectory(id));
+        }
+        if (WalletAccounts::supportsProvider(id)) {
+            adapter->setAccountCredential(
+                m_accountSelections.value(id).isEmpty() ? std::nullopt : selectedAccountKey(id));
         }
     }
     setBusy(true);
@@ -270,7 +331,7 @@ void UsageController::registerAdapter(ProviderAdapter *adapter)
         adapter->setParent(this);
     }
     m_adapters.append(adapter);
-    m_profileContexts.insert(adapter->providerId(), m_profiles.contextKey(adapter->providerId()));
+    m_profileContexts.insert(adapter->providerId(), contextKey(adapter->providerId()));
     connect(adapter, &ProviderAdapter::refreshSucceeded, this,
             [this, adapter](const QVariantMap &provider) { adapterSucceeded(adapter, provider); });
     connect(adapter, &ProviderAdapter::refreshFailed, this,
@@ -348,6 +409,11 @@ void UsageController::rebuildProviders()
             if (OAuthProfiles::supportsProvider(id) && selectedId != QLatin1String("default")) {
                 provider.insert(QStringLiteral("profileName"), m_profiles.selectedName(id));
             }
+            const QString accountId = m_accountSelections.value(id);
+            if (!accountId.isEmpty() && m_credentialStore != nullptr) {
+                provider.insert(QStringLiteral("accountName"),
+                                m_credentialStore->accounts()->name(id, accountId));
+            }
             providers.append(provider);
         }
     }
@@ -369,6 +435,15 @@ void UsageController::rebuildErrors()
         const auto error = m_refreshErrors.constFind(adapter->providerId());
         if (error != m_refreshErrors.cend()) {
             errors.append(QStringLiteral("%1: %2").arg(displayName(adapter->providerId()), *error));
+        }
+    }
+    for (const ProviderAdapter *adapter : m_adapters) {
+        const QString id = adapter->providerId();
+        if (!m_disabledProviders.contains(id) && !m_accountSelections.value(id).isEmpty() &&
+            !selectedAccountKey(id)) {
+            errors.append(QStringLiteral("%1: Selected KWallet account is unavailable; unlock the "
+                                         "wallet and refresh, or select an account.")
+                              .arg(displayName(id)));
         }
     }
     setError(errors.join(QLatin1Char('\n')));

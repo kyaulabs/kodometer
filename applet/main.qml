@@ -41,6 +41,8 @@ PlasmoidItem {
     Private.UsageController {
         id: backend
         credentialStore: credentialStore
+        deepseekAccountId: Plasmoid.configuration.deepseekAccountId
+        kimiAccountId: Plasmoid.configuration.kimiAccountId
         profiles.configuration: Plasmoid.configuration.oauthProfiles
         onProviderContextChanged: provider => {
             if (quotaNotifier)
@@ -193,7 +195,10 @@ PlasmoidItem {
                     text: qsTr("Refresh")
                     display: QQC2.AbstractButton.IconOnly
                     enabled: !backend.busy
-                    onClicked: backend.refresh()
+                    onClicked: {
+                        credentialStore.open()
+                        backend.refresh()
+                    }
                     QQC2.ToolTip.text: text
                     QQC2.ToolTip.visible: hovered
                 }

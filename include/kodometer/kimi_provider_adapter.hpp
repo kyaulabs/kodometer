@@ -69,6 +69,7 @@ class KimiProviderAdapter final : public ProviderAdapter
     bool m_timedOut = false;
     bool m_responseTooLarge = false;
     bool m_triedCliFallback = false;
+    bool m_requestUsesNamedAccount = false;
 };
 
 } // namespace Kodometer

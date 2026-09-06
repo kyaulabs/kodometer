@@ -60,6 +60,7 @@ target_sources(kodometer-core
         src/codex_provider_adapter.cpp
         src/codex_usage_parser.cpp
         src/credential_store.cpp
+        src/wallet_accounts.cpp
         src/claude_credentials.cpp
         src/claude_provider_adapter.cpp
         src/claude_usage_parser.cpp
@@ -97,6 +98,7 @@ target_sources(kodometer-core
             include/kodometer/codex_provider_adapter.hpp
             include/kodometer/codex_usage_parser.hpp
             include/kodometer/credential_store.hpp
+            include/kodometer/wallet_accounts.hpp
             include/kodometer/claude_credentials.hpp
             include/kodometer/claude_provider_adapter.hpp
             include/kodometer/claude_usage_parser.hpp

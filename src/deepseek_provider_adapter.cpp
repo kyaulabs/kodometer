@@ -93,8 +93,15 @@ void DeepSeekProviderAdapter::refresh()
     setError({});
 
     QString credentialError;
-    const auto credentials = DeepSeekCredentialResolver::resolve(
-        environmentWithCredentialOverrides(m_environment), &credentialError);
+    const auto account = selectedAccountCredential();
+    QMap<QString, QString> environment;
+    if (account) {
+        environment.insert(QStringLiteral("DEEPSEEK_API_KEY"), *account);
+    }
+    else {
+        environment = environmentWithCredentialOverrides(m_environment);
+    }
+    const auto credentials = DeepSeekCredentialResolver::resolve(environment, &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;

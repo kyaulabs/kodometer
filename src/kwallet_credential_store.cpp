@@ -58,6 +58,31 @@ class KWalletCredentialBackend final : public CredentialBackend
         return result;
     }
 
+    std::optional<QMap<QString, QString>> readAccountEntries(QString *error) override
+    {
+        if (!selectFolder(error)) {
+            return std::nullopt;
+        }
+        const QStringList entries = m_wallet->entryList();
+        if (entries.size() > 64) {
+            setError(error, QStringLiteral("KWallet account folder has too many entries"));
+            return std::nullopt;
+        }
+        QMap<QString, QString> result;
+        for (const QString &entry : entries) {
+            if (!WalletAccounts::isAccountEntry(entry)) {
+                continue;
+            }
+            QString value;
+            if (m_wallet->readPassword(entry, value) != 0) {
+                setError(error, QStringLiteral("KWallet could not read a named account"));
+                return std::nullopt;
+            }
+            result.insert(entry, value);
+        }
+        return result;
+    }
+
     bool writeSecret(const QString &key, const QString &value, QString *error) override
     {
         if (!selectFolder(error)) {

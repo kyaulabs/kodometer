@@ -7,6 +7,7 @@
 #include <QQuickWindow>
 #include <QScopeGuard>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <QtTest>
 
 #include <KConfig>
@@ -54,6 +55,7 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(loader.property("showIdleWindows").toBool(), false);
         QCOMPARE(loader.property("quotaNotifications").toBool(), false);
         QCOMPARE(loader.property("quotaNotificationThreshold").toInt(), 10);
+        QCOMPARE(loader.property("oauthProfiles").toString(), QStringLiteral("{}"));
         QVERIFY(loader.property("disabledProviders").toStringList().isEmpty());
 
         QQmlComponent model(&engine, root.resolved(QUrl(QStringLiteral("config.qml"))));
@@ -61,7 +63,7 @@ class AppletConfigurationTest final : public QObject
         QVERIFY2(object, qPrintable(model.errorString()));
         auto *categories = qobject_cast<QAbstractItemModel *>(object.data());
         QVERIFY(categories);
-        QCOMPARE(categories->rowCount(), 2);
+        QCOMPARE(categories->rowCount(), 3);
         const auto roles = categories->roleNames();
         const int sourceRole = roles.key(QByteArray("source"), -1);
         QVERIFY(sourceRole >= 0);
@@ -81,14 +83,17 @@ class AppletConfigurationTest final : public QObject
         {
             KConfig config(path, KConfig::SimpleConfig);
             KConfigLoader loader(KConfigGroup(&config, "Widget"), &schema);
-            QCOMPARE(loader.items().size(), 6);
+            QCOMPARE(loader.items().size(), 7);
             const QVariantMap preferences{
                 {QStringLiteral("autoRefresh"), false},
                 {QStringLiteral("refreshIntervalMinutes"), 15},
                 {QStringLiteral("disabledProviders"), QStringList{QStringLiteral("codex")}},
                 {QStringLiteral("showIdleWindows"), true},
                 {QStringLiteral("quotaNotifications"), true},
-                {QStringLiteral("quotaNotificationThreshold"), 20}};
+                {QStringLiteral("quotaNotificationThreshold"), 20},
+                {QStringLiteral("oauthProfiles"),
+                 QStringLiteral(
+                     R"({"version":1,"codex":[{"id":"11111111-1111-4111-8111-111111111111","name":"Work","directory":"/profiles/work"}],"selectedCodex":"11111111-1111-4111-8111-111111111111"})")}};
             for (auto it = preferences.cbegin(); it != preferences.cend(); ++it) {
                 auto *item = loader.findItemByName(it.key());
                 QVERIFY(item);
@@ -106,6 +111,66 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(reloaded.property("showIdleWindows").toBool(), true);
         QCOMPARE(reloaded.property("quotaNotifications").toBool(), true);
         QCOMPARE(reloaded.property("quotaNotificationThreshold").toInt(), 20);
+        QVERIFY(reloaded.property("oauthProfiles")
+                    .toString()
+                    .contains(QStringLiteral("/profiles/work")));
+    }
+
+    void stagesProfileEditsUntilApplied()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
+        QQmlEngine engine;
+        QQmlComponent backendComponent(&engine);
+        backendComponent.setData(R"(import plasma.applet.org.kyaulabs.kodometer as Private
+            Private.UsageController { autoRefresh: false; profiles.configuration: "{}" })",
+                                 QUrl());
+        QScopedPointer<QObject> backend(backendComponent.create());
+        QVERIFY2(backend, qPrintable(backendComponent.errorString()));
+        auto *liveProfiles = backend->property("profiles").value<QObject *>();
+        QVERIFY(liveProfiles);
+        QQmlComponent pageComponent(
+            &engine, QUrl(QStringLiteral(
+                         "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ConfigProfiles.qml")));
+        QScopedPointer<QObject> page(pageComponent.create());
+        QVERIFY2(page, qPrintable(pageComponent.errorString()));
+        QCOMPARE(page->property("cfg_oauthProfiles").toString(), QStringLiteral("{}"));
+        auto *name = page->findChild<QObject *>(QStringLiteral("codex-profile-name"));
+        auto *directory = page->findChild<QObject *>(QStringLiteral("codex-profile-directory"));
+        auto *add = page->findChild<QObject *>(QStringLiteral("codex-profile-add"));
+        QVERIFY(name);
+        QVERIFY(directory);
+        QVERIFY(add);
+        QVERIFY(name->setProperty("text", QStringLiteral("Work")));
+        QVERIFY(directory->setProperty("text", QStringLiteral("/profiles/work")));
+        QVERIFY(QMetaObject::invokeMethod(add, "clicked"));
+        const QString staged = page->property("cfg_oauthProfiles").toString();
+        QVERIFY(staged.contains(QStringLiteral("/profiles/work")));
+        QCOMPARE(liveProfiles->property("configuration").toString(), QStringLiteral("{}"));
+        auto *selector = page->findChild<QObject *>(QStringLiteral("codex-profile-selector"));
+        auto *remove = page->findChild<QObject *>(QStringLiteral("codex-profile-remove"));
+        QVERIFY(selector);
+        QVERIFY(remove);
+        QCOMPARE(selector->property("count").toInt(), 2);
+        QVERIFY(selector->setProperty("currentIndex", 0));
+        QVERIFY(QMetaObject::invokeMethod(selector, "activated", Q_ARG(int, 0)));
+        QVERIFY(!remove->property("enabled").toBool());
+        QVERIFY(selector->setProperty("currentIndex", 1));
+        QVERIFY(QMetaObject::invokeMethod(selector, "activated", Q_ARG(int, 1)));
+        QVERIFY(remove->property("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(remove, "clicked"));
+        QCOMPARE(selector->property("count").toInt(), 1);
+        QVERIFY(page->setProperty("cfg_oauthProfiles", QStringLiteral("invalid")));
+        QVERIFY(!selector->property("enabled").toBool());
+        QVERIFY(!add->property("enabled").toBool());
+        QVERIFY(page->setProperty("cfg_oauthProfiles", QStringLiteral("{}")));
+        QVERIFY(selector->property("enabled").toBool());
+        QCOMPARE(selector->property("count").toInt(), 1);
+        page.reset(); // Cancel destroys the draft without changing the running backend.
+        QCOMPARE(liveProfiles->property("configuration").toString(), QStringLiteral("{}"));
+        QVERIFY(liveProfiles->setProperty("configuration", staged)); // Apply.
+        QCOMPARE(liveProfiles->property("configuration").toString(), staged);
+        QVERIFY(!backend->property("busy").toBool());
+        QVERIFY(!backend->findChild<QTimer *>(QStringLiteral("refreshTimer"))->isActive());
     }
 
     void propagatesIdleWindowPreference()
@@ -231,10 +296,15 @@ class AppletConfigurationTest final : public QObject
                          "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ProviderDetails.qml")));
         QVariantMap provider{
             {QStringLiteral("id"), QStringLiteral("codex")},
-            {QStringLiteral("dashboardUrl"), QStringLiteral("https://evil.test/?token=secret")}};
+            {QStringLiteral("dashboardUrl"), QStringLiteral("https://evil.test/?token=secret")},
+            {QStringLiteral("profileName"), QStringLiteral("<b>Work</b>")}};
         QScopedPointer<QObject> object(component.createWithInitialProperties(
             {{QStringLiteral("provider"), provider}, {QStringLiteral("width"), 400}}));
         QVERIFY2(object, qPrintable(component.errorString()));
+        auto *profileLabel = object->findChild<QObject *>(QStringLiteral("selectedOAuthProfile"));
+        QVERIFY(profileLabel);
+        QCOMPARE(profileLabel->property("text").toString(), QStringLiteral("Profile: <b>Work</b>"));
+        QCOMPARE(profileLabel->property("textFormat").toInt(), static_cast<int>(Qt::PlainText));
         auto *row = object->findChild<QObject *>(QStringLiteral("providerActionRow"));
         QVERIFY(row);
         QCOMPARE(row->property("actionCount").toInt(), 2);

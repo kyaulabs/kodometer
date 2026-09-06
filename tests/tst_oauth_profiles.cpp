@@ -37,6 +37,7 @@ class OAuthProfilesTest final : public QObject
         QSignalSpy contexts(&profiles, &OAuthProfiles::contextChanged);
         QVERIFY(profiles.valid());
         QVERIFY(profiles.error().isEmpty());
+        QCOMPARE(profiles.providers().size(), 2);
         QCOMPARE(profiles.configuration(), QStringLiteral("{}"));
         QCOMPARE(profiles.entries("codex").size(), 1);
         QCOMPARE(profiles.selectedId("codex"), QStringLiteral("default"));
@@ -129,6 +130,11 @@ class OAuthProfilesTest final : public QObject
         QJsonObject badId = record();
         badId.insert("id", "default");
         QTest::newRow("reserved-id") << document({{"claude", QJsonArray{badId}}});
+        badId.insert("id", "{11111111-1111-4111-8111-111111111111}");
+        QTest::newRow("noncanonical-id") << document({{"codex", QJsonArray{badId}}});
+        QJsonObject formatName = record();
+        formatName.insert("name", QStringLiteral("Bad\u202eName"));
+        QTest::newRow("format-character") << document({{"codex", QJsonArray{formatName}}});
         QJsonObject secret = record();
         secret.insert("refreshToken", "not a supported field");
         QTest::newRow("extra-field") << document({{"codex", QJsonArray{secret}}});
@@ -171,6 +177,18 @@ class OAuthProfilesTest final : public QObject
         profiles.setConfiguration(document(data));
         QCOMPARE(contexts.count(), 1);
         QVERIFY(profiles.contextKey("codex") != before);
+    }
+
+    void removesLaterEntriesAndRejectsUnsupportedRemoval()
+    {
+        OAuthProfiles profiles;
+        QVERIFY(!profiles.removeProfile("gemini", "missing"));
+        QVERIFY(profiles.addProfile("codex", "One", "/one"));
+        QVERIFY(profiles.addProfile("codex", "Two", "/two"));
+        QVERIFY(profiles.removeProfile("codex", profiles.selectedId("codex")));
+        QCOMPARE(profiles.entries("codex").size(), 2);
+        QCOMPARE(profiles.selectedId("codex"), QStringLiteral("default"));
+        QCOMPARE(profiles.entries("claude").size(), 1);
     }
 
     void acceptsOnlyLocalFolderUrls()

@@ -270,6 +270,15 @@ void CodexProviderAdapterTest::refreshesExpiringTokenBeforeUsage()
     QCOMPARE(finished.last().first().toBool(), true);
     QCOMPARE(server.requests.last().headers.value("authorization"),
              QByteArray("Bearer fresh-access"));
+    const QString otherToken = jwt({{QStringLiteral("exp"), 2'000'000'000}});
+    QVERIFY(writeCredentials(other.filePath(QStringLiteral("auth.json")), otherToken));
+    adapter.setProfileDirectory(other.path());
+    server.enqueue({200, usagePayload()});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 3);
+    QCOMPARE(finished.last().first().toBool(), true);
+    QCOMPARE(server.requests.last().headers.value("authorization"),
+             QByteArray("Bearer ") + otherToken.toUtf8());
 }
 
 void CodexProviderAdapterTest::retriesUnauthorizedUsageOnce()

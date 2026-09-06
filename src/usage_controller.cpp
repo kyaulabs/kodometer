@@ -40,13 +40,67 @@ UsageController::UsageController(QObject *parent)
 // GCOVR_EXCL_STOP
 
 UsageController::UsageController(const QList<ProviderAdapter *> &adapters, QObject *parent)
-    : QObject(parent), m_refreshTimer(this)
+    : QObject(parent), m_profiles(this), m_refreshTimer(this)
 {
     m_refreshTimer.setObjectName(QStringLiteral("refreshTimer"));
     m_refreshTimer.setSingleShot(true);
     connect(&m_refreshTimer, &QTimer::timeout, this, &UsageController::refresh);
+    connect(&m_profiles, &OAuthProfiles::configurationChanged, this,
+            &UsageController::profileSettingsChanged);
     for (ProviderAdapter *adapter : adapters) {
         registerAdapter(adapter);
+    }
+}
+
+OAuthProfiles *UsageController::profiles() noexcept
+{
+    return &m_profiles;
+}
+
+void UsageController::profileSettingsChanged()
+{
+    QStringList changed;
+    for (ProviderAdapter *adapter : std::as_const(m_adapters)) {
+        const QString id = adapter->providerId();
+        const QString context = m_profiles.contextKey(id);
+        if (m_profileContexts.value(id) != context) {
+            m_profileContexts.insert(id, context);
+            ++m_profileRevisions[id];
+            m_providerSnapshots.remove(id);
+            m_refreshErrors.remove(id);
+            changed.append(id);
+        }
+    }
+    // Remove all changed contexts together, before publishing any new profile labels.
+    rebuildProviders();
+    rebuildErrors();
+    for (const QString &id : changed) {
+        emit providerContextChanged(id);
+    }
+    if (m_started && !changed.isEmpty()) {
+        queueProfileRefresh();
+    }
+}
+
+void UsageController::queueProfileRefresh()
+{
+    if (m_busy) {
+        m_refreshAfterCurrent = true;
+    }
+    else if (!m_profileRefreshQueued) {
+        m_profileRefreshQueued = true;
+        QMetaObject::invokeMethod(
+            this,
+            [this] {
+                m_profileRefreshQueued = false;
+                if (m_busy) {
+                    m_refreshAfterCurrent = true;
+                }
+                else {
+                    refresh();
+                }
+            },
+            Qt::QueuedConnection);
     }
 }
 
@@ -159,7 +213,9 @@ QList<ProviderAdapter *> UsageController::enabledAdapters() const
 {
     QList<ProviderAdapter *> enabled;
     for (ProviderAdapter *adapter : m_adapters) {
-        if (!m_disabledProviders.contains(adapter->providerId())) {
+        const QString id = adapter->providerId();
+        const bool profileAllowed = !OAuthProfiles::supportsProvider(id) || m_profiles.valid();
+        if (!m_disabledProviders.contains(id) && profileAllowed) {
             enabled.append(adapter);
         }
     }
@@ -191,6 +247,14 @@ void UsageController::refresh()
     }
 
     m_pendingAdapters = QSet<ProviderAdapter *>(active.cbegin(), active.cend());
+    m_pendingProfileRevisions.clear();
+    for (ProviderAdapter *adapter : active) {
+        const QString id = adapter->providerId();
+        m_pendingProfileRevisions.insert(adapter, m_profileRevisions.value(id));
+        if (OAuthProfiles::supportsProvider(id)) {
+            adapter->setProfileDirectory(m_profiles.selectedDirectory(id));
+        }
+    }
     setBusy(true);
     for (ProviderAdapter *adapter : active) {
         adapter->refresh();
@@ -206,6 +270,7 @@ void UsageController::registerAdapter(ProviderAdapter *adapter)
         adapter->setParent(this);
     }
     m_adapters.append(adapter);
+    m_profileContexts.insert(adapter->providerId(), m_profiles.contextKey(adapter->providerId()));
     connect(adapter, &ProviderAdapter::refreshSucceeded, this,
             [this, adapter](const QVariantMap &provider) { adapterSucceeded(adapter, provider); });
     connect(adapter, &ProviderAdapter::refreshFailed, this,
@@ -217,11 +282,17 @@ void UsageController::adapterSucceeded(ProviderAdapter *adapter, const QVariantM
     if (!m_pendingAdapters.remove(adapter)) {
         return;
     }
-    if (!m_disabledProviders.contains(adapter->providerId())) {
-        m_providerSnapshots.insert(adapter->providerId(), provider);
+    const QString id = adapter->providerId();
+    const quint64 revision = m_pendingProfileRevisions.take(adapter);
+    const bool current = revision == m_profileRevisions.value(id);
+    if (!m_disabledProviders.contains(id) && current) {
+        m_providerSnapshots.insert(id, provider);
         m_anySuccess = true;
         rebuildProviders();
-        emit providerRefreshed(provider);
+        // Presentation signals can synchronously change selection or disable the provider.
+        if (revision == m_profileRevisions.value(id) && !m_disabledProviders.contains(id)) {
+            emit providerRefreshed(provider);
+        }
     }
     finishAdapter();
 }
@@ -231,7 +302,10 @@ void UsageController::adapterFailed(ProviderAdapter *adapter, const QString &err
     if (!m_pendingAdapters.remove(adapter)) {
         return;
     }
-    m_refreshErrors.insert(adapter->providerId(), error);
+    if (m_pendingProfileRevisions.take(adapter) ==
+        m_profileRevisions.value(adapter->providerId())) {
+        m_refreshErrors.insert(adapter->providerId(), error);
+    }
     finishAdapter();
 }
 
@@ -266,9 +340,15 @@ void UsageController::rebuildProviders()
     QVariantList providers;
     providers.reserve(m_adapters.size());
     for (const ProviderAdapter *adapter : enabledAdapters()) {
-        const auto iterator = m_providerSnapshots.constFind(adapter->providerId());
+        const QString id = adapter->providerId();
+        const QString selectedId = m_profiles.selectedId(id);
+        const auto iterator = m_providerSnapshots.constFind(id);
         if (iterator != m_providerSnapshots.cend()) {
-            providers.append(*iterator);
+            QVariantMap provider = *iterator;
+            if (OAuthProfiles::supportsProvider(id) && selectedId != QLatin1String("default")) {
+                provider.insert(QStringLiteral("profileName"), m_profiles.selectedName(id));
+            }
+            providers.append(provider);
         }
     }
     if (m_providers == providers) {

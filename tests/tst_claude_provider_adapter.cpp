@@ -250,6 +250,15 @@ void ClaudeProviderAdapterTest::refreshesExpiringTokenBeforeUsage()
     QCOMPARE(finished.last().first().toBool(), true);
     QCOMPARE(server.requests.last().headers.value("authorization"),
              QByteArray("Bearer new-access"));
+    QVERIFY(
+        writeCredentials(other.filePath(QStringLiteral(".credentials.json")), 2'000'000'000'000));
+    adapter.setProfileDirectory(other.path());
+    server.enqueue({200, usagePayload()});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 3);
+    QCOMPARE(finished.last().first().toBool(), true);
+    QCOMPARE(server.requests.last().headers.value("authorization"),
+             QByteArray("Bearer access-token"));
 }
 
 void ClaudeProviderAdapterTest::retriesUnauthorizedUsageOnce()

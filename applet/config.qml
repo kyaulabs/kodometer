@@ -11,6 +11,12 @@ ConfigModel {
     }
 
     ConfigCategory {
+        name: qsTr("OAuth profiles")
+        icon: "user-identity"
+        source: "ConfigProfiles.qml"
+    }
+
+    ConfigCategory {
         name: qsTr("Credentials")
         icon: "wallet-open"
         source: "ConfigCredentials.qml"

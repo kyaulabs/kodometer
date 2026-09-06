@@ -2,6 +2,7 @@
 
 #include <kodometer/codex_usage_parser.hpp>
 
+#include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -48,7 +49,7 @@ QString tokenString(const QJsonObject &object, const QString &key, const QString
 CodexProviderAdapter::CodexProviderAdapter(QNetworkAccessManager *network, QObject *parent)
     : ProviderAdapter(parent),
       m_network(network == nullptr ? new QNetworkAccessManager(this) : network),
-      m_credentialPath(defaultCredentialPath())
+      m_credentialPath(defaultCredentialPath()), m_defaultCredentialPath(m_credentialPath)
 {
     // GCOVR_EXCL_BR_STOP
     m_timeout.setSingleShot(true);
@@ -84,6 +85,16 @@ QVariantMap CodexProviderAdapter::provider() const
 void CodexProviderAdapter::setCredentialPath(const QString &path)
 {
     m_credentialPath = path;
+    m_defaultCredentialPath = path;
+}
+
+void CodexProviderAdapter::setProfileDirectory(const QString &directory)
+{
+    if (directory.isEmpty()) {
+        m_credentialPath = m_defaultCredentialPath;
+        return;
+    }
+    m_credentialPath = QDir(directory).filePath(QStringLiteral("auth.json"));
 }
 
 void CodexProviderAdapter::setUsageEndpoint(const QUrl &endpoint)
@@ -111,7 +122,8 @@ void CodexProviderAdapter::refresh()
     setError({});
     m_refreshedDuringRequest = false;
     QString credentialError;
-    const auto credentials = CodexCredentialStore::load(m_credentialPath, &credentialError);
+    m_requestCredentialPath = m_credentialPath;
+    const auto credentials = CodexCredentialStore::load(m_requestCredentialPath, &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;
@@ -281,12 +293,12 @@ void CodexProviderAdapter::finishToken(int statusCode, QNetworkReply::NetworkErr
 
     QString saveError;
     if (!CodexCredentialStore::save(
-            m_credentialPath, m_credentials,
+            m_requestCredentialPath, m_credentials,
             &saveError)) {          // GCOVR_EXCL_LINE -- credential path changed concurrently
         completeFailure(saveError); // GCOVR_EXCL_LINE
         return;                     // GCOVR_EXCL_LINE
     }
-    const auto reloaded = CodexCredentialStore::load(m_credentialPath, &saveError);
+    const auto reloaded = CodexCredentialStore::load(m_requestCredentialPath, &saveError);
     if (!reloaded) {                // GCOVR_EXCL_LINE -- atomic save was replaced concurrently
         completeFailure(saveError); // GCOVR_EXCL_LINE
         return;                     // GCOVR_EXCL_LINE

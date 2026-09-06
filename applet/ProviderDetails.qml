@@ -92,6 +92,15 @@ Flickable {
             }
         }
 
+        QQC2.Label {
+            objectName: "selectedOAuthProfile"
+            Layout.fillWidth: true
+            visible: Boolean(root.provider.profileName)
+            text: qsTr("Profile: %1").arg(root.provider.profileName || "")
+            textFormat: Text.PlainText
+            wrapMode: Text.WordWrap
+        }
+
         ProviderActionRow {
             objectName: "providerActionRow"
             Layout.fillWidth: true

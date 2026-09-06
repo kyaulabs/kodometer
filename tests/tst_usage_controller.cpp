@@ -2,6 +2,9 @@
 #include <kodometer/provider_adapter.hpp>
 #include <kodometer/usage_controller.hpp>
 
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTimer>
 #include <QtTest>
 
@@ -124,6 +127,9 @@ class UsageControllerTest final : public QObject
     void publishesOnlyFreshEnabledResults();
     void isolatesSelectedProfilesAndInflightResults();
     void blocksMalformedProfilesWithoutBlockingOtherProviders();
+    void appliesMultipleContextsAtomicallyAndRenamesWithoutFetching();
+    void rejectsReentrantContextChanges_data();
+    void rejectsReentrantContextChanges();
 };
 
 void UsageControllerTest::aggregatesProvidersInRegistrationOrder()
@@ -501,6 +507,72 @@ void UsageControllerTest::blocksMalformedProfilesWithoutBlockingOtherProviders()
     QTRY_COMPARE(codex->refreshCount, 2);
     codex->succeed({{"id", "codex"}});
     other->succeed({{"id", "other"}});
+}
+
+void UsageControllerTest::appliesMultipleContextsAtomicallyAndRenamesWithoutFetching()
+{
+    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
+    UsageController controller({codex, claude});
+    QVERIFY(controller.profiles()->addProfile("codex", "Work", "/codex"));
+    QVERIFY(controller.profiles()->addProfile("claude", "Work", "/claude"));
+    controller.refresh();
+    codex->succeed({{"id", "codex"}});
+    claude->succeed({{"id", "claude"}});
+    QSignalSpy contexts(&controller, &UsageController::providerContextChanged);
+    QJsonObject data =
+        QJsonDocument::fromJson(controller.profiles()->configuration().toUtf8()).object();
+    QJsonObject row = data.value("codex").toArray().first().toObject();
+    row.insert("name", "Renamed");
+    data.insert("codex", QJsonArray{row});
+    controller.profiles()->setConfiguration(QString::fromUtf8(QJsonDocument(data).toJson()));
+    QCOMPARE(controller.providers().first().toMap().value("profileName").toString(),
+             QStringLiteral("Renamed"));
+    QCOMPARE(contexts.count(), 0);
+    QCoreApplication::processEvents();
+    QCOMPARE(codex->refreshCount, 1);
+    bool atomic = true;
+    connect(&controller, &UsageController::providersChanged, &controller,
+            [&] { atomic = atomic && controller.providers().isEmpty(); });
+    data.insert("selectedCodex", "default");
+    data.insert("selectedClaude", "default");
+    controller.profiles()->setConfiguration(QString::fromUtf8(QJsonDocument(data).toJson()));
+    QVERIFY(atomic);
+    QCOMPARE(contexts.count(), 2);
+    QTRY_COMPARE(codex->refreshCount, 2);
+    QCOMPARE(claude->refreshCount, 2);
+}
+
+void UsageControllerTest::rejectsReentrantContextChanges_data()
+{
+    QTest::addColumn<bool>("disable");
+    QTest::newRow("profile-switch") << false;
+    QTest::newRow("provider-disable") << true;
+}
+
+void UsageControllerTest::rejectsReentrantContextChanges()
+{
+    QFETCH(bool, disable);
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("codex"));
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    bool changed = false;
+    connect(&controller, &UsageController::providersChanged, &controller, [&] {
+        if (!changed && !controller.providers().isEmpty()) {
+            changed = true;
+            if (disable) {
+                controller.setDisabledProviders({QStringLiteral("codex")});
+            }
+            else {
+                QVERIFY(controller.profiles()->addProfile("codex", "Work", "/work"));
+            }
+        }
+    });
+    controller.refresh();
+    adapter->succeed({{"id", "codex"}});
+    QVERIFY(changed);
+    QVERIFY(controller.providers().isEmpty());
+    QCOMPARE(fresh.count(), 0);
 }
 
 QTEST_GUILESS_MAIN(UsageControllerTest)

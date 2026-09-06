@@ -1,6 +1,7 @@
 #pragma once
 
 #include <kodometer/credential_store.hpp>
+#include <kodometer/oauth_profiles.hpp>
 #include <kodometer/provider_adapter.hpp>
 
 #include <QObject>
@@ -17,6 +18,7 @@ class UsageController : public QObject
     Q_OBJECT
     QML_ELEMENT
 
+    Q_PROPERTY(Kodometer::OAuthProfiles *profiles READ profiles CONSTANT)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(QVariantMap snapshot READ snapshot NOTIFY snapshotChanged)
@@ -33,6 +35,7 @@ class UsageController : public QObject
     explicit UsageController(QObject *parent = nullptr);
     explicit UsageController(const QList<ProviderAdapter *> &adapters, QObject *parent = nullptr);
 
+    [[nodiscard]] OAuthProfiles *profiles() noexcept;
     [[nodiscard]] bool busy() const noexcept;
     [[nodiscard]] QString error() const;
     [[nodiscard]] QVariantMap snapshot() const;
@@ -56,11 +59,14 @@ class UsageController : public QObject
     void credentialStoreChanged();
     void refreshFinished(bool success);
     void providerRefreshed(const QVariantMap &provider);
+    void providerContextChanged(const QString &provider);
     void refreshSettingsChanged();
     void disabledProvidersChanged();
 
   private:
     void registerAdapter(ProviderAdapter *adapter);
+    void profileSettingsChanged();
+    void queueProfileRefresh();
     void adapterSucceeded(ProviderAdapter *adapter, const QVariantMap &provider);
     void adapterFailed(ProviderAdapter *adapter, const QString &error);
     void finishAdapter();
@@ -73,6 +79,11 @@ class UsageController : public QObject
     void setBusy(bool busy);
     void setError(const QString &error);
 
+    OAuthProfiles m_profiles;
+    QMap<QString, QString> m_profileContexts;
+    QMap<QString, quint64> m_profileRevisions;
+    QMap<ProviderAdapter *, quint64> m_pendingProfileRevisions;
+    bool m_profileRefreshQueued = false;
     QList<ProviderAdapter *> m_adapters;
     QMap<QString, QVariantMap> m_providerSnapshots;
     QVariantList m_providers;

@@ -47,7 +47,7 @@ QNetworkRequest requestFor(const QUrl &endpoint)
 ClaudeProviderAdapter::ClaudeProviderAdapter(QNetworkAccessManager *network, QObject *parent)
     : ProviderAdapter(parent),
       m_network(network == nullptr ? new QNetworkAccessManager(this) : network),
-      m_credentialPath(defaultCredentialPath())
+      m_credentialPath(defaultCredentialPath()), m_defaultCredentialPath(m_credentialPath)
 {
     // GCOVR_EXCL_BR_STOP
     m_timeout.setSingleShot(true);
@@ -83,6 +83,16 @@ QVariantMap ClaudeProviderAdapter::provider() const
 void ClaudeProviderAdapter::setCredentialPath(const QString &path)
 {
     m_credentialPath = path;
+    m_defaultCredentialPath = path;
+}
+
+void ClaudeProviderAdapter::setProfileDirectory(const QString &directory)
+{
+    if (directory.isEmpty()) {
+        m_credentialPath = m_defaultCredentialPath;
+        return;
+    }
+    m_credentialPath = QDir(directory).filePath(QStringLiteral(".credentials.json"));
 }
 
 void ClaudeProviderAdapter::setUsageEndpoint(const QUrl &endpoint)
@@ -110,7 +120,8 @@ void ClaudeProviderAdapter::refresh()
     setError({});
     m_refreshedDuringRequest = false;
     QString credentialError;
-    const auto credentials = ClaudeCredentialStore::load(m_credentialPath, &credentialError);
+    m_requestCredentialPath = m_credentialPath;
+    const auto credentials = ClaudeCredentialStore::load(m_requestCredentialPath, &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;
@@ -297,11 +308,11 @@ void ClaudeProviderAdapter::finishToken(int statusCode, QNetworkReply::NetworkEr
 
     QString saveError;
     // GCOVR_EXCL_START -- failures require concurrent credential-file mutation
-    if (!ClaudeCredentialStore::save(m_credentialPath, m_credentials, &saveError)) {
+    if (!ClaudeCredentialStore::save(m_requestCredentialPath, m_credentials, &saveError)) {
         completeFailure(saveError);
         return;
     }
-    const auto reloaded = ClaudeCredentialStore::load(m_credentialPath, &saveError);
+    const auto reloaded = ClaudeCredentialStore::load(m_requestCredentialPath, &saveError);
     if (!reloaded) {
         completeFailure(saveError);
         return;

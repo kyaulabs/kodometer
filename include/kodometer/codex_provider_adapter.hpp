@@ -28,6 +28,7 @@ class CodexProviderAdapter final : public ProviderAdapter
     [[nodiscard]] QVariantMap provider() const;
 
     void setCredentialPath(const QString &path);
+    void setProfileDirectory(const QString &directory) override;
     void setUsageEndpoint(const QUrl &endpoint);
     void setTokenEndpoint(const QUrl &endpoint);
     void setTimeoutMilliseconds(int milliseconds);
@@ -62,6 +63,8 @@ class CodexProviderAdapter final : public ProviderAdapter
 
     QNetworkAccessManager *m_network = nullptr;
     QString m_credentialPath;
+    QString m_defaultCredentialPath;
+    QString m_requestCredentialPath;
     QUrl m_usageEndpoint{QStringLiteral("https://chatgpt.com/backend-api/wham/usage")};
     QUrl m_tokenEndpoint{QStringLiteral("https://auth.openai.com/oauth/token")};
     int m_timeoutMilliseconds = 30'000;

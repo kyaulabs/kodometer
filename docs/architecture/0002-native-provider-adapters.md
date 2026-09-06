@@ -36,6 +36,10 @@ Nonsecret widget preferences use a KConfig schema embedded in the compiled apple
 
 Provider dashboard and documentation actions are separate from data collection. `ProviderActions` resolves provider IDs, action IDs, and normalized z.ai regions against a compiled HTTPS destination catalog. QML cannot pass an arbitrary URL to the opener. Explicit user clicks use `QDesktopServices`; merely loading or refreshing provider data never launches a page. URLs contain no credentials or account selectors, and browser sessions remain outside Kodometer's data sources.
 
+Low-quota notifications are opt-in. `UsageController::providerRefreshed` emits only fresh successful results from enabled, pending adapters; retained snapshots and failed requests cannot trigger it. `QuotaAlertPolicy` evaluates finite numeric remaining percentages from active windows and tracks one low-quota episode per known provider. Recovery requires a five-percentage-point margin above the configured threshold. Invalid active windows cannot rearm an episode. State is bounded to the eight provider IDs and lasts for the widget session, not across restarts or notification-setting changes.
+
+`QuotaNotifier` delivers policy events through KDE Notifications at normal urgency. Notifications contain fixed public provider names and percentages, never provider-supplied labels, identities, or credentials. The default event requests only a popup; desktop suppression and delivery failures do not cause retries. A private D-Bus fake tests the native transport without sending desktop notifications.
+
 All network adapters must use fixed HTTPS endpoints in production, disable automatic redirects, impose request timeouts and response-size limits, avoid logging credentials, and test success, authentication failure or renewal where applicable, malformed data, network failure, timeout, and oversized-response paths against local servers.
 
 ## Consequences

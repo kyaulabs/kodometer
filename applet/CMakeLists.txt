@@ -12,6 +12,8 @@ plasma_add_applet(org.kyaulabs.kodometer
         WindowRow.qml
         config/ConfigCredentials.qml
         config/ConfigGeneral.qml
+        config/ConfigProfiles.qml
+        config/ProfileEditor.qml
         config.qml
         main.qml
     RESOURCES
@@ -43,6 +45,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../include/kodometer/zai_credentials.hpp
         ../include/kodometer/zai_provider_adapter.hpp
         ../include/kodometer/zai_usage_parser.hpp
+        ../include/kodometer/oauth_profiles.hpp
         ../include/kodometer/cost_history_model.hpp
         ../include/kodometer/presentation_formatter.hpp
         ../include/kodometer/provider_actions.hpp
@@ -77,6 +80,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../src/zai_credentials.cpp
         ../src/zai_provider_adapter.cpp
         ../src/zai_usage_parser.cpp
+        ../src/oauth_profiles.cpp
         ../src/cost_history_model.cpp
         ../src/presentation_formatter.cpp
         ../src/provider_actions.cpp

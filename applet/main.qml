@@ -41,6 +41,11 @@ PlasmoidItem {
     Private.UsageController {
         id: backend
         credentialStore: credentialStore
+        profiles.configuration: Plasmoid.configuration.oauthProfiles
+        onProviderContextChanged: provider => {
+            if (quotaNotifier)
+                quotaNotifier.forgetProvider(provider)
+        }
         autoRefresh: Plasmoid.configuration.autoRefresh
         refreshIntervalMinutes: Plasmoid.configuration.refreshIntervalMinutes
         disabledProviders: Plasmoid.configuration.disabledProviders
@@ -146,6 +151,15 @@ PlasmoidItem {
                 Item {
                     Layout.fillHeight: true
                 }
+            }
+
+            Kirigami.InlineMessage {
+                Layout.fillWidth: true
+                visible: !backend.profiles.valid && (!backend.disabledProviders.includes("codex")
+                                                     || !backend.disabledProviders.includes(
+                                                         "claude"))
+                type: Kirigami.MessageType.Error
+                text: backend.profiles.error
             }
 
             Kirigami.InlineMessage {

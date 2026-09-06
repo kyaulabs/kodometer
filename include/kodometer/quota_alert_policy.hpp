@@ -22,6 +22,7 @@ class QuotaAlertPolicy : public QObject
     void setEnabled(bool enabled);
     void setThresholdPercent(int percent);
     Q_INVOKABLE void observe(const QVariantMap &provider);
+    Q_INVOKABLE void forgetProvider(const QString &provider);
 
   signals:
     void settingsChanged();

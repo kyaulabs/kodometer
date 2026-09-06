@@ -17,6 +17,8 @@ class ProviderAdapter : public QObject
 
     [[nodiscard]] virtual QString providerId() const = 0;
     virtual void refresh() = 0;
+    // Only adapters with provider-owned credential folders override this hook.
+    virtual void setProfileDirectory(const QString &) {}
 
     void setCredentialOverrides(const QMap<QString, QString> &overrides);
 

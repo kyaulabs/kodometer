@@ -83,6 +83,11 @@ void QuotaAlertPolicy::setThresholdPercent(int percent)
     emit settingsChanged();
 }
 
+void QuotaAlertPolicy::forgetProvider(const QString &provider)
+{
+    m_lowProviders.remove(provider);
+}
+
 void QuotaAlertPolicy::observe(const QVariantMap &provider)
 {
     if (!m_enabled) {

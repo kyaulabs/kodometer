@@ -215,10 +215,14 @@ void ClaudeProviderAdapterTest::refreshesExpiringTokenBeforeUsage()
     adapter.setTokenEndpoint(server.url(QStringLiteral("/token")));
     adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
     QSignalSpy finished(&adapter, &ClaudeProviderAdapter::refreshFinished);
-
+    QTemporaryDir other;
+    QVERIFY(other.isValid());
+    adapter.setProfileDirectory(directory.path());
     adapter.refresh();
+    adapter.setProfileDirectory(other.path());
 
     QVERIFY(finished.wait());
+    QVERIFY(!QFile::exists(other.filePath(QStringLiteral(".credentials.json"))));
     QCOMPARE(finished.first().first().toBool(), true);
     QCOMPARE(server.requests.size(), 2);
     QCOMPARE(server.requests.at(0).method, QByteArray("POST"));
@@ -239,6 +243,22 @@ void ClaudeProviderAdapterTest::refreshesExpiringTokenBeforeUsage()
     QCOMPARE(oauth.value(QStringLiteral("refreshToken")).toString(), QStringLiteral("new-refresh"));
     QVERIFY(oauth.value(QStringLiteral("expiresAt")).toVariant().toLongLong() >
             QDateTime::currentMSecsSinceEpoch());
+    adapter.setProfileDirectory({});
+    server.enqueue({200, usagePayload()});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 2);
+    QCOMPARE(finished.last().first().toBool(), true);
+    QCOMPARE(server.requests.last().headers.value("authorization"),
+             QByteArray("Bearer new-access"));
+    QVERIFY(
+        writeCredentials(other.filePath(QStringLiteral(".credentials.json")), 2'000'000'000'000));
+    adapter.setProfileDirectory(other.path());
+    server.enqueue({200, usagePayload()});
+    adapter.refresh();
+    QTRY_COMPARE(finished.count(), 3);
+    QCOMPARE(finished.last().first().toBool(), true);
+    QCOMPARE(server.requests.last().headers.value("authorization"),
+             QByteArray("Bearer access-token"));
 }
 
 void ClaudeProviderAdapterTest::retriesUnauthorizedUsageOnce()

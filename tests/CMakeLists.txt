@@ -1,3 +1,8 @@
+add_executable(oauth-profiles-test tst_oauth_profiles.cpp)
+target_link_libraries(oauth-profiles-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(oauth-profiles-test)
+add_test(NAME oauth-profiles COMMAND oauth-profiles-test)
+
 add_executable(cost-history-model-test tst_cost_history_model.cpp)
 target_link_libraries(cost-history-model-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(cost-history-model-test)

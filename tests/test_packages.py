@@ -1,9 +1,11 @@
 """Offline packaging contracts; native builds/install tests run in distro CI jobs."""
 import hashlib
 import importlib.util
+import io
 from pathlib import Path
 import subprocess
 import tempfile
+import tarfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,6 +95,44 @@ class PackageTest(unittest.TestCase):
         (self.directory / "PKGBUILD").write_text(rendered)
         result = subprocess.run(["bash", "-n", "PKGBUILD"], cwd=self.directory, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_aur_bundle_is_verified_before_extracting(self):
+        self.fill()
+        source = self.directory / "kodometer-1.2.3-source.tar.gz"
+        recipe = self.metadata.render_pkgbuild("1.2.3", hashlib.sha256(source.read_bytes()).hexdigest())
+        bundle = self.directory / "kodometer-1.2.3-aur.tar.gz"
+        for bad in ["path", "duplicate", "recipe", "symlink", "oversized", None]:
+            with self.subTest(bad=bad):
+                with tarfile.open(bundle, "w:gz") as archive:
+                    info = tarfile.TarInfo("../PKGBUILD" if bad == "path" else "PKGBUILD")
+                    data = (recipe + "# altered" if bad == "recipe" else recipe).encode()
+                    info.size = len(data)
+                    if bad == "symlink":
+                        info.type = tarfile.SYMTYPE
+                        info.linkname = "../outside"
+                        info.size = 0
+                    if bad == "oversized":
+                        data = b"x" * 65537
+                        info.size = len(data)
+                    archive.addfile(info, io.BytesIO(data))
+                    if bad == "duplicate":
+                        archive.addfile(info, io.BytesIO(data))
+                    srcinfo = b"pkgbase = kodometer\n"
+                    info = tarfile.TarInfo(".SRCINFO")
+                    info.size = len(srcinfo)
+                    archive.addfile(info, io.BytesIO(srcinfo))
+                self.metadata.write_manifest(self.directory, "1.2.3")
+                destination = self.directory.parent / (self.directory.name + "-recipes")
+                if bad:
+                    with self.assertRaises(ValueError):
+                        self.metadata.prepare_aur(self.directory, "1.2.3", destination)
+                    self.assertFalse(destination.exists())
+                else:
+                    self.metadata.prepare_aur(self.directory, "1.2.3", destination)
+                    self.assertEqual((destination / "PKGBUILD").read_text(), recipe)
+                    for path in destination.iterdir():
+                        path.unlink()
+                    destination.rmdir()
 
     def test_cpack_metadata_preserves_native_dependency_scanning(self):
         for target in ["ubuntu-26.04", "fedora-43", "fedora-44"]:

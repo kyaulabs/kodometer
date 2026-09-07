@@ -42,7 +42,7 @@ jobs:
           retention-days: 7
 
   build:
-    name: Package and install (${{ matrix.id }}, x64)
+    name: Build package (${{ matrix.id }}, x64)
     needs: source
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -80,7 +80,7 @@ jobs:
         with:
           name: kodometer-dist-source
           path: dist/source
-      - name: Build, test, install, and smoke-check
+      - name: Build Release binaries and run native tests
         env:
           TARGET: ${{ matrix.id }}
         run: scripts/build-native-package.sh "$TARGET"

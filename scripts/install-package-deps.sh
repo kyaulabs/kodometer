@@ -17,7 +17,7 @@ case "${1:-}" in
         export DEBIAN_FRONTEND=noninteractive
         apt-get update
         apt-get install -y --no-install-recommends build-essential cmake dbus dpkg-dev \
-            extra-cmake-modules git jq libkf6config-dev libkf6coreaddons-dev \
+            extra-cmake-modules file git jq libkf6config-dev libkf6coreaddons-dev \
             libkf6notifications-dev libkf6wallet-dev libkirigami-dev libplasma-dev \
             ninja-build plasma-workspace procps python3 qt6-declarative-dev \
             qt6-declarative-dev-tools qml6-module-org-kde-kirigami qml6-module-qttest \

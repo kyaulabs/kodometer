@@ -57,6 +57,8 @@ Open the widget's **Configure Kodometer…** action to store DeepSeek, Kimi Code
 
 Kodometer accepts OAuth credentials written by Codex, Claude, and Gemini CLI. Codex's `OPENAI_API_KEY` file form is also supported. Claude profile roots set through `CLAUDE_CONFIG_DIR` are honored, as is `CLAUDE_SECURESTORAGE_CONFIG_DIR`; relative profile paths resolve from Kodometer's working directory, matching Claude Code's literal-path behavior.
 
+Codex distinguishes Pro ($200/month tier) from Pro-Lite ($100/month tier) using the API-reported plan, not quota percentages. These are tier labels, not a reading of your invoice. When the usage response reports at least one available banked reset, both Codex details and Overview show its count. Kodometer only reads this count; it does not consume resets or make extra requests for them.
+
 Gemini API-key and Vertex AI sessions do not expose the Code Assist OAuth quota endpoint and are not supported by this adapter. Token refresh reads Gemini CLI's public installed-app OAuth values from its installed JavaScript package without running the CLI. `GEMINI_OAUTH_CLIENT_ID` and `GEMINI_OAUTH_CLIENT_SECRET` override discovery; `GEMINI_OAUTH2_JS_PATH` selects a specific `oauth2.js` file. Following Google's June 2026 consumer-tier shutdown, Gemini quota access is limited to Workspace, education, and Code Assist Standard or Enterprise accounts. Individual, Google AI Pro, and Ultra accounts must use Antigravity instead.
 
 xAI support targets developer-platform billing, not Grok or SuperGrok subscription quota. Create a Management API key with billing read access in the [xAI Console](https://console.x.ai), then export it with the team ID shown in the console URL:
@@ -69,6 +71,8 @@ export XAI_TEAM_ID="team-id"
 Kodometer requests the posted prepaid ledger balance and a best-effort 30-day daily USD spend series. A non-authentication history failure does not hide a valid balance. In Default mode, the Management API key can be stored through Kodometer's credential settings while the team ID comes from the process environment. Named xAI accounts store both values together in KWallet.
 
 Kimi support targets [Kimi For Coding](https://www.kimi.com/code), not the separate Moonshot/Kimi Open Platform. Export `KIMI_CODE_API_KEY` for the recommended API-key flow. Without that variable, Kodometer reuses a fresh access token from the official Kimi Code CLI and sends the CLI device identity headers. `KIMI_CODE_HOME` selects a non-default CLI home. Kodometer does not use the stored refresh token or rewrite the credential file; an expired login must be renewed with Kimi Code CLI. In Default mode, if an API key is rejected and a fresh CLI login exists, Kodometer retries once with the CLI credential. Named KWallet accounts never use this fallback. Browser cookies and `KIMI_AUTH_TOKEN` are not used.
+
+Kimi Code's website **Total usage** lane is not currently supported. It comes from a separate subscription endpoint, not the Coding API's weekly and short-window quotas. A compatibility test with a fresh official device-code OAuth login returned Coding usage successfully but received HTTP 401 from the subscription endpoint. Kodometer does not collect website tokens or browser sessions to fill that gap.
 
 DeepSeek support uses the documented account-balance endpoint. Create an API key in the [DeepSeek Platform](https://platform.deepseek.com), then export it before starting Plasma:
 
@@ -109,6 +113,8 @@ For exact spend across the last 30 completed UTC days, export a management crede
 ```bash
 export OPENROUTER_MANAGEMENT_API_KEY="..."
 ```
+
+An ordinary OpenRouter API key does not enable Management Activity. For **Default**, save the separate Management key under **Credentials → OpenRouter Management API key**. For a named account, save both keys together on **KWallet accounts**; named accounts never borrow Default credentials. After saving, select the matching account and refresh. **Management API key not configured** means the selected credential set has no Management key; it does not mean the ordinary key or balance is invalid.
 
 Activity requests always use OpenRouter's production endpoint. Their failures remain visible as diagnostics without discarding credits or key-limit data. Kodometer ignores endpoint overrides, browser sessions, and OpenRouter website cookies. Either key can instead be stored through Kodometer's credential settings in KDE Wallet.
 

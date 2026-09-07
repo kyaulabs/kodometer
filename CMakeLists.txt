@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.24)
 
 project(
     kodometer
-    VERSION 0.2.0
+    VERSION 0.2.1
     DESCRIPTION "AI provider usage meter for KDE Plasma 6"
     HOMEPAGE_URL "https://github.com/kyaulabs/kodometer"
     LANGUAGES CXX

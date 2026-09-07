@@ -214,7 +214,7 @@ void KimiProviderAdapterTest::reusesCliCredentialWithDeviceIdentity()
     QVERIFY(request.contains("Authorization: Bearer cli-token\r\n"));
     QVERIFY(request.contains("X-Msh-Platform: kimi_code_cli\r\n"));
     QVERIFY(request.contains("X-Msh-Device-Id: device-123\r\n"));
-    QVERIFY(request.contains("X-Msh-Version: 0.1.0\r\n"));
+    QVERIFY(request.contains(QByteArrayLiteral("X-Msh-Version: " KODOMETER_VERSION "\r\n")));
 
     QVERIFY(credentialFile.open(QIODevice::ReadOnly));
     QCOMPARE(credentialFile.readAll(), original);

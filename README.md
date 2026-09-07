@@ -9,7 +9,7 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 
 ## Status
 
-Kodometer targets KDE Plasma 6.4 and newer. Version 0.1.0 includes:
+Kodometer targets KDE Plasma 6.4 and newer. Version 0.2.0 adds native x64 packages for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
 
 - a compiled Plasma 6 applet for Wayland and X11;
 - native Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
@@ -41,7 +41,7 @@ Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are availa
 
 Runtime:
 
-- KDE Plasma 6.0 or newer;
+- KDE Plasma 6.4 or newer;
 - Qt 6.4 or newer, including Qt Quick Controls and Qt Quick Dialogs;
 - KDE Frameworks 6 Wallet and Notifications, with a configured KDE Wallet service;
 - a Codex login at `~/.codex/auth.json`, or under `$CODEX_HOME/auth.json`;
@@ -139,6 +139,12 @@ sudo pacman -S --needed base-devel cmake extra-cmake-modules \
   dbus kconfig kcoreaddons kirigami knotifications kwallet libplasma ninja qt6-declarative
 ```
 
+## Release packages
+
+The native-package workflow builds x64 packages for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44. It also produces source-based AUR recipes. Each distribution builds against its own Qt and KDE libraries; Ubuntu 24.04 and ARM are not targets.
+
+See [native package installation and compatibility](docs/packaging.md) for downloads, checksums, package-manager commands, and AUR availability. Version `v0.1.0` remains archive-only; `v0.2.0` introduces the native formats. No APT or DNF repository is configured.
+
 ## Build and install
 
 ```bash
@@ -175,7 +181,7 @@ Do not keep both local and system copies installed; plugin search order can load
 
 ### Release archives and upgrades
 
-Release archives contain system-relative paths and are built in rolling Arch Linux CI. They are not portable across arbitrary Qt, KDE Frameworks, libplasma, or glibc versions. On another distribution, build from source against its installed development packages. Dependencies are not bundled.
+Release archives contain system-relative paths and are built in rolling Arch Linux CI. They are not portable across arbitrary Qt, KDE Frameworks, libplasma, or glibc versions. Use a matching native package on supported Ubuntu/Fedora releases, or build from source against the distribution's installed development packages. Dependencies are not bundled.
 
 Download the archive and its checksum together from the same GitHub release. Inspect the archive before installing it for all users:
 
@@ -290,12 +296,13 @@ Run repository checks:
 ```bash
 scripts/check-format.sh
 shellcheck scripts/*.sh
+python3 -m unittest discover -s tests -p 'test_*.py'
 scripts/coverage.sh
 ```
 
 The coverage command scans only its freshly instrumented build directory, writes reports to `coverage/`, and fails below 96% for line, function, or branch coverage. QML primitives and general settings controls run through Qt Quick Test in an offscreen session. Applet-enabled builds also test the compiled configuration resources, KConfig persistence, and idle-window presentation without opening a wallet or calling provider APIs. Notification delivery tests run against a fake service on a private D-Bus session, never the desktop's notification service.
 
-Build the release archive and checksum:
+Build the legacy Arch-style archive and checksum locally (x64 only):
 
 ```bash
 scripts/package.sh
@@ -308,10 +315,11 @@ Development follows Git Flow and Conventional Commits.
 1. Merge feature and fix branches into `develop`.
 2. Create `release/X.Y.Z` from `develop`, match versions in `CMakeLists.txt`, `applet/metadata.json`, and `package.json`, and add release notes under `docs/releases/`.
 3. Open the release pull request against `main`. Wait for green CI and approval, then merge with a merge commit.
-4. After merge, the release workflow validates the version and merge SHA, packages the applet, pushes annotated tag `vX.Y.Z`, and uploads assets to a draft release. It downloads and verifies the archive/checksum before publishing.
+4. After merge, the release workflow validates the version and merge SHA and builds the complete native package matrix. It pushes annotated tag `vX.Y.Z`, uploads draft assets, and downloads and verifies every payload and checksum before publishing.
 5. The workflow opens or reuses a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret. Published assets are never replaced on retry.
+6. When explicitly enabled and configured, a separate job updates AUR recipes with a GPG-signed commit after GitHub publication. A failed AUR update can be retried without replacing GitHub assets.
 
-See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.1.0 overview](docs/releases/0.1.0.md) for supported providers and compatibility limits.
+See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.2.0 overview](docs/releases/0.2.0.md) for native packages and compatibility limits.
 
 ## Security and privacy
 

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.24)
 
 project(
     kodometer
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "AI provider usage meter for KDE Plasma 6"
     HOMEPAGE_URL "https://github.com/kyaulabs/kodometer"
     LANGUAGES CXX
@@ -138,6 +138,14 @@ kodometer_enable_warnings(kodometer-core)
 if(KODOMETER_BUILD_APPLET)
     add_subdirectory(applet)
     install(FILES LICENSE README.md DESTINATION "${KDE_INSTALL_DATADIR}/doc/kodometer")
+endif()
+
+set(KODOMETER_PACKAGE_TARGET "" CACHE STRING "Native package target from packaging/targets.json")
+if(KODOMETER_PACKAGE_TARGET)
+    if(NOT KODOMETER_BUILD_APPLET)
+        message(FATAL_ERROR "Native packages require the compiled applet")
+    endif()
+    include(cmake/NativePackages.cmake)
 endif()
 
 if(BUILD_TESTING)

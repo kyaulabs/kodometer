@@ -45,7 +45,8 @@ class HttpServer final : public QObject
                 });
             }
         });
-        Q_ASSERT(m_server.listen(QHostAddress::LocalHost));
+        const bool listening = m_server.listen(QHostAddress::LocalHost);
+        Q_ASSERT(listening);
     }
 
     void enqueue(HttpResponse response)

@@ -325,7 +325,7 @@ Development follows Git Flow and Conventional Commits.
 5. The workflow opens or reuses a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret. Published assets are never replaced on retry.
 6. When explicitly enabled and configured, a separate job updates AUR recipes with a GPG-signed commit after GitHub publication. A failed AUR update can be retried without replacing GitHub assets.
 
-See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.2.0 overview](docs/releases/0.2.0.md) for native packages and compatibility limits.
+See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.2.1 overview](docs/releases/0.2.1.md) for the latest fixes and compatibility limits.
 
 ## Security and privacy
 

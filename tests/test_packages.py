@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import io
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -24,6 +25,23 @@ class PackageTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="kodometer-packages-")
         self.addCleanup(self.temp.cleanup)
         self.directory = Path(self.temp.name)
+
+    def test_packagers_refuse_arm_before_checkout_or_build_work(self):
+        tools = self.directory / 'bin'
+        tools.mkdir()
+        marker = self.directory / 'git-was-called'
+        (tools / 'uname').write_text('#!/bin/sh\nprintf "aarch64\\n"\n')
+        (tools / 'git').write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 99\n')
+        for path in tools.iterdir():
+            path.chmod(0o700)
+        environment = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH'])
+        for script in ['package.sh', 'prepare-source.sh', 'build-native-package.sh',
+                       'install-package-deps.sh', 'test-native-install.sh']:
+            with self.subTest(script=script):
+                marker.unlink(missing_ok=True)
+                result = subprocess.run(['bash', str(ROOT / 'scripts' / script)], env=environment, capture_output=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(marker.exists())
 
     def test_x64_inventory_is_explicit(self):
         names = self.metadata.payloads("1.2.3")

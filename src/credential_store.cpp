@@ -23,8 +23,6 @@ CredentialStore::CredentialStore(CredentialBackend *backend, QObject *parent)
     connect(m_backend, &CredentialBackend::changed, this, [this] {
         if (m_backendOpen) {
             (void)m_accounts.reload();
-        }
-        if (m_ready) {
             (void)reload();
         }
     });
@@ -80,16 +78,22 @@ QStringList CredentialStore::supportedKeys()
 
 void CredentialStore::open()
 {
-    if (m_ready) {
-        (void)m_accounts.reload();
-        return;
-    }
     if (m_busy) {
         return;
     }
-    setError({});
+    if (m_ready) {
+        (void)m_accounts.reload();
+        (void)reload();
+        return;
+    }
+    const quint64 session = ++m_sessionRevision;
+    ++m_readRevision;
     setBusy(true);
-    m_backend->open();
+    if (session != m_sessionRevision)
+        return;
+    setError({});
+    if (session == m_sessionRevision)
+        m_backend->open();
 }
 
 bool CredentialStore::hasSecret(const QString &key) const
@@ -122,18 +126,18 @@ bool CredentialStore::saveSecret(const QString &key, const QString &value)
     }
 
     QString backendError;
-    if (!m_backend->writeSecret(key, secret, &backendError)) {
+    const quint64 session = m_sessionRevision;
+    const bool stored = m_backend->writeSecret(key, secret, &backendError);
+    if (session != m_sessionRevision)
+        return false;
+    if (!stored) {
         if (backendError.isEmpty()) {
             backendError = QStringLiteral("KWallet could not store the credential");
         }
         setError(backendError);
         return false;
     }
-    if (!reload()) {
-        return false;
-    }
-    setError({});
-    return true;
+    return reload();
 }
 
 bool CredentialStore::removeSecret(const QString &key)
@@ -148,18 +152,18 @@ bool CredentialStore::removeSecret(const QString &key)
     }
 
     QString backendError;
-    if (!m_backend->removeSecret(key, &backendError)) {
+    const quint64 session = m_sessionRevision;
+    const bool removed = m_backend->removeSecret(key, &backendError);
+    if (session != m_sessionRevision)
+        return false;
+    if (!removed) {
         if (backendError.isEmpty()) {
             backendError = QStringLiteral("KWallet could not remove the credential");
         }
         setError(backendError);
         return false;
     }
-    if (!reload()) {
-        return false;
-    }
-    setError({});
-    return true;
+    return reload();
 }
 
 bool CredentialStore::supportedKey(const QString &key)
@@ -169,68 +173,65 @@ bool CredentialStore::supportedKey(const QString &key)
 
 bool CredentialStore::reload()
 {
+    if (!m_backendOpen)
+        return false;
+    const quint64 revision = ++m_readRevision;
     QString backendError;
     const auto loaded = m_backend->readSecrets(supportedKeys(), &backendError);
+    // Synchronous D-Bus reads can dispatch nested close/update notifications.
+    if (revision != m_readRevision)
+        return m_ready;
     if (!loaded) {
         if (backendError.isEmpty()) {
             backendError = QStringLiteral("KWallet credentials could not be read");
         }
-        setError(backendError);
-        return false;
+        publishState({}, false, backendError);
+        return m_ready;
     }
     QMap<QString, QString> normalized;
     for (auto iterator = loaded->cbegin(); iterator != loaded->cend(); ++iterator) {
         const QString secret = iterator.value().trimmed();
         if (!validSecret(secret)) {
-            setError(QStringLiteral("KWallet contains an invalid credential for %1")
-                         .arg(iterator.key()));
-            return false;
+            const QString error =
+                QStringLiteral("KWallet contains an invalid credential for %1").arg(iterator.key());
+            publishState({}, false, error);
+            return m_ready;
         }
         normalized.insert(iterator.key(), secret);
     }
-    setSecrets(normalized);
-    return true;
+    publishState(normalized, true, {});
+    return m_ready;
 }
 
 void CredentialStore::handleOpenFinished(bool success, const QString &error)
 {
-    setBusy(false);
+    if (!m_busy)
+        return; // An abandoned asynchronous open cannot restore credentials after closure.
+    const quint64 session = m_sessionRevision;
     m_backendOpen = success;
-    m_accounts.setAvailable(success);
     if (!success) {
-        setReady(false);
         QString message = error;
         if (message.isEmpty()) {
             message = QStringLiteral("KWallet could not be opened");
         }
-        setError(message);
-        return;
+        publishState({}, false, message);
     }
-    if (!reload()) {
-        setReady(false);
-        return;
+    else {
+        m_accounts.setAvailable(true);
+        if (session == m_sessionRevision)
+            (void)reload();
     }
-    setReady(true);
-    setError({});
+    if (session == m_sessionRevision)
+        setBusy(false);
 }
 
 void CredentialStore::handleClosed()
 {
+    const quint64 session = ++m_sessionRevision;
     m_backendOpen = false;
-    m_accounts.setAvailable(false);
-    setBusy(false);
-    setReady(false);
-    setSecrets({});
-    setError(QStringLiteral("KWallet was closed"));
-}
-
-void CredentialStore::setReady(bool ready)
-{
-    if (m_ready == ready) {
-        return;
-    }
-    m_ready = ready;
-    emit readyChanged();
+    publishState({}, false, QStringLiteral("KWallet was closed"));
+    if (session == m_sessionRevision)
+        setBusy(false);
 }
 
 void CredentialStore::setBusy(bool busy)
@@ -251,17 +252,30 @@ void CredentialStore::setError(const QString &error)
     emit errorChanged();
 }
 
-void CredentialStore::setSecrets(const QMap<QString, QString> &secrets)
+void CredentialStore::publishState(const QMap<QString, QString> &secrets, bool ready,
+                                   const QString &error)
 {
-    if (m_secrets == secrets) {
-        return;
-    }
+    ++m_readRevision;
+    const bool secretsDiffer = m_secrets != secrets;
+    const bool readyDiffers = m_ready != ready;
+    const bool errorDiffers = m_error != error;
     const QStringList previousKeys = configuredKeys();
     m_secrets = secrets;
-    if (configuredKeys() != previousKeys) {
+    m_ready = ready;
+    m_error = error;
+    const bool keysDiffer = configuredKeys() != previousKeys;
+    // Commit Default state before named-account callbacks can start another refresh.
+    // Emit notifications only after both registries have dropped closed-wallet data.
+    if (!m_backendOpen)
+        m_accounts.setAvailable(false);
+    if (secretsDiffer)
+        emit secretsChanged();
+    if (keysDiffer)
         emit configuredKeysChanged();
-    }
-    emit secretsChanged();
+    if (readyDiffers)
+        emit readyChanged();
+    if (errorDiffers)
+        emit errorChanged();
 }
 
 } // namespace Kodometer

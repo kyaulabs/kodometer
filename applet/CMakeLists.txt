@@ -102,6 +102,11 @@ plasma_add_applet(org.kyaulabs.kodometer
     GENERATE_APPLET_CLASS
 )
 
+# A metadata-only edit must recompile the generated factory in the same build,
+# not only refresh its moc file and leave the previous metadata in the plugin.
+set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/org.kyaulabs.kodometer.cpp"
+    PROPERTIES OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/metadata.json")
+
 target_include_directories(org.kyaulabs.kodometer PRIVATE ../include ../include/kodometer)
 target_link_libraries(
     org.kyaulabs.kodometer PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml KF6::Notifications KF6::Wallet Plasma::Plasma

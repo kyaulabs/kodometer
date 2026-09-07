@@ -15,6 +15,7 @@ class KWalletCredentialBackend final : public CredentialBackend
     void open() override
     {
         if (m_wallet != nullptr) {
+            disconnect(m_wallet, nullptr, this, nullptr);
             m_wallet->deleteLater();
             m_wallet = nullptr;
         }

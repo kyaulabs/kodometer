@@ -65,7 +65,11 @@ if [[ "$state" != published ]]; then
         cat "docs/releases/$version.md" >"$work/notes.md"
         printf '\n\n' >>"$work/notes.md"
     fi
-    git-cliff --latest --use-branch-tags --tag "$tag" >>"$work/notes.md"
+    if [[ "$has_tag" == true ]]; then
+        git-cliff --current --use-branch-tags >>"$work/notes.md"
+    else
+        git-cliff --unreleased --use-branch-tags --tag "$tag" >>"$work/notes.md"
+    fi
     if [[ "$has_tag" == false ]]; then
         git config user.name 'github-actions[bot]'
         git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

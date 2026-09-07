@@ -1,7 +1,6 @@
 """AUR updates use local bare repos and disposable signing keys, never the AUR."""
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import tempfile
 import unittest
@@ -107,6 +106,16 @@ class AurTest(unittest.TestCase):
                 self.update(False)
                 self.assertIsNone(self.head())
                 self.env[key] = previous
+
+    def test_rejected_push_can_be_retried_without_force(self):
+        hook = self.remote / 'hooks/pre-receive'
+        hook.write_text('#!/bin/sh\nexit 1\n')
+        hook.chmod(0o700)
+        self.update(False)
+        self.assertIsNone(self.head())
+        hook.unlink()
+        self.update()
+        self.assertIsNotNone(self.head())
 
     def test_wrong_architecture_and_symlink_recipes_are_rejected(self):
         info = self.recipes / ".SRCINFO"

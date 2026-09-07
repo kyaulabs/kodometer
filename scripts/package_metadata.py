@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = json.loads((ROOT / "packaging/targets.json").read_text())
@@ -104,9 +105,33 @@ def render_pkgbuild(version, checksum):
     return (ROOT / "packaging/aur/PKGBUILD.in").read_text().replace("@VERSION@", version).replace("@SHA256@", checksum)
 
 
+def prepare_aur(directory, version, destination):
+    directory = Path(directory)
+    rows = read_manifest(directory, version)
+    source = f"kodometer-{version}-source.tar.gz"
+    bundle = f"kodometer-{version}-aur.tar.gz"
+    for name in [source, bundle]:
+        if digest(directory / name) != rows[name]:
+            raise ValueError(f"AUR input checksum mismatch: {name}")
+    with tarfile.open(directory / bundle, "r:gz") as archive:
+        members = archive.getmembers()
+        if len(members) != 2 or {member.name for member in members} != {"PKGBUILD", ".SRCINFO"}:
+            raise ValueError("AUR bundle must contain exactly PKGBUILD and .SRCINFO")
+        if any(not member.isfile() or member.size > 65536 for member in members):
+            raise ValueError("AUR recipe must be a bounded regular file")
+        content = {member.name: archive.extractfile(member).read().decode("utf-8") for member in members}
+    if content["PKGBUILD"] != render_pkgbuild(version, rows[source]):
+        raise ValueError("published PKGBUILD does not match the release recipe and source digest")
+    # All validation precedes filesystem writes. Never extract archive paths or links.
+    destination = Path(destination)
+    destination.mkdir(parents=True, exist_ok=False)
+    for name, text in content.items():
+        (destination / name).write_text(text)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["version", "matrix", "assets", "manifest", "verify", "pkgbuild"])
+    parser.add_argument("command", choices=["version", "matrix", "assets", "manifest", "verify", "pkgbuild", "prepare-aur"])
     parser.add_argument("arguments", nargs="*")
     args = parser.parse_args()
     version = project_version()
@@ -120,6 +145,8 @@ def main():
         write_manifest(args.arguments[0], version)
     elif args.command == "verify":
         verify_manifest(args.arguments[0], version)
+    elif args.command == "prepare-aur":
+        prepare_aur(args.arguments[0], version, args.arguments[1])
     else:
         print(render_pkgbuild(version, digest(Path(args.arguments[0]))), end="")
 
@@ -127,6 +154,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (ValueError, OSError, IndexError) as error:
+    except (ValueError, OSError, IndexError, tarfile.TarError) as error:
         print(f"packaging: {error}", file=sys.stderr)
         sys.exit(1)

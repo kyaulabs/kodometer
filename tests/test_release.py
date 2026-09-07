@@ -2,7 +2,6 @@
 
 All release mutations use offline command fixtures, never the real git or gh.
 """
-import hashlib
 import importlib.util
 import json
 import os
@@ -99,6 +98,18 @@ class ReleaseTest(unittest.TestCase):
         return [event for event in events if event[:2] in [["git", "tag"], ["git", "push"]]
                 or event[:3] in [["gh", "release", action] for action in ["create", "upload", "edit"]]
                 or event[:3] == ["gh", "pr", "create"]]
+
+    def test_native_and_aur_publication_are_separate_gated_jobs(self):
+        workflow = (REPO / '.github/workflows/release.yml').read_text()
+        self.assertIn('uses: ./.github/workflows/packages.yml', workflow)
+        self.assertIn('needs: packages', workflow)
+        self.assertIn('needs: release', workflow)
+        self.assertIn("if: vars.AUR_PUBLISH_ENABLED == 'true'", workflow)
+        self.assertIn('name: kodometer-release-bundle', workflow)
+        self.assertLess(workflow.index('Verify published source and recipes'), workflow.index('AUR_SSH_PRIVATE_KEY:'))
+        packages = (REPO / '.github/workflows/packages.yml').read_text()
+        self.assertIn('needs: [source, build, install]', packages)
+        self.assertNotIn('secrets.', packages)
 
     def test_version_validation_and_workflow_output(self):
         result = self.run_shell(workflow_step("Validate release version"))

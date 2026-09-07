@@ -3,6 +3,7 @@
 All release mutations use offline command fixtures, never the real git or gh.
 """
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -37,11 +38,15 @@ class ReleaseTest(unittest.TestCase):
         self.root = Path(self.temp.name)
         for name in ["bin", "scripts", "applet", "docs/releases", "dist"]:
             (self.root / name).mkdir(parents=True, exist_ok=True)
-        for script in ["validate-release.sh", "publish-release.sh"]:
+        for script in ["validate-release.sh", "publish-release.sh", "package_metadata.py"]:
             source = REPO / "scripts" / script
             if source.exists():
                 shutil.copyfile(source, self.root / "scripts" / script)
                 (self.root / "scripts" / script).chmod(0o755)
+        shutil.copytree(REPO / "packaging", self.root / "packaging")
+        spec = importlib.util.spec_from_file_location("package_metadata", REPO / "scripts/package_metadata.py")
+        self.metadata = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.metadata)
         fixture = self.root / "bin/fixture"
         shutil.copyfile(REPO / "tests/release_command_fixture.py", fixture)
         fixture.chmod(0o755)
@@ -54,7 +59,7 @@ class ReleaseTest(unittest.TestCase):
                         GITHUB_OUTPUT=str(self.root / "output"))
         self.versions("0.1.0")
         (self.root / "docs/releases/0.1.0.md").write_text("Release overview\n\n")
-        self.artifact = f"kodometer-0.1.0-linux-{os.uname().machine}.tar.gz"
+        self.artifact = "kodometer-0.1.0-linux-x86_64.tar.gz"
         self.write_assets(b"fixture archive")
         self.set_state({})
 
@@ -64,9 +69,9 @@ class ReleaseTest(unittest.TestCase):
         (self.root / "package.json").write_text(json.dumps({"version": value}))
 
     def write_assets(self, contents):
-        (self.root / "dist" / self.artifact).write_bytes(contents)
-        digest = hashlib.sha256(contents).hexdigest()
-        (self.root / "dist" / (self.artifact + ".sha256")).write_text(f"{digest}  {self.artifact}\n")
+        for name in self.metadata.payloads("0.1.0"):
+            (self.root / "dist" / name).write_bytes(contents)
+        self.metadata.write_manifest(self.root / "dist", "0.1.0")
 
     def state(self):
         return json.loads((self.root / "state.json").read_text())
@@ -169,6 +174,15 @@ class ReleaseTest(unittest.TestCase):
         (self.root / "dist" / self.artifact).unlink()
         self.publish(False)
         self.assertEqual(self.mutations(), [])
+
+    def test_incomplete_native_matrix_stops_before_tagging(self):
+        for name in self.metadata.payloads("0.1.0"):
+            with self.subTest(missing=name):
+                self.write_assets(b"fixture archive")
+                self.set_state({})
+                (self.root / "dist" / name).unlink()
+                self.publish(False)
+                self.assertEqual(self.mutations(), [])
 
     def test_wrong_or_lightweight_tag_is_rejected(self):
         for state in [{"tag": "b" * 40}, {"tag": "a" * 40, "tag_type": "commit"},

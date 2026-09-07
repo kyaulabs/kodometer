@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+    <kcfgfile name=""/>
+    <group name="General">
+        <entry name="autoRefresh" type="Bool">
+            <label>Refresh automatically</label>
+            <default>true</default>
+        </entry>
+        <entry name="refreshIntervalMinutes" type="Int">
+            <label>Minutes between refreshes</label>
+            <default>5</default>
+            <min>1</min>
+            <max>1440</max>
+        </entry>
+        <entry name="disabledProviders" type="StringList">
+            <label>Providers excluded from refresh and display</label>
+            <default></default>
+        </entry>
+        <entry name="showIdleWindows" type="Bool">
+            <label>Show idle quota windows</label>
+            <default>false</default>
+        </entry>
+        <entry name="quotaNotifications" type="Bool">
+            <label>Notify when quota is low</label>
+            <default>false</default>
+        </entry>
+        <entry name="quotaNotificationThreshold" type="Int">
+            <label>Quota notification threshold (percent remaining)</label>
+            <default>10</default>
+            <min>1</min>
+            <max>50</max>
+        </entry>
+        <entry name="deepseekAccountId" type="String">
+            <label>Selected DeepSeek KWallet account UUID; empty uses Default</label>
+            <default></default>
+        </entry>
+        <entry name="kimiAccountId" type="String">
+            <label>Selected Kimi Code KWallet account UUID; empty uses Default</label>
+            <default></default>
+        </entry>
+        <entry name="openrouterAccountId" type="String">
+            <label>Selected OpenRouter KWallet account UUID; empty uses Default</label>
+            <default></default>
+        </entry>
+        <entry name="zaiAccountId" type="String">
+            <label>Selected z.ai KWallet account UUID; empty uses Default</label>
+            <default></default>
+        </entry>
+        <entry name="xaiAccountId" type="String">
+            <label>Selected xAI KWallet account UUID; empty uses Default</label>
+            <default></default>
+        </entry>
+        <entry name="oauthProfiles" type="String">
+            <label>Named OAuth credential folders and selected profiles</label>
+            <default>{}</default>
+        </entry>
+    </group>
+</kcfg>

@@ -1,0 +1,170 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main, "release/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conventions:
+    name: Conventions
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        with:
+          egress-policy: audit
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - name: Test release automation offline
+        run: python3 -m unittest discover -s tests -p test_release.py
+      - name: Validate release pull request
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          RELEASE_BRANCH: ${{ github.head_ref }}
+        run: scripts/validate-release.sh "$RELEASE_BRANCH"
+      - name: Set up pnpm
+        uses: pnpm/action-setup@7088e561eb65bb68695d245aa206f005ef30921d # v4.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install commit tooling
+        run: pnpm install --frozen-lockfile
+      - name: Lint commits
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          while read -r commit; do
+            git show --quiet --format=%B "$commit" | pnpm exec commitlint
+          done < <(git rev-list --reverse "$BASE_SHA..$HEAD_SHA")
+
+  test:
+    name: Plasma 6 build and test
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Install Plasma build tools
+        run: >-
+          pacman -Syu --needed --noconfirm
+          clang cmake dbus extra-cmake-modules git jq kconfig kcoreaddons kirigami knotifications kwallet
+          libplasma ninja qt6-declarative shellcheck
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Trust the container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Check shell scripts
+        run: shellcheck scripts/*.sh
+      - name: Check source formatting
+        run: scripts/check-format.sh
+      - name: Configure
+        run: >-
+          cmake -S . -B build -G Ninja
+          -DBUILD_TESTING=ON
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+      - name: Build
+        run: cmake --build build
+      - name: Lint QML
+        run: cmake --build build --target org.kyaulabs.kodometer_qmllint
+      - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir build --output-on-failure
+
+  coverage:
+    name: Coverage above 95%
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Install coverage tools
+        run: >-
+          pacman -Syu --needed --noconfirm
+          cmake gcovr git kirigami ninja qt6-declarative
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Trust the container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Measure coverage
+        run: scripts/coverage.sh
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage/
+          if-no-files-found: error
+          retention-days: 7
+
+  security:
+    name: Secret and workflow scan
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Install security tools
+        run: pacman -Syu --needed --noconfirm actionlint git gitleaks
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - name: Trust the container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Scan Git history for secrets
+        run: gitleaks git --no-banner --redact --verbose
+      - name: Lint GitHub Actions
+        run: actionlint
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
+        with:
+          egress-policy: audit
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+
+  package:
+    name: Release package
+    needs: [conventions, test, coverage, security]
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Install packaging tools
+        run: >-
+          pacman -Syu --needed --noconfirm
+          cmake extra-cmake-modules git kconfig kcoreaddons kirigami knotifications kwallet libplasma
+          ninja qt6-declarative
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - name: Trust the container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Build reproducible package
+        run: scripts/package.sh
+      - name: Upload package
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: kodometer-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7

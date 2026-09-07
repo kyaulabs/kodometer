@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: release-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag, release, and back-merge
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: archlinux:base-devel
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
+      RELEASE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+    steps:
+      - name: Install release tools
+        run: >-
+          pacman -Syu --needed --noconfirm
+          cmake extra-cmake-modules git git-cliff github-cli jq kconfig kcoreaddons
+          kirigami knotifications kwallet libplasma ninja qt6-declarative
+      - name: Check out merged release
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      - name: Trust the container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Validate release version
+        id: version
+        run: |
+          version="$(scripts/validate-release.sh "$RELEASE_BRANCH")"
+          printf 'version=%s\n' "$version" >>"$GITHUB_OUTPUT"
+      - name: Check back-merge credential
+        env:
+          BOT_TOKEN: ${{ secrets.KYAULABS_BOT_TOKEN }}
+        run: ': "${BOT_TOKEN:?release: KYAULABS_BOT_TOKEN is required}"'
+      - name: Build release package
+        run: scripts/package.sh
+      - name: Publish verified release and back-merge
+        env:
+          BOT_TOKEN: ${{ secrets.KYAULABS_BOT_TOKEN }}
+        run: scripts/publish-release.sh "$RELEASE_BRANCH"

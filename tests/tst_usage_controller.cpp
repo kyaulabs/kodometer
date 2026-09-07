@@ -1,0 +1,974 @@
+#include <kodometer/credential_store.hpp>
+#include <kodometer/provider_adapter.hpp>
+#include <kodometer/usage_controller.hpp>
+
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QTimer>
+#include <QtTest>
+
+using Kodometer::CredentialBackend;
+using Kodometer::CredentialStore;
+using Kodometer::ProviderAdapter;
+using Kodometer::UsageController;
+
+class FakeProviderAdapter final : public ProviderAdapter
+{
+  public:
+    explicit FakeProviderAdapter(QString providerId) : m_providerId(std::move(providerId)) {}
+
+    [[nodiscard]] QString providerId() const override
+    {
+        return m_providerId;
+    }
+    void refresh() override
+    {
+        ++refreshCount;
+        accountAtRefresh = selectedAccountCredential();
+        managementAtRefresh = selectedAccountManagementCredential();
+        teamAtRefresh = selectedAccountTeamId();
+        zaiAtRefresh = selectedAccountZaiOptions();
+    }
+
+    void succeed(const QVariantMap &provider)
+    {
+        emit refreshSucceeded(provider);
+    }
+    void fail(const QString &error)
+    {
+        emit refreshFailed(error);
+    }
+
+    void setProfileDirectory(const QString &directory) override
+    {
+        profileDirectory = directory;
+        ++profileChanges;
+    }
+
+    int refreshCount = 0;
+    int profileChanges = 0;
+    std::optional<QString> accountAtRefresh;
+    QString managementAtRefresh;
+    QString teamAtRefresh;
+    QVariantMap zaiAtRefresh;
+    QString profileDirectory;
+
+  private:
+    QString m_providerId;
+};
+
+class ControllerCredentialBackend final : public CredentialBackend
+{
+  public:
+    using CredentialBackend::CredentialBackend;
+
+    void open() override {}
+
+    std::optional<QMap<QString, QString>> readSecrets(const QStringList &, QString *) override
+    {
+        return values;
+    }
+
+    std::optional<QMap<QString, QString>> readAccountEntries(QString *) override
+    {
+        return accountValues;
+    }
+
+    bool writeSecret(const QString &, const QString &, QString *) override
+    {
+        return false;
+    }
+
+    bool removeSecret(const QString &, QString *) override
+    {
+        return false;
+    }
+
+    void load()
+    {
+        emit openFinished(true, {});
+    }
+
+    void update()
+    {
+        emit changed();
+    }
+
+    QMap<QString, QString> values;
+    QMap<QString, QString> accountValues;
+};
+
+class CredentialAwareAdapter final : public ProviderAdapter
+{
+  public:
+    QString providerId() const override
+    {
+        return QStringLiteral("deepseek");
+    }
+
+    void refresh() override
+    {
+        ++refreshCount;
+        lastEnvironment = environmentWithCredentialOverrides(baseEnvironment);
+    }
+
+    void succeed()
+    {
+        emit refreshSucceeded({{QStringLiteral("id"), QStringLiteral("deepseek")}});
+    }
+
+    QMap<QString, QString> baseEnvironment;
+    QMap<QString, QString> lastEnvironment;
+    int refreshCount = 0;
+};
+
+class UsageControllerTest final : public QObject
+{
+    Q_OBJECT
+
+  private slots:
+    void aggregatesProvidersInRegistrationOrder();
+    void retainsLastGoodProviderOnFailure();
+    void handlesNoProviders();
+    void handlesRegistrationEdges();
+    void refreshesAfterCredentialChanges();
+    void handlesCredentialStoreLifecycle();
+    void schedulesRefreshWithoutOverlap();
+    void filtersDisabledProviders();
+    void changesProvidersDuringRefresh();
+    void handlesSynchronousCompletion();
+    void publishesOnlyFreshEnabledResults();
+    void isolatesSelectedProfilesAndInflightResults_data();
+    void isolatesSelectedProfilesAndInflightResults();
+    void blocksMalformedProfilesWithoutBlockingOtherProviders_data();
+    void blocksMalformedProfilesWithoutBlockingOtherProviders();
+    void appliesMultipleContextsAtomicallyAndRenamesWithoutFetching_data();
+    void appliesMultipleContextsAtomicallyAndRenamesWithoutFetching();
+    void isolatesNamedWalletSelectionsAndSecretChanges();
+    void isolatesOpenRouterManagementChanges();
+    void isolatesXaiTeamChanges();
+    void isolatesZaiSelectorChanges();
+    void rejectsReentrantWalletChanges_data();
+    void rejectsReentrantWalletChanges();
+    void ignoresUnselectedWalletEditsAndRecoversAfterUnlock();
+    void rejectsReentrantContextChanges_data();
+    void rejectsReentrantContextChanges();
+};
+
+void UsageControllerTest::aggregatesProvidersInRegistrationOrder()
+{
+    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
+    UsageController controller({codex, claude});
+    QSignalSpy finished(&controller, &UsageController::refreshFinished);
+
+    controller.refresh();
+    controller.refresh();
+
+    QVERIFY(controller.busy());
+    QCOMPARE(codex->refreshCount, 1);
+    QCOMPARE(claude->refreshCount, 1);
+    claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
+    QVERIFY(controller.busy());
+    codex->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+
+    QVERIFY(!controller.busy());
+    QCOMPARE(finished.count(), 1);
+    QCOMPARE(finished.first().first().toBool(), true);
+    QCOMPARE(controller.providers().size(), 2);
+    QCOMPARE(controller.providers().at(0).toMap().value(QStringLiteral("id")).toString(),
+             QStringLiteral("codex"));
+    QCOMPARE(controller.providers().at(1).toMap().value(QStringLiteral("id")).toString(),
+             QStringLiteral("claude"));
+    QVERIFY(controller.error().isEmpty());
+    QCOMPARE(controller.snapshot().value(QStringLiteral("providers")).toList(),
+             controller.providers());
+    QVERIFY(!controller.snapshot().value(QStringLiteral("generatedAt")).toString().isEmpty());
+}
+
+void UsageControllerTest::retainsLastGoodProviderOnFailure()
+{
+    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
+    UsageController controller({codex, claude});
+    QSignalSpy finished(&controller, &UsageController::refreshFinished);
+
+    controller.refresh();
+    codex->succeed(
+        {{QStringLiteral("id"), QStringLiteral("codex")}, {QStringLiteral("version"), 1}});
+    claude->fail(QStringLiteral("Claude unavailable"));
+    QCOMPARE(finished.takeFirst().first().toBool(), false);
+    QCOMPARE(controller.providers().size(), 1);
+    QCOMPARE(controller.error(), QStringLiteral("Claude: Claude unavailable"));
+
+    controller.refresh();
+    codex->fail(QStringLiteral("Codex unavailable"));
+    claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
+
+    QCOMPARE(finished.takeFirst().first().toBool(), false);
+    QCOMPARE(controller.providers().size(), 2);
+    QCOMPARE(controller.providers().at(0).toMap().value(QStringLiteral("version")).toInt(), 1);
+    QCOMPARE(controller.error(), QStringLiteral("Codex: Codex unavailable"));
+}
+
+void UsageControllerTest::handlesRegistrationEdges()
+{
+    UsageController defaultController;
+    QVERIFY(defaultController.providers().isEmpty());
+
+    QObject owner;
+    auto *emptyId = new FakeProviderAdapter({});
+    emptyId->setParent(&owner);
+    UsageController controller({nullptr, emptyId});
+    QSignalSpy providersChanged(&controller, &UsageController::providersChanged);
+    QSignalSpy finished(&controller, &UsageController::refreshFinished);
+
+    controller.refresh();
+    emptyId->fail(QStringLiteral("Unavailable"));
+    QCOMPARE(finished.count(), 1);
+    QCOMPARE(controller.error(), QStringLiteral("Provider: Unavailable"));
+
+    controller.refresh();
+    emptyId->succeed({{QStringLiteral("id"), QStringLiteral("empty")}});
+    QCOMPARE(providersChanged.count(), 1);
+    controller.refresh();
+    emptyId->succeed({{QStringLiteral("id"), QStringLiteral("empty")}});
+    QCOMPARE(providersChanged.count(), 1);
+}
+
+void UsageControllerTest::refreshesAfterCredentialChanges()
+{
+    auto *adapter = new CredentialAwareAdapter;
+    auto *backend = new ControllerCredentialBackend;
+    CredentialStore store(backend);
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setCredentialStore(&store);
+    QCOMPARE(controller.credentialStore(), &store);
+    controller.setCredentialStore(&store);
+
+    adapter->baseEnvironment.insert(QStringLiteral("DEEPSEEK_API_KEY"),
+                                    QStringLiteral("environment-key"));
+    controller.refresh();
+    QCOMPARE(adapter->refreshCount, 1);
+    QCOMPARE(adapter->lastEnvironment.value(QStringLiteral("DEEPSEEK_API_KEY")),
+             QStringLiteral("environment-key"));
+    adapter->baseEnvironment.clear();
+    backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("wallet-key"));
+    store.open();
+    backend->load();
+    QCOMPARE(adapter->refreshCount, 1);
+
+    adapter->succeed();
+    QTRY_COMPARE(adapter->refreshCount, 2);
+    QCOMPARE(adapter->lastEnvironment.value(QStringLiteral("DEEPSEEK_API_KEY")),
+             QStringLiteral("wallet-key"));
+    adapter->succeed();
+
+    backend->values.insert(QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("rotated-key"));
+    backend->update();
+    QTRY_COMPARE(adapter->refreshCount, 3);
+    QCOMPARE(adapter->lastEnvironment.value(QStringLiteral("DEEPSEEK_API_KEY")),
+             QStringLiteral("rotated-key"));
+    adapter->succeed();
+
+    controller.setCredentialStore(nullptr);
+    QCOMPARE(controller.credentialStore(), nullptr);
+    controller.refresh();
+    QCOMPARE(adapter->refreshCount, 4);
+    QVERIFY(adapter->lastEnvironment.value(QStringLiteral("DEEPSEEK_API_KEY")).isEmpty());
+}
+
+void UsageControllerTest::handlesCredentialStoreLifecycle()
+{
+    auto *adapter = new CredentialAwareAdapter;
+    auto *firstBackend = new ControllerCredentialBackend;
+    auto *firstStore = new CredentialStore(firstBackend);
+    auto *secondBackend = new ControllerCredentialBackend;
+    CredentialStore secondStore(secondBackend);
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+
+    controller.setCredentialStore(firstStore);
+    controller.setCredentialStore(&secondStore);
+    firstBackend->update();
+    QCOMPARE(adapter->refreshCount, 0);
+
+    controller.setCredentialStore(firstStore);
+    delete firstStore;
+    QCOMPARE(controller.credentialStore(), nullptr);
+}
+
+void UsageControllerTest::handlesNoProviders()
+{
+    UsageController controller(QList<ProviderAdapter *>{});
+    QSignalSpy finished(&controller, &UsageController::refreshFinished);
+
+    controller.refresh();
+
+    QVERIFY(!controller.busy());
+    QCOMPARE(finished.count(), 1);
+    QCOMPARE(finished.first().first().toBool(), true);
+    QVERIFY(controller.providers().isEmpty());
+}
+
+void UsageControllerTest::schedulesRefreshWithoutOverlap()
+{
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("codex"));
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    QSignalSpy settings(&controller, &UsageController::refreshSettingsChanged);
+    auto *timer = controller.findChild<QTimer *>(QStringLiteral("refreshTimer"));
+    QVERIFY(timer);
+    QVERIFY(controller.autoRefresh());
+    QCOMPARE(controller.refreshIntervalMinutes(), 5);
+    QVERIFY(!timer->isActive());
+    controller.setRefreshIntervalMinutes(0);
+    QCOMPARE(controller.refreshIntervalMinutes(), 1);
+    controller.setRefreshIntervalMinutes(-100);
+    QCOMPARE(settings.count(), 1);
+    controller.setRefreshIntervalMinutes(2000);
+    QCOMPARE(controller.refreshIntervalMinutes(), 1440);
+    controller.setAutoRefresh(true);
+    controller.refresh();
+    QVERIFY(!timer->isActive());
+    adapter->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    QVERIFY(timer->isActive());
+    QVERIFY(timer->isSingleShot());
+    QCOMPARE(timer->interval(), 86400000);
+    controller.setRefreshIntervalMinutes(2);
+    QCOMPARE(timer->interval(), 120000);
+    QVERIFY(QMetaObject::invokeMethod(timer, "timeout"));
+    QCOMPARE(adapter->refreshCount, 2);
+    QVERIFY(!timer->isActive());
+    controller.refresh();
+    QCOMPARE(adapter->refreshCount, 2);
+    adapter->fail(QStringLiteral("Unavailable"));
+    QVERIFY(timer->isActive());
+    controller.setAutoRefresh(false);
+    QVERIFY(!timer->isActive());
+    controller.setAutoRefresh(false);
+    controller.refresh();
+    adapter->fail(QStringLiteral("Unavailable"));
+    QVERIFY(!timer->isActive());
+    controller.setAutoRefresh(true);
+    QVERIFY(timer->isActive());
+}
+
+void UsageControllerTest::filtersDisabledProviders()
+{
+    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
+    UsageController controller({codex, claude});
+    QSignalSpy changed(&controller, &UsageController::disabledProvidersChanged);
+    QSignalSpy finished(&controller, &UsageController::refreshFinished);
+    QVERIFY(controller.disabledProviders().isEmpty());
+    controller.setDisabledProviders({QStringLiteral("claude"), QStringLiteral("claude")});
+    QCOMPARE(controller.disabledProviders(), QStringList{QStringLiteral("claude")});
+    controller.setDisabledProviders({QStringLiteral("claude")});
+    QCOMPARE(changed.count(), 1);
+    QCOMPARE(codex->refreshCount, 0); // Applying startup settings must not start networking.
+    controller.refresh();
+    QCOMPARE(codex->refreshCount, 1);
+    QCOMPARE(claude->refreshCount, 0);
+    codex->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    QCOMPARE(controller.providers().size(), 1);
+    controller.setDisabledProviders({QStringLiteral("codex"), QStringLiteral("claude")});
+    QVERIFY(controller.providers().isEmpty());
+    QVERIFY(controller.snapshot().value(QStringLiteral("providers")).toList().isEmpty());
+    QVERIFY(!controller.busy());
+    QVERIFY(controller.error().isEmpty());
+    QVERIFY(!controller.findChild<QTimer *>()->isActive());
+    QCOMPARE(finished.count(), 2);
+    controller.setDisabledProviders({QStringLiteral("unknown")});
+    QCOMPARE(codex->refreshCount, 2);
+    QCOMPARE(claude->refreshCount, 1);
+    codex->fail(QStringLiteral("Unavailable"));
+    claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
+    QCOMPARE(controller.providers().size(), 2); // Last-good Codex retained.
+}
+
+void UsageControllerTest::changesProvidersDuringRefresh()
+{
+    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
+    UsageController controller({codex, claude});
+    controller.refresh();
+    codex->fail(QStringLiteral("Old error"));
+    controller.setDisabledProviders({QStringLiteral("codex")});
+    controller.setDisabledProviders({QStringLiteral("claude"), QStringLiteral("codex")});
+    claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
+    QCoreApplication::processEvents();
+    QVERIFY(!controller.busy());
+    QVERIFY(controller.error().isEmpty());
+    QVERIFY(controller.providers().isEmpty());
+    QCOMPARE(codex->refreshCount, 1);
+    QCOMPARE(claude->refreshCount, 1);
+    // Unsolicited late completions must not republish disabled providers or corrupt counts.
+    claude->fail(QStringLiteral("Late error"));
+    codex->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    QVERIFY(controller.error().isEmpty());
+    QVERIFY(controller.providers().isEmpty());
+    controller.setDisabledProviders({QStringLiteral("claude")});
+    QCOMPARE(codex->refreshCount, 2);
+    codex->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    QCOMPARE(controller.providers().size(), 1);
+}
+
+void UsageControllerTest::handlesSynchronousCompletion()
+{
+    class ImmediateAdapter : public ProviderAdapter
+    {
+      public:
+        QString providerId() const override
+        {
+            return QStringLiteral("immediate");
+        }
+        void refresh() override
+        {
+            emit refreshFailed(QStringLiteral("No credential"));
+        }
+    };
+    auto *immediate = new ImmediateAdapter;
+    auto *slow = new FakeProviderAdapter(QStringLiteral("slow"));
+    UsageController controller({immediate, slow});
+    controller.refresh();
+    QVERIFY(controller.busy());
+    slow->succeed({{QStringLiteral("id"), QStringLiteral("slow")}});
+    QVERIFY(!controller.busy());
+    QCOMPARE(controller.error(), QStringLiteral("Immediate: No credential"));
+}
+
+void UsageControllerTest::publishesOnlyFreshEnabledResults()
+{
+    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
+    UsageController controller({codex, claude});
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    const QVariantMap result{{QStringLiteral("id"), QStringLiteral("codex")}};
+    controller.refresh();
+    codex->succeed(result);
+    claude->fail(QStringLiteral("Unavailable"));
+    QCOMPARE(fresh.count(), 1);
+    QCOMPARE(fresh.first().first().toMap(), result);
+    controller.refresh();
+    codex->fail(QStringLiteral("Unavailable"));
+    controller.setDisabledProviders({QStringLiteral("claude")});
+    claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
+    QCOMPARE(fresh.count(), 1);
+    codex->succeed(result); // Unsolicited result before the queued refresh is ignored.
+    QCOMPARE(fresh.count(), 1);
+    QTRY_COMPARE(codex->refreshCount, 3);
+    codex->succeed(result); // Identical, but newly fetched data is still a fresh result.
+    QCOMPARE(fresh.count(), 2);
+}
+
+void UsageControllerTest::isolatesSelectedProfilesAndInflightResults_data()
+{
+    QTest::addColumn<QString>("provider");
+    QTest::newRow("codex") << QStringLiteral("codex");
+    QTest::newRow("claude") << QStringLiteral("claude");
+    QTest::newRow("gemini") << QStringLiteral("gemini");
+}
+
+void UsageControllerTest::isolatesSelectedProfilesAndInflightResults()
+{
+    QFETCH(QString, provider);
+    auto *adapter = new FakeProviderAdapter(provider);
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setAutoRefresh(false);
+    auto *profiles = controller.profiles();
+    QSignalSpy contexts(&controller, &UsageController::providerContextChanged);
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    QVERIFY(profiles->addProfile(provider, "Work", "/work"));
+    const QString work = profiles->selectedId(provider);
+    QCOMPARE(adapter->refreshCount, 0); // Loading settings never starts networking.
+    controller.refresh();
+    QCOMPARE(adapter->profileDirectory, QStringLiteral("/work"));
+    adapter->succeed({{"id", provider}});
+    QCOMPARE(controller.providers().first().toMap().value("profileName").toString(),
+             QStringLiteral("Work"));
+    controller.refresh();
+    const int pathChanges = adapter->profileChanges;
+    QVERIFY(profiles->addProfile(provider, "Personal", "/personal"));
+    QVERIFY(controller.providers().isEmpty());
+    QVERIFY(controller.snapshot().value("providers").toList().isEmpty());
+    QCOMPARE(adapter->profileChanges, pathChanges);   // Never redirect an active token rotation.
+    QVERIFY(profiles->selectProfile(provider, work)); // A -> B -> A still invalidates the request.
+    adapter->succeed({{"id", provider}, {"old", true}});
+    QCOMPARE(fresh.count(), 1);
+    QVERIFY(controller.providers().isEmpty());
+    QTRY_COMPARE(adapter->refreshCount, 3);
+    adapter->fail(QStringLiteral("Work failure"));
+    QVERIFY(controller.providers().isEmpty());
+    QVERIFY(!controller.error().isEmpty());
+    QVERIFY(profiles->selectProfile(provider, "default"));
+    QVERIFY(controller.error().isEmpty());
+    QTRY_COMPARE(adapter->refreshCount, 4);
+    QVERIFY(adapter->profileDirectory.isEmpty());
+    QVERIFY(profiles->selectProfile(provider, work));
+    adapter->fail(QStringLiteral("Old account error"));
+    QVERIFY(controller.error().isEmpty());
+    QTRY_COMPARE(adapter->refreshCount, 5);
+    adapter->succeed({{"id", provider}});
+    QCOMPARE(fresh.count(), 2);
+    QVERIFY(contexts.count() >= 4);
+    // Changes before the queued refresh runs coalesce into one request.
+    QVERIFY(profiles->selectProfile(provider, "default"));
+    QVERIFY(profiles->selectProfile(provider, work));
+    QTRY_COMPARE(adapter->refreshCount, 6);
+    adapter->succeed({{"id", provider}});
+    QCoreApplication::processEvents();
+    QCOMPARE(adapter->refreshCount, 6);
+}
+
+void UsageControllerTest::blocksMalformedProfilesWithoutBlockingOtherProviders_data()
+{
+    isolatesSelectedProfilesAndInflightResults_data();
+}
+
+void UsageControllerTest::blocksMalformedProfilesWithoutBlockingOtherProviders()
+{
+    QFETCH(QString, provider);
+    auto *adapter = new FakeProviderAdapter(provider);
+    auto *other = new FakeProviderAdapter(QStringLiteral("other"));
+    UsageController controller({adapter, other});
+    controller.profiles()->setConfiguration(QStringLiteral("invalid"));
+    controller.refresh();
+    QCOMPARE(adapter->refreshCount, 0);
+    QCOMPARE(other->refreshCount, 1);
+    other->succeed({{"id", "other"}});
+    QCOMPARE(other->profileChanges, 0);
+    controller.profiles()->setConfiguration(QStringLiteral("{}"));
+    // A manual cycle can start before the profile refresh callback; still queue a follow-up.
+    controller.refresh();
+    QCoreApplication::processEvents();
+    adapter->succeed({{"id", provider}});
+    other->succeed({{"id", "other"}});
+    QTRY_COMPARE(adapter->refreshCount, 2);
+    adapter->succeed({{"id", provider}});
+    other->succeed({{"id", "other"}});
+}
+
+void UsageControllerTest::appliesMultipleContextsAtomicallyAndRenamesWithoutFetching_data()
+{
+    QTest::addColumn<QString>("provider");
+    QTest::addColumn<QString>("selection");
+    QTest::newRow("codex") << QStringLiteral("codex") << QStringLiteral("selectedCodex");
+    QTest::newRow("gemini") << QStringLiteral("gemini") << QStringLiteral("selectedGemini");
+}
+
+void UsageControllerTest::appliesMultipleContextsAtomicallyAndRenamesWithoutFetching()
+{
+    QFETCH(QString, provider);
+    QFETCH(QString, selection);
+    auto *adapter = new FakeProviderAdapter(provider);
+    auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
+    UsageController controller({adapter, claude});
+    QVERIFY(controller.profiles()->addProfile(provider, "Work", "/first"));
+    QVERIFY(controller.profiles()->addProfile("claude", "Work", "/claude"));
+    controller.refresh();
+    adapter->succeed({{"id", provider}});
+    claude->succeed({{"id", "claude"}});
+    QSignalSpy contexts(&controller, &UsageController::providerContextChanged);
+    QJsonObject data =
+        QJsonDocument::fromJson(controller.profiles()->configuration().toUtf8()).object();
+    QJsonObject row = data.value(provider).toArray().first().toObject();
+    row.insert("name", "Renamed");
+    data.insert(provider, QJsonArray{row});
+    controller.profiles()->setConfiguration(QString::fromUtf8(QJsonDocument(data).toJson()));
+    QCOMPARE(controller.providers().first().toMap().value("profileName").toString(),
+             QStringLiteral("Renamed"));
+    QCOMPARE(contexts.count(), 0);
+    QCoreApplication::processEvents();
+    QCOMPARE(adapter->refreshCount, 1);
+    bool atomic = true;
+    connect(&controller, &UsageController::providersChanged, &controller,
+            [&] { atomic = atomic && controller.providers().isEmpty(); });
+    data.insert(selection, "default");
+    data.insert("selectedClaude", "default");
+    controller.profiles()->setConfiguration(QString::fromUtf8(QJsonDocument(data).toJson()));
+    QVERIFY(atomic);
+    QCOMPARE(contexts.count(), 2);
+    QTRY_COMPARE(adapter->refreshCount, 2);
+    QCOMPARE(claude->refreshCount, 2);
+}
+
+void UsageControllerTest::rejectsReentrantContextChanges_data()
+{
+    QTest::addColumn<bool>("disable");
+    QTest::newRow("profile-switch") << false;
+    QTest::newRow("provider-disable") << true;
+}
+
+void UsageControllerTest::rejectsReentrantContextChanges()
+{
+    QFETCH(bool, disable);
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("codex"));
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    bool changed = false;
+    connect(&controller, &UsageController::providersChanged, &controller, [&] {
+        if (!changed && !controller.providers().isEmpty()) {
+            changed = true;
+            if (disable) {
+                controller.setDisabledProviders({QStringLiteral("codex")});
+            }
+            else {
+                QVERIFY(controller.profiles()->addProfile("codex", "Work", "/work"));
+            }
+        }
+    });
+    controller.refresh();
+    adapter->succeed({{"id", "codex"}});
+    QVERIFY(changed);
+    QVERIFY(controller.providers().isEmpty());
+    QCOMPARE(fresh.count(), 0);
+}
+
+void UsageControllerTest::isolatesNamedWalletSelectionsAndSecretChanges()
+{
+    const QString first = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    const QString second = QStringLiteral("22222222-2222-4222-8222-222222222222");
+    auto *wallet = new ControllerCredentialBackend;
+    wallet->accountValues = {
+        {"accounts/deepseek/" + first, R"({"name":"Work","key":"key-one"})"},
+        {"accounts/deepseek/" + second, R"({"name":"Personal","key":"key-two"})"}};
+    auto *store = new CredentialStore(wallet);
+    store->open();
+    wallet->load();
+    auto *deepseek = new FakeProviderAdapter(QStringLiteral("deepseek"));
+    auto *kimi = new FakeProviderAdapter(QStringLiteral("kimi"));
+    UsageController controller({deepseek, kimi});
+    controller.setCredentialStore(store);
+    QCOMPARE(controller.deepseekAccountId(), QString{});
+    QCOMPARE(controller.kimiAccountId(), QString{});
+    controller.setDeepseekAccountId(first);
+    controller.setDeepseekAccountId(first);
+    QCOMPARE(deepseek->refreshCount, 0);
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    controller.refresh();
+    QCOMPARE(*deepseek->accountAtRefresh, QStringLiteral("key-one"));
+    QVERIFY(!kimi->accountAtRefresh);
+    deepseek->succeed({{"id", "deepseek"}});
+    kimi->succeed({{"id", "kimi"}});
+    QCOMPARE(controller.providers().first().toMap().value("accountName").toString(),
+             QStringLiteral("Work"));
+    controller.refresh();
+    controller.setDeepseekAccountId(second);
+    QCOMPARE(controller.providers().size(), 1);
+    QCOMPARE(*deepseek->accountAtRefresh, QStringLiteral("key-one"));
+    deepseek->succeed({{"id", "deepseek"}});
+    kimi->succeed({{"id", "kimi"}});
+    QCOMPARE(fresh.count(), 3); // Only Kimi's old cycle remains eligible.
+    QTRY_COMPARE(deepseek->refreshCount, 3);
+    QCOMPARE(*deepseek->accountAtRefresh, QStringLiteral("key-two"));
+    wallet->accountValues["accounts/deepseek/" + second] =
+        R"({"name":"Personal","key":"replacement"})";
+    wallet->update();
+    deepseek->fail(QStringLiteral("Rejected old key"));
+    kimi->succeed({{"id", "kimi"}});
+    QVERIFY(!controller.error().contains(QStringLiteral("Rejected old key")));
+    QTRY_COMPARE(deepseek->refreshCount, 4);
+    QCOMPARE(*deepseek->accountAtRefresh, QStringLiteral("replacement"));
+    deepseek->succeed({{"id", "deepseek"}});
+    kimi->succeed({{"id", "kimi"}});
+    wallet->accountValues.remove("accounts/deepseek/" + second);
+    wallet->update();
+    QVERIFY(!controller.error().isEmpty());
+    QCOMPARE(controller.providers().size(), 1);
+    QTRY_COMPARE(kimi->refreshCount, 5);
+    QCOMPARE(deepseek->refreshCount, 4);
+    kimi->succeed({{"id", "kimi"}});
+    controller.setKimiAccountId(first); // A DeepSeek UUID cannot resolve as a Kimi credential.
+    controller.refresh();
+    QVERIFY(!controller.busy());
+    QVERIFY(!controller.error().isEmpty());
+    delete store;
+    QCOMPARE(controller.credentialStore(), nullptr);
+    controller.setDeepseekAccountId({});
+    controller.setKimiAccountId({});
+    QTRY_COMPARE(deepseek->refreshCount, 5);
+    QVERIFY(!deepseek->accountAtRefresh);
+    QVERIFY(!kimi->accountAtRefresh);
+}
+
+void UsageControllerTest::rejectsReentrantWalletChanges_data()
+{
+    QTest::addColumn<QString>("change");
+    for (const QString &change :
+         {QStringLiteral("switch"), QStringLiteral("aba"), QStringLiteral("replace"),
+          QStringLiteral("close"), QStringLiteral("disable")}) {
+        QTest::newRow(qPrintable(change)) << change;
+    }
+}
+
+void UsageControllerTest::rejectsReentrantWalletChanges()
+{
+    QFETCH(QString, change);
+    const QString first = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    const QString second = QStringLiteral("22222222-2222-4222-8222-222222222222");
+    auto *wallet = new ControllerCredentialBackend;
+    wallet->accountValues = {{"accounts/kimi/" + first, R"({"name":"Work","key":"one"})"},
+                             {"accounts/kimi/" + second, R"({"name":"Personal","key":"two"})"}};
+    CredentialStore store(wallet);
+    store.open();
+    wallet->load();
+    auto *kimi = new FakeProviderAdapter(QStringLiteral("kimi"));
+    UsageController controller(QList<ProviderAdapter *>{kimi});
+    controller.setAutoRefresh(false);
+    controller.setCredentialStore(&store);
+    controller.setKimiAccountId(first);
+    controller.setKimiAccountId(first);
+    QCOMPARE(controller.kimiAccountId(), first);
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    controller.refresh();
+    bool changed = false;
+    connect(&controller, &UsageController::providersChanged, &controller, [&] {
+        if (changed || controller.providers().isEmpty())
+            return;
+        changed = true;
+        if (change == QLatin1String("replace")) {
+            wallet->accountValues["accounts/kimi/" + first] =
+                R"({"name":"Work","key":"replacement"})";
+            wallet->update();
+        }
+        else if (change == QLatin1String("close")) {
+            emit wallet->closed();
+        }
+        else if (change == QLatin1String("disable")) {
+            controller.setDisabledProviders({QStringLiteral("kimi")});
+        }
+        else {
+            controller.setKimiAccountId(second);
+            if (change == QLatin1String("aba"))
+                controller.setKimiAccountId(first);
+        }
+    });
+    kimi->succeed({{"id", "kimi"}});
+    QCOMPARE(fresh.count(), 0);
+    QVERIFY(controller.providers().isEmpty());
+    if (change == QLatin1String("close") || change == QLatin1String("disable")) {
+        QCoreApplication::processEvents();
+        QCOMPARE(kimi->refreshCount, 1);
+    }
+    else {
+        QTRY_COMPARE(kimi->refreshCount, 2);
+        kimi->succeed({{"id", "kimi"}});
+        QCOMPARE(fresh.count(), 1);
+    }
+}
+
+void UsageControllerTest::ignoresUnselectedWalletEditsAndRecoversAfterUnlock()
+{
+    const QString first = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    const QString second = QStringLiteral("22222222-2222-4222-8222-222222222222");
+    auto *wallet = new ControllerCredentialBackend;
+    wallet->accountValues = {{"accounts/deepseek/" + first, R"({"name":"Work","key":"one"})"}};
+    CredentialStore store(wallet);
+    store.open();
+    wallet->load();
+    auto *deepseek = new FakeProviderAdapter(QStringLiteral("deepseek"));
+    UsageController controller(QList<ProviderAdapter *>{deepseek});
+    controller.setAutoRefresh(false);
+    controller.setDeepseekAccountId(first); // Selection can arrive before the store binding.
+    controller.setCredentialStore(&store);
+    controller.refresh();
+    deepseek->succeed({{"id", "deepseek"}});
+    QSignalSpy contexts(&controller, &UsageController::providerContextChanged);
+    wallet->accountValues.insert("accounts/deepseek/" + second,
+                                 R"({"name":"Personal","key":"two"})");
+    wallet->update();
+    wallet->accountValues["accounts/deepseek/" + first] = R"({"name":"Renamed","key":"one"})";
+    wallet->update();
+    QCOMPARE(contexts.count(), 0);
+    QCOMPARE(controller.providers().size(), 1);
+    QCOMPARE(controller.providers().first().toMap().value("accountName").toString(),
+             QStringLiteral("Renamed"));
+    QCoreApplication::processEvents();
+    QCOMPARE(deepseek->refreshCount, 1);
+    emit wallet->closed();
+    QVERIFY(controller.providers().isEmpty());
+    QVERIFY(!controller.error().isEmpty());
+    QCoreApplication::processEvents();
+    QCOMPARE(deepseek->refreshCount, 1);
+    store.open();
+    wallet->load();
+    QTRY_COMPARE(deepseek->refreshCount, 2);
+    QCOMPARE(*deepseek->accountAtRefresh, QStringLiteral("one"));
+    deepseek->succeed({{"id", "deepseek"}});
+    auto *replacementBackend = new ControllerCredentialBackend;
+    CredentialStore replacement(replacementBackend);
+    controller.setCredentialStore(&replacement);
+    QVERIFY(controller.providers().isEmpty());
+    const qsizetype count = contexts.count();
+    wallet->accountValues.clear();
+    wallet->update();
+    QCOMPARE(contexts.count(), count);
+}
+
+void UsageControllerTest::isolatesOpenRouterManagementChanges()
+{
+    const QString id = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    auto *wallet = new ControllerCredentialBackend;
+    const QString entry = "accounts/openrouter/" + id;
+    wallet->accountValues = {
+        {entry, R"({"name":"Work","key":"ordinary","managementKey":"management"})"}};
+    CredentialStore store(wallet);
+    store.open();
+    wallet->load();
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("openrouter"));
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setAutoRefresh(false);
+    controller.setCredentialStore(&store);
+    QVERIFY(controller.openrouterAccountId().isEmpty());
+    controller.setOpenrouterAccountId(id);
+    controller.setOpenrouterAccountId(id);
+    QCOMPARE(controller.openrouterAccountId(), id);
+    QCOMPARE(adapter->refreshCount, 0);
+    controller.refresh();
+    QCOMPARE(*adapter->accountAtRefresh, QStringLiteral("ordinary"));
+    QCOMPARE(adapter->managementAtRefresh, QStringLiteral("management"));
+    adapter->succeed({{"id", "openrouter"}, {"cost", QVariantMap{{"balanceUSD", 40}}}});
+    controller.refresh();
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    wallet->accountValues[entry] =
+        R"({"name":"Work","key":"ordinary","managementKey":"replacement"})";
+    wallet->update();
+    QVERIFY(controller.providers().isEmpty());
+    wallet->accountValues[entry] =
+        R"({"name":"Work","key":"ordinary","managementKey":"management"})";
+    wallet->update(); // A -> B -> A still invalidates the pending request.
+    adapter->succeed({{"id", "openrouter"}});
+    QCOMPARE(fresh.count(), 0);
+    QTRY_COMPARE(adapter->refreshCount, 3);
+    QCOMPARE(adapter->managementAtRefresh, QStringLiteral("management"));
+    wallet->accountValues[entry] = R"({"name":"Work","key":"ordinary"})";
+    wallet->update();
+    adapter->fail(QStringLiteral("old Management failure"));
+    QVERIFY(!controller.error().contains("old Management failure"));
+    QTRY_COMPARE(adapter->refreshCount, 4);
+    QVERIFY(adapter->managementAtRefresh.isEmpty());
+    adapter->succeed({{"id", "openrouter"}});
+    controller.setOpenrouterAccountId({});
+    QTRY_COMPARE(adapter->refreshCount, 5);
+    QVERIFY(!adapter->accountAtRefresh);
+    QVERIFY(adapter->managementAtRefresh.isEmpty());
+}
+
+void UsageControllerTest::isolatesXaiTeamChanges()
+{
+    const QString id = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    const QString entry = "accounts/xai/" + id;
+    auto *wallet = new ControllerCredentialBackend;
+    wallet->accountValues = {{entry, R"({"name":"Work","key":"management","teamId":"team-a"})"}};
+    CredentialStore store(wallet);
+    store.open();
+    wallet->load();
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("xai"));
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setAutoRefresh(false);
+    controller.setCredentialStore(&store);
+    QVERIFY(controller.xaiAccountId().isEmpty());
+    controller.setXaiAccountId(id);
+    controller.setXaiAccountId(id);
+    QCOMPARE(controller.xaiAccountId(), id);
+    QCOMPARE(adapter->refreshCount, 0);
+    controller.refresh();
+    QCOMPARE(*adapter->accountAtRefresh, QStringLiteral("management"));
+    QCOMPARE(adapter->teamAtRefresh, QStringLiteral("team-a"));
+    adapter->succeed({{"id", "xai"}, {"cost", QVariantMap{{"balanceUSD", 40}}}});
+    controller.refresh();
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    wallet->accountValues[entry] = R"({"name":"Work","key":"management","teamId":"team-b"})";
+    wallet->update();
+    QVERIFY(controller.providers().isEmpty());
+    wallet->accountValues[entry] = R"({"name":"Work","key":"management","teamId":"team-a"})";
+    wallet->update();
+    adapter->succeed({{"id", "xai"}});
+    QCOMPARE(fresh.count(), 0);
+    QTRY_COMPARE(adapter->refreshCount, 3);
+    wallet->accountValues[entry] = R"({"name":"Work","key":"management","teamId":"team-b"})";
+    wallet->update();
+    adapter->fail(QStringLiteral("old team failure"));
+    QVERIFY(!controller.error().contains("old team failure"));
+    QTRY_COMPARE(adapter->refreshCount, 4);
+    QCOMPARE(adapter->teamAtRefresh, QStringLiteral("team-b"));
+    adapter->succeed({{"id", "xai"}});
+    controller.setXaiAccountId({});
+    QTRY_COMPARE(adapter->refreshCount, 5);
+    QVERIFY(!adapter->accountAtRefresh);
+    QVERIFY(adapter->teamAtRefresh.isEmpty());
+}
+
+void UsageControllerTest::isolatesZaiSelectorChanges()
+{
+    const QString id = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    const QString entry = "accounts/zai/" + id;
+    auto *wallet = new ControllerCredentialBackend;
+    const QVariantMap initial{{"region", "global"},
+                              {"scope", "team"},
+                              {"organizationId", "org-a"},
+                              {"projectId", "project-a"}};
+    const auto record = [](const QVariantMap &options) {
+        return QString::fromUtf8(
+            QJsonDocument(QJsonObject{{"name", "Work"},
+                                      {"key", "key"},
+                                      {"zai", QJsonObject::fromVariantMap(options)}})
+                .toJson(QJsonDocument::Compact));
+    };
+    wallet->accountValues = {{entry, record(initial)}};
+    CredentialStore store(wallet);
+    store.open();
+    wallet->load();
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("zai"));
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setAutoRefresh(false);
+    controller.setCredentialStore(&store);
+    QVERIFY(controller.zaiAccountId().isEmpty());
+    controller.setZaiAccountId(id);
+    QCOMPARE(controller.zaiAccountId(), id);
+    QCOMPARE(adapter->refreshCount, 0);
+    controller.refresh();
+    QCOMPARE(*adapter->accountAtRefresh, QStringLiteral("key"));
+    QCOMPARE(adapter->zaiAtRefresh, initial);
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    for (const QString &field : initial.keys()) {
+        adapter->succeed({{"id", "zai"}});
+        QVERIFY(!controller.providers().isEmpty());
+        controller.refresh();
+        const int before = adapter->refreshCount;
+        QVariantMap next = initial;
+        if (field == QLatin1String("region"))
+            next[field] = "bigmodel-cn";
+        else if (field == QLatin1String("scope"))
+            next = {{"region", "global"}, {"scope", "personal"}};
+        else
+            next[field] = "changed";
+        wallet->accountValues[entry] = record(next);
+        wallet->update();
+        QVERIFY(controller.providers().isEmpty());
+        wallet->accountValues[entry] = record(initial);
+        wallet->update();
+        const auto count = fresh.count();
+        adapter->succeed({{"id", "zai"}});
+        QCOMPARE(fresh.count(), count);
+        QTRY_COMPARE(adapter->refreshCount, before + 1);
+        wallet->accountValues[entry] = record(next);
+        wallet->update();
+        adapter->fail(QStringLiteral("old selector failure"));
+        QVERIFY(!controller.error().contains("old selector failure"));
+        QTRY_COMPARE(adapter->refreshCount, before + 2);
+        QCOMPARE(adapter->zaiAtRefresh, next);
+        adapter->succeed({{"id", "zai"}});
+        wallet->accountValues[entry] = record(initial);
+        wallet->update();
+        QTRY_COMPARE(adapter->refreshCount, before + 3);
+    }
+    adapter->succeed({{"id", "zai"}});
+    controller.setZaiAccountId({});
+    QTRY_VERIFY(!adapter->accountAtRefresh);
+    QVERIFY(adapter->zaiAtRefresh.isEmpty());
+}
+
+QTEST_GUILESS_MAIN(UsageControllerTest)
+
+#include "tst_usage_controller.moc"

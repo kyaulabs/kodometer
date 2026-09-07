@@ -1,429 +1,330 @@
-﻿# 📘 template
+# Kodometer
 
-[https://kyaulabs.com/](https://kyaulabs.com/)
+[![Conventional Commits](https://img.shields.io/badge/conventional%20commits-1.0.0-fe5196?logo=conventionalcommits)](https://www.conventionalcommits.org/en/v1.0.0/)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
-[![Contributor Covenant](https://img.shields.io/badge/contributor%20covenant-2.1-4baaaa.svg?logo=open-source-initiative&logoColor=4baaaa)](CODE_OF_CONDUCT.md) &nbsp; [![Conventional Commits](https://img.shields.io/badge/conventional%20commits-1.0.0-fe5196?style=flat&logo=conventionalcommits)](https://www.conventionalcommits.org/en/v1.0.0/) &nbsp; [![GitHub](https://img.shields.io/github/license/kyaulabs/template?logo=creativecommons)](LICENSE) &nbsp; [![Gitleaks](https://img.shields.io/badge/protected%20by-gitleaks-blue?logo=git&logoColor=seagreen&color=seagreen)](https://github.com/zricethezav/gitleaks)  
-[![Semantic Versioning](https://img.shields.io/github/v/release/kyaulabs/template?include_prereleases&logo=semver&sort=semver)](https://semver.org) &nbsp; [![Discord](https://img.shields.io/discord/88713030895943680?logo=discord&color=blue&logoColor=white)](https://discord.gg/DSvUNYm)
+Kodometer is a native KDE Plasma 6 widget for monitoring AI-provider usage limits. It follows the compact meter model of [CodexBar](https://github.com/steipete/CodexBar) while using Qt, Plasma controls, keyboard navigation, and system theme colors.
 
-## About
+Kodometer talks to provider APIs directly. It does not require CodexBar, invoke provider CLIs, inspect browser sessions, or pass commands through a shell.
 
-This repository is the basis for all other repositories created here at KYAU Labs.
+## Status
 
-* GitHub limits repositories to 10GB of cache space for actions.
-* GitHub limits users/organizations to 0.5GB of artifact storage.
+Kodometer targets KDE Plasma 6.4 and newer. Version 0.1.0 includes:
 
-Keep these factors in mind when setting up repositories.
+- a compiled Plasma 6 applet for Wayland and X11;
+- native Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
+- secure loading, atomic OAuth rotation, and KWallet-backed API-key entry;
+- session, weekly, model-specific, routines, spend-limit, and Gemini tier windows;
+- Claude monthly-cap and plan presentation;
+- xAI prepaid balance and 30-day platform spend summaries;
+- Kimi Code 7-day and short-window request quotas;
+- DeepSeek account balance with paid and granted credit breakdowns;
+- z.ai and BigModel CN Coding Plan, MCP, model-token, and account-balance data;
+- OpenRouter credit balance, API-key spending cap, and optional 30-day activity totals;
+- 7-day and 30-day daily spend charts for xAI and OpenRouter;
+- provider tabs, an overview, reset countdowns, and account and plan labels;
+- official dashboard and documentation links from provider details;
+- per-widget automatic refresh, provider switches, and idle-window preferences;
+- named Codex, Claude, and Gemini credential profiles, with only the selected profile polled;
+- named DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai accounts in KWallet, with selected-only polling;
+- in-widget profile/account selection, including recovery when usage data is unavailable;
+- opt-in low-quota desktop notifications with duplicate suppression;
+- last-good data retention when a refresh fails;
+- redacted account identity by default;
+- request timeouts, response-size limits, and manual redirect handling;
+- C++ and QML tests with line, function, and branch coverage gates above 95%;
+- CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-* [About](#about)
-* [Install Additions (optional)](#install-additions-optional)
-* [New Repository](#new-repository)
-  * [Clone this Template](#clone)
-  * [Initialize Repository](#init)
-  * [Add License](#add-license)
-  * [Add `.gitignore`](#add-gitignore)
-  * [Update `README.md`](#update-readmemd)
-* [Git Hooks](#git-hooks)
-  * [Configuration](#configuration)
-  * [Symlinks](#symlinks)
-* [Initial Commit](#initial-commit)
-  * [Stage All](#stage-all)
-  * [Commit](#commit)
-  * [Push](#push)
-* [Repository Settings](#repository-settings)
-  * [General](#general)
-  * [Collaborators and Teams](#collaborators-and-teams)
-  * [Branches](#branches)
-  * [Webhooks](#webhooks)
-* [Issue Labels](#issue-labels)
-* [Conventional Commits](#conventional-commits)
-  * [Type](#type)
-  * [Scope](#scope)
-  * [Subject](#subject)
-  * [Body](#body)
-  * [Footer](#footer)
-  * [Examples](#examples)
-* [Changelog](#changelog)
-* [Unity Projects](#unity-projects)
-  * [Unity Activation](#unity-activation)
-* [Attribution](#attribution)
+Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Codex, Claude, and Gemini support named credential profiles; DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai support named KWallet accounts.
 
-## Install Additions (optional)
+## Requirements
+
+Runtime:
+
+- KDE Plasma 6.0 or newer;
+- Qt 6.4 or newer, including Qt Quick Controls and Qt Quick Dialogs;
+- KDE Frameworks 6 Wallet and Notifications, with a configured KDE Wallet service;
+- a Codex login at `~/.codex/auth.json`, or under `$CODEX_HOME/auth.json`;
+- a Claude login at `~/.claude/.credentials.json`;
+- a Gemini CLI OAuth login at `~/.gemini/oauth_creds.json` or in a selected profile folder;
+- a Kimi Code API key exported as `KIMI_CODE_API_KEY`, or a fresh Kimi Code CLI login at `~/.kimi-code/credentials/kimi-code.json`;
+- an xAI Management API key and team ID, either in a named KWallet account or exported as `XAI_MANAGEMENT_API_KEY` and `XAI_TEAM_ID`;
+- a DeepSeek API key exported as `DEEPSEEK_API_KEY`;
+- a z.ai API key in a named KWallet account with its region and scope, or exported as `Z_AI_API_KEY`;
+- an OpenRouter API key exported as `OPENROUTER_API_KEY`.
+
+Open the widget's **Configure Kodometer…** action to store DeepSeek, Kimi Code, OpenRouter, xAI, or z.ai API keys in KDE Wallet. Kodometer stores entries in a `Kodometer` folder of the network wallet and never copies wallet values into Plasma configuration. In Default mode, a non-empty environment credential takes precedence over its matching wallet entry. Named DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai accounts instead use only their selected wallet credentials and selectors. On the Credentials page, OpenRouter's Default keys remain separate entries. Default xAI uses `XAI_TEAM_ID`; Default z.ai uses environment settings for region, scope, organization, and project.
+
+Kodometer accepts OAuth credentials written by Codex, Claude, and Gemini CLI. Codex's `OPENAI_API_KEY` file form is also supported. Claude profile roots set through `CLAUDE_CONFIG_DIR` are honored, as is `CLAUDE_SECURESTORAGE_CONFIG_DIR`; relative profile paths resolve from Kodometer's working directory, matching Claude Code's literal-path behavior.
+
+Gemini API-key and Vertex AI sessions do not expose the Code Assist OAuth quota endpoint and are not supported by this adapter. Token refresh reads Gemini CLI's public installed-app OAuth values from its installed JavaScript package without running the CLI. `GEMINI_OAUTH_CLIENT_ID` and `GEMINI_OAUTH_CLIENT_SECRET` override discovery; `GEMINI_OAUTH2_JS_PATH` selects a specific `oauth2.js` file. Following Google's June 2026 consumer-tier shutdown, Gemini quota access is limited to Workspace, education, and Code Assist Standard or Enterprise accounts. Individual, Google AI Pro, and Ultra accounts must use Antigravity instead.
+
+xAI support targets developer-platform billing, not Grok or SuperGrok subscription quota. Create a Management API key with billing read access in the [xAI Console](https://console.x.ai), then export it with the team ID shown in the console URL:
+
+```bash
+export XAI_MANAGEMENT_API_KEY="..."
+export XAI_TEAM_ID="team-id"
+```
+
+Kodometer requests the posted prepaid ledger balance and a best-effort 30-day daily USD spend series. A non-authentication history failure does not hide a valid balance. In Default mode, the Management API key can be stored through Kodometer's credential settings while the team ID comes from the process environment. Named xAI accounts store both values together in KWallet.
+
+Kimi support targets [Kimi For Coding](https://www.kimi.com/code), not the separate Moonshot/Kimi Open Platform. Export `KIMI_CODE_API_KEY` for the recommended API-key flow. Without that variable, Kodometer reuses a fresh access token from the official Kimi Code CLI and sends the CLI device identity headers. `KIMI_CODE_HOME` selects a non-default CLI home. Kodometer does not use the stored refresh token or rewrite the credential file; an expired login must be renewed with Kimi Code CLI. In Default mode, if an API key is rejected and a fresh CLI login exists, Kodometer retries once with the CLI credential. Named KWallet accounts never use this fallback. Browser cookies and `KIMI_AUTH_TOKEN` are not used.
+
+DeepSeek support uses the documented account-balance endpoint. Create an API key in the [DeepSeek Platform](https://platform.deepseek.com), then export it before starting Plasma:
+
+```bash
+export DEEPSEEK_API_KEY="..."
+```
+
+`DEEPSEEK_KEY` is accepted as a compatibility alias. Kodometer shows the funded currency's total, paid, and granted balances, preferring a funded USD row when the API returns more than one currency. It does not inspect DeepSeek browser sessions or call private dashboard usage and cost endpoints. The key can instead be stored through Kodometer's credential settings in KDE Wallet.
+
+z.ai supports named KWallet accounts with an explicit region and scope. Default mode uses the global Coding Plan API unless configured otherwise. For Default, export the API key before starting Plasma:
+
+```bash
+export Z_AI_API_KEY="..."
+```
+
+For a China-mainland account in Default mode, set `Z_AI_REGION=bigmodel-cn`. That region also accepts `BIGMODEL_API_KEY`, `ZHIPU_API_KEY`, `ZHIPUAI_API_KEY`, or `GLM_API_KEY`. If those variables are absent, Kodometer securely checks `~/.config/bigmodel/api_key` and `~/.config/zhipu/api_key` in that order.
+
+BigModel team usage requires three additional values:
+
+```bash
+export Z_AI_USAGE_SCOPE="team"
+export Z_AI_BIGMODEL_ORGANIZATION="org-id"
+export Z_AI_BIGMODEL_PROJECT="project-id"
+```
+
+Kodometer reads Coding Plan and MCP limits first. Hourly and daily model-token summaries are best effort, as is the BigModel CN account balance; failures in those optional requests do not hide valid quota data. Requests use fixed regional endpoints. Kodometer does not inspect browser cookies or accept endpoint overrides from the environment.
+
+OpenRouter support uses the documented credits and key endpoints. Export a standard API key before starting Plasma:
+
+```bash
+export OPENROUTER_API_KEY="sk-or-v1-..."
+```
+
+Kodometer shows purchased credits, total account usage, remaining balance, API-key spend, and any configured key limit. `OPENROUTER_HTTP_REFERER` and `OPENROUTER_X_TITLE` set the optional application-identification headers. Key metadata is best effort and has a one-second deadline, so a slow or malformed response does not hide a valid credit balance.
+
+For exact spend across the last 30 completed UTC days, export a management credential with Activity read access:
+
+```bash
+export OPENROUTER_MANAGEMENT_API_KEY="..."
+```
+
+Activity requests always use OpenRouter's production endpoint. Their failures remain visible as diagnostics without discarding credits or key-limit data. Kodometer ignores endpoint overrides, browser sessions, and OpenRouter website cookies. Either key can instead be stored through Kodometer's credential settings in KDE Wallet.
+
+Credential files must be regular files owned by the current user. Kodometer rejects symbolic links, files larger than 1 MiB, and files that grant group or other users read or write access. To secure the default files:
+
+```bash
+chmod 600 "$HOME/.codex/auth.json" "$HOME/.claude/.credentials.json" \
+  "$HOME/.gemini/oauth_creds.json" \
+  "$HOME/.kimi-code/credentials/kimi-code.json" \
+  "$HOME/.config/bigmodel/api_key" "$HOME/.config/zhipu/api_key"
+```
+
+Build requirements:
+
+- CMake 3.24 or newer;
+- Ninja;
+- a C++20 compiler;
+- Extra CMake Modules;
+- Qt 6 Core, Gui, Network, QML, Quick Test, and development tools;
+- KDE Frameworks 6 Config, CoreAddons, Notifications, and Wallet;
+- `dbus-run-session` for isolated notification integration tests;
+- libplasma 6.4 or newer (compiled applet support) and Kirigami.
+
+On Arch Linux:
+
+```bash
+sudo pacman -S --needed base-devel cmake extra-cmake-modules \
+  dbus kconfig kcoreaddons kirigami knotifications kwallet libplasma ninja qt6-declarative
+```
+
+## Build and install
+
+```bash
+git clone https://github.com/kyaulabs/kodometer.git
+cd kodometer
+cmake --fresh -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build build
+sudo cmake --install build
+```
+
+Log out and back in after installation, then add **Kodometer** from the widget browser. This is a compiled plugin, not a ZIP plasmoid; `kpackagetool6` does not install it. CMake records its installed files in `build/install_manifest.txt`.
+
+### User-local installation
+
+Choose the prefix at configuration time, not just at installation time. `--fresh` also removes cached system-path overrides from older builds:
+
+```bash
+cmake --fresh -S . -B build-local -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$HOME/.local" \
+  -DKDE_INSTALL_PLUGINDIR=lib/qt6/plugins
+cmake --build build-local
+cmake --install build-local
+```
+
+Plasma must know where to find that local Qt plugin directory. Create `~/.config/plasma-workspace/env/kodometer.sh` with the following contents, creating the directory if necessary. Make the file executable, then log out and back in:
 
 ```sh
-🚧 WARNING
-# This is only required if you do not already have commitlint and git-cliff installed.
+#!/bin/sh
+export QT_PLUGIN_PATH="$HOME/.local/lib/qt6/plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
 ```
 
-Install `commitlint` and `git-cliff` globally and then generate a commitlint config file.
+Do not keep both local and system copies installed; plugin search order can load an older copy. Normal `/usr` installations use the distribution's Qt plugin path without this export.
 
-```text
-npm i -g @commitlint/config-conventional @commitlint/cli git-cliff
-```
+### Release archives and upgrades
 
-## New Repository
+Release archives contain system-relative paths and are built in rolling Arch Linux CI. They are not portable across arbitrary Qt, KDE Frameworks, libplasma, or glibc versions. On another distribution, build from source against its installed development packages. Dependencies are not bundled.
 
-Base the repository off of the organization template repository.
-
-### Clone
-
-```text
-git clone https://github.com/kyaulabs/template <REPOSITORY_NAME>
-cd <REPOSITORY_NAME>
-rm -rf .git
-```
-
-### Init
-
-Initialize your new repository.
-
-```text
-git init
-```
-
-### Add `LICENSE`
-
-Add in a `LICENSE` of choice, using the filename `LICENSE.txt`, `LICENSE.md` or `LICENSE.rst`. There are two main repositories of licenses to choose from:
-
-* GNU: [GNU APGLv3](https://choosealicense.com/licenses/agpl-3.0/) / [GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/) / [GNU LGPLv3](https://choosealicense.com/licenses/lgpl-3.0/)
-* General: [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/) / [MIT License](https://choosealicense.com/licenses/mit/) / [Mozilla Public License 2.0](https://choosealicense.com/licenses/mpl-2.0/)
-* CC: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) / [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) / [CC BY-ND 4.0](https://creativecommons.org/licenses/by-nd/4.0) / [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0) / [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0) / [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0)
-
-### Add `.gitignore`
-
-Add a  `.gitignore` template from [@github/gitignore](https://github.com/github/gitignore) (modification required).
-
-### Update `README.md`
-
-Take this time to update the `README.md` with at least basic repository information and a hopeful table of contents. It is okay if most sections are blank.
-
-### Update `cliff.toml`
-
-Be sure to modify `cliff.toml` and replace all the instances of `kyaulabs/template` with the new repository location.
-
-### Add Actions
-
-Make sure you add the appropriate actions from the [@kyaulabs/template-workflows](https://github.com/kyaulabs/template-workflows) repository.
-
-Edit the workflow accordingly as all workflows come with only manual activation set with automatic activation commented out.
-
-```yaml
-on:
-  workflow_dispatch: {}
-#on:
-#  push:
-#    branches: [ "main", "develop" ]
-#  workflow_dispatch:
-```
-
-## Git Hooks
-
-### Configuration
-
-Generate a config for commitlint.
-
-```c
-echo "module.exports = { extends: ['@commitlint/config-conventional'] };" > commitlint.config.js
-```
-
-### Symlinks
-
-Copy or symlink to the hooks located inside of `.github/hooks`.
-
-```text
-chmod u+x .github/hook/*
-cp .github/hooks/* .git/hooks/
-```
-
-## Initial Commit
-
-### Stage All
-
-Add all files to the repository. The first command utilizing the dry-run switch to make sure you do not need any last minute additions to `.gitignore`.
-
-```text
-git add -A -n
-git add -A
-```
-
-### Commit
-
-Push the initial commit with (non-commitlint verified message).
-
-```text
-git commit -S -a -m "ignore: here be dragons"
-```
-
-Finally set the main branch name.
-
-```text
-git branch -M main
-```
-
-### Push
-
-Add the remote origin and push the branch to origin.
-
-```text
-git remote add origin git@github.com:kyaulabs/<REPOSITORY_NAME>.git
-git push -u origin main
-```
-
-## Repository Settings
-
-In order to have proper repository security, some settings need to change. Open up the repository settings by clicking on the `Settings` tab at the top of the repository.
-
-### General
-
-Upload an image to customize the repository’s social media preview.
-
-* Image should be 1280×640px - [Download template](https://github.com/kyaulabs/win11tweak/settings/og-template)
-
-Under the `Features` section enable `Sponsorships` and then disable anything that is not being using.
-
-### Collaborators and Teams
-
-Under manage access click on `Add people`. In the search box enter and select `@kyaulabs-bot` then change the role to `Write`.
-
-<img src="https://avatars.githubusercontent.com/u/135310113?s=42&v=4" style="vertical-align:middle;margin-left:4ch" /> @kyaulabs-bot
-
-### Branches
-
-Create a new branch protection rule by clicking `Add branch protection rule`.
-
-* Branch name pattern: `main`
-* Protect matching branches:
-  * `Require a pull request before merging`
-  * `Require approvals (1)`
-  * `Require signed commits`
-
-Click `Create`.
-
-Create another branch protection rule with the following:
-
-* Branch name pattern: `**/**`
-* Protect matching branches:
-  * `Require signed commits`
-
-### Webhooks
-
-If you would like this repository to output to a channel on Discord you will need to create a webhook on both ends.
-
-In Discord goto the `Server Settings > Apps > Integrations` and click `New Webhook`. Give it an avatar, name and select a channel for it to output to.
-
-Back on GitHub on the `Settings > Webhooks` page, create a new hook by clicking `Add webhook`.
-
-* Payload URL: Click on `Copy Webhook URL` in Discord to get this URL.
-* Content type: `application/json`
-* Let me select individual events:
-  * `Commit comments` `Forks` `Issues` `Page builds` `Pull requests` `Pushes` `Releases` `Statuses` `Wiki`
-
-Click on `Add webhook`.
-
-## Issue Labels
-
-Organization level issue labels work in conjunction with conventional commits. We use a modified version of the [TIPS](https://www.fat.codes/articles/tips-issue-labeling-system/) system called TPS or Type, Priority and Status as a way to label issues such that they can be organized and assigned accordingly.
-
-In order to properly label something be sure to include at least one type, a single priority and it's current status. Optional labels may be added at your discretion.
-
-**T - Type:** Directly corresponds to the conventional commits [type](#type).
-Group | Label | Color | Description
-:----:|:-----:|:-----:|-------------
-Type | `feature` | <span style="color:#41d6c3">#41d6c3</span> | 🚀 Feature
-Type | `patch` | <span style="color:#41d6c3">#41d6c3</span> | 🚀 Sub-Feature
-Type | `bug` | <span style="color:#ff5050">#ff5050</span> | 🐛 Bug
-Type | `documentation` | <span style="color:#c0e6ff">#c0e6ff</span> | 📝 Documentation
-Type | `performance` | <span style="color:#41d6c3">#41d6c3</span> | ⚡️ Performance
-Type | `refactor` | <span style="color:#ffa572">#ffa572</span> | ♻️ Refactor
-Type | `style` | <span style="color:#ffa572">#ffa572</span> | 💄 Styling
-Type | `test` | <span style="color:#ffd791">#ffd791</span> | ⚗️ Testing
-Type | `ci/cd` | <span style="color:#ffd791">#ffd791</span> | 👷 CI/CD
-Type | `chore` | <span style="color:#ffd791">#ffd791</span> | 🔮 Misc
-Type | `security` | <span style="color:#ff5050">#ff5050</span> | 🔒️ Security
-
-**P - Priority:** The urgency of the issue/task.
-Group | Label | Color | Description
-:----:|:-----:|:-----:|-------------
-Priority | `critical` | <span style="color:#800000">#800000</span> | Security-related/Project-breaking
-Priority | `high` | <span style="color:#c11c00">#c11c00</span> | Foundational / Important
-Priority | `medium` | <span style="color:#f39a4d">#f39a4d</span> | Basic / Normal
-Priority | `low` | <span style="color:#8cd211">#8cd211</span> | Additional / Polish
-
-**S - Status:** Current progress.
-Group | Label | Color | Description
-:----:|:-----:|:-----:|-------------
-Status | `done` | <span style="color:#0e8a16">#0e8a16</span> | Complete
-Status | `in progress` | <span style="color:#fbca04">#fbca04</span> | Currently Working On
-Status | `testing` | <span style="color:#fbca04">#fbca04</span> | Testing Ideas / Methods
-Status | `under construction` | <span style="color:#fbca04">#fbca04</span> | Beginning Stages
-
-**Optional:** Two other groups are included for convinience.
-Group | Label | Color | Description
-:----:|:-----:|:-----:|-------------
-Feedback | `brainstorming` | <span style="color:#db2780">#db2780</span> | Coming Up w/ New &lt;Type&gt;
-Feedback | `help wanted` | <span style="color:#db2780">#db2780</span> | Help Requested on &lt;Type&gt;
-Feedback | `research` | <span style="color:#db2780">#db2780</span> | &lt;Type&gt; Needs Research
-Feedback | `request for comments` | <span style="color:#db2780">#db2780</span> | External Opinions Needed on &lt;Type&gt;
-Other | `good first issue` | <span style="color:#4e3cb2">#4e3cb2</span> | Good Issue for First Time Contributor
-Other | `duplicate` | <span style="color:#cfd3d7">#cfd3d7</span> | Duplicate &lt;Type&gt;
-Other | `invalid` | <span style="color:#cfd3d7">#cfd3d7</span> | Invalid &lt;Type&gt;
-Other | `on hold` | <span style="color:#cfd3d7">#cfd3d7</span> | Currently On Hold
-Other | `won't fix` | <span style="color:#cfd3d7">#cfd3d7</span> | This Will Not Be Fixed
-
-## Conventional Commits
-
-In order to abide by the conventional commit guidelines and in return get auto-generated changelogs, use the following.
-
-```text
-<type>[optional scope]: <subject>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-### Type
-
-```text
-[required] (!empty) value = {
-  'build',
-  'chore',
-  'ci',
-  'docs',
-  'feat',   # this correlates with MINOR in Semantic Versioning
-  'fix',    # this correlates with PATCH in Semantic Versioning
-  'patch',  # this correlates with PATCH in Semantic Versioning
-  'perf',
-  'refactor',
-  'revert',
-  'style',
-  'test',
-  'ignore'  # this correlates with CHANGELOG ignores
-}
-
-A trailing ! indicates a BREAKING CHANGE (correlating with MAJOR in Semantic Versioning).
-```
-
-### Scope
-
-```text
-[optional] {lowercase | camelCase}
-
-A noun describing a section of the codebase surrounded by parenthesis.
-```
-
-### Subject
-
-```text
-[required] (!empty) {lowercase | camelCase} (max-length: 100)
-
-A short summary of the code changes, without a trailing full-stop.
-
-Adding [skip ci] will skip all push and pull_request workflows.
-```
-
-### Body
-
-```text
-[optional] {freeform} (max-length: 100)
-
-Longer commit body with additional contextual information about the code changes.
-```
-
-### Footer
-
-```text
-<token>: <value>
-[optional] (max-length: 100)
-token (Sentance-case) = {
-  'BREAKING CHANGE',    # Exception to the rule
-  'Acked-by',
-  'Cc',
-  'Fixes',
-  'Helped-by',
-  'Refs',
-  'Reviewed-by',
-  'Signed-off-by',
-}
-
-Any number of tokens may be included.
-```
-
-### Examples
-
-The following are all examples of valid commit messages.
-
-The commit message will also go through validation with `commitlint` upon issuing `git commit`.
-
-```text
-feat(player): begin new implementation of input controller
-
-As per #123 recommendation input contoller is now based on blah.
-
-Basic movement added.
-
-Acked-by: Alice <alice@example.com>
-Signed-off-by: Bob <bob@example.com>
-Refs: #123
-Refs: 676104e, a215868
-```
-
-```text
-fix: array parsing issue
-
-Fixes: #42
-Cc: Z
-Reviewed-by: Z
-Signed-off-by: Z
-```
-
-```text
-chore(release): v0.0.1 [skip ci]
-```
-
-## Changelog
-
-Once you have published at least one proper commit using conventional commits syntax you will be able to generate a changelog.
+Download the archive and its checksum together from the same GitHub release. Inspect the archive before installing it for all users:
 
 ```bash
-git cliff --tag 0.0.1
+sha256sum -c kodometer-X.Y.Z-linux-x86_64.tar.gz.sha256
+tar -tzf kodometer-X.Y.Z-linux-x86_64.tar.gz
+sudo tar -xzf kodometer-X.Y.Z-linux-x86_64.tar.gz -C /
 ```
 
-After the initial run of git-cliff all subsequent runs should detect the version automatically.
+The payload is the compiled plugin, `kodometer.notifyrc`, LICENSE, and README. A checksum detects corruption; it is not an independent publisher signature. Do not install an archive from an untrusted source.
+
+For upgrades, build or download first, then log out before replacing a plugin already loaded by Plasma. Install from a TTY or SSH session and log back in. Use the same installation method and prefix; do not overwrite a distribution-managed package with a manual install. Widget preferences, OAuth files, and KWallet entries are not installation payloads and need no migration for this update.
+
+To uninstall a manual build, review its install manifest and remove only the listed Kodometer files while Plasma is stopped. Remove any local plugin-path export you added. Keep widget preferences and credentials unless you separately intend to delete them; removing the plugin does not remove wallet entries.
+
+## Widget settings
+
+Open **Configure Kodometer… → General** to choose which providers run and how often they refresh.
+
+- **Refresh automatically** is on by default. Kodometer waits five minutes after each completed cycle, including failed cycles, before starting another. Choose an interval from 1 to 1440 minutes. Polling continues while the popup is closed, but requests never overlap.
+- Turn automatic refresh off for startup and manual refresh only. Credential changes and provider switches still trigger a refresh; changes during an active cycle queue one follow-up cycle.
+- Uncheck a provider to hide its data and errors and skip it on future refreshes. Requests already in progress may finish. KWallet entries and last-good data are retained so the provider can be re-enabled. Disabling all providers stops polling.
+- **Show idle quota windows** is off by default. Enable it to include windows marked idle in the overview, provider details, and account summaries.
+
+These preferences use Plasma's per-widget configuration and its Apply, Cancel, and Defaults controls. The separate **Credentials** page writes directly to KWallet when you press Save, Replace, or Remove; Cancel does not undo wallet changes. OAuth credentials and API keys are never stored in the general settings file.
+
+## Switch accounts in the widget
+
+Use the **Profile** or **Account** selector in provider details to choose an existing entry. The footer's **Switch account…** action also works from Overview or when no usage data is available. Its provider list includes enabled providers only. Opening the dialog or choosing a provider does not change configuration, open KWallet, or request usage.
+
+Choosing an account saves the selection immediately for this widget. The selection action does not copy credentials, change another widget's selection, or switch a CLI login. Normal OAuth renewal still applies. Selecting the current entry again does not save or refetch. A changed selection uses the normal refresh cycle and clears that provider's old data. While waiting, the provider view stays accessible with a no-usage placeholder, never the previous account's quota or balance.
+
+Unavailable named wallet entries cannot be selected. Use **Open / retry KWallet** to reload them, or explicitly choose **Default** to restore existing credential discovery. Invalid OAuth profile metadata must be repaired in configuration; the switcher does not discard it. Add, replace, or remove entries through **Configure profiles and accounts…**.
+
+Runtime switches do not wait for Apply and are not undone by Cancel in an open settings dialog. Applying older staged settings can replace the runtime selection. Profile and account names are shown as plain text; the switcher never reads saved keys or team identifiers into its choice list.
+
+## OAuth profiles
+
+Open **Configure Kodometer… → OAuth profiles** to add an existing credential folder and a nonsecret name, such as Work. Codex folders must contain `auth.json`; Claude folders must contain `.credentials.json`; Gemini folders must contain `oauth_creds.json`. Use **Browse…** or enter an absolute path, then **Add and select** and **Apply**. Kodometer does not sign in, copy credentials, or change the CLI's active login. Codex's existing API-key file form remains supported.
+
+Gemini reads `settings.json` from the same selected folder when present. API-key and Vertex AI selections remain unsupported; missing settings never cause a lookup in Default's folder. Default restores `~/.gemini/oauth_creds.json` and `~/.gemini/settings.json`. Gemini's public installed-app OAuth client configuration remains shared across profiles, including the `GEMINI_OAUTH_CLIENT_ID`, `GEMINI_OAUTH_CLIENT_SECRET`, and `GEMINI_OAUTH2_JS_PATH` overrides. Settings files are not rewritten. OAuth renewal updates only the request's original credential file, even if another profile is selected while renewal is pending.
+
+Each provider accepts up to eight named profiles plus **Default (environment)**. Default uses the existing environment overrides and standard credential locations. Named profiles override that provider's folder discovery. Names must be unique within a provider and at most 64 characters; paths are limited to 4096 characters. Duplicate named folder paths are rejected after path normalization. Names, paths, generated profile IDs, and selections are stored in per-widget configuration—not tokens or credential contents. Do not put secrets in profile names.
+
+Only the selected profile is refreshed. Applying a selection change clears that provider's displayed data and errors and queues a normal refresh, even with automatic refresh disabled. Existing requests may finish against their original credential file, but their results cannot populate the new selection. Last-good data remains available after failures within the same profile; it is not reused across profile changes, including when switching back. Other enabled providers continue normally.
+
+The page follows Plasma's Apply, Cancel, and Defaults controls. Removing an active profile selects Default without deleting any credential files. Invalid stored profile configuration pauses Codex, Claude, and Gemini rather than silently using another account; restore Defaults to recover. File ownership, permissions, size, and type are still checked before credentials are used. Normal OAuth renewal may update the selected credential file atomically. Existing Codex/Claude profile documents remain valid; Gemini starts at Default until a named profile is selected.
+
+## Named KWallet accounts
+
+Open **Configure Kodometer… → KWallet accounts** to add a DeepSeek, Kimi Code, OpenRouter, xAI, or z.ai account name and API key, then choose **Add account** and **Apply**. Each provider supports up to eight named accounts. Names must be unique within the provider and contain 1–64 characters. Keys must be nonempty printable ASCII without internal whitespace and at most 64 KiB. Do not put secrets in names.
+
+xAI accounts require a Management API key with billing read access and its team ID. Team IDs contain 1–256 ASCII letters, digits, underscores, or hyphens; enter the identifier, not the full console URL. **Replace key and team** requires re-entering both values. Named xAI accounts never borrow an environment key or team ID. Changing only the team clears old balances, history, and pending results. Team IDs stay in KWallet, not Plasma preferences or notification text.
+
+z.ai accounts require an API key and explicit **Global** or **BigModel CN** region and **Personal** or **Team** scope. Team scope also requires organization and project IDs, each containing 1–256 ASCII letters, digits, underscores, or hyphens. **Replace key and settings** requires re-entering the key and choosing all selectors again; saved values are not filled into the form. Personal scope removes team selectors. Named accounts never borrow environment keys, aliases, selectors, or CN credential files. Changing any selector clears old quota and balance data and rejects pending results. Organization/project IDs stay in KWallet; public regional labels remain visible in provider details.
+
+OpenRouter accounts require an ordinary API key and accept an optional Management key from the same account for Activity. Both keys are saved together. **Replace selected keys** requires re-entering the ordinary key and the desired Management key; leaving Management blank removes it and disables Activity. Kodometer never borrows a missing named Management key from Default or the environment. Activity failures still preserve valid credits. Optional HTTP referer and client-title headers remain application-level environment settings.
+
+Named accounts use only the selected KWallet keys. They ignore environment keys, DeepSeek's compatibility alias, and Kimi's CLI credentials. **Default** restores the existing environment/wallet precedence and Kimi CLI discovery. Only the selected account is polled; applying a selection clears that provider's old data and queues a normal refresh, even with automatic refresh disabled.
+
+Account names, keys, and provider selectors are stored together in KWallet and shared by widgets using that wallet. Saves, key replacements, and removals take effect immediately; Cancel does not undo them. Each widget stores only its selected account UUIDs in Plasma configuration. Selections made in settings follow Apply/Cancel/Defaults; in-widget switches save immediately. Defaults does not delete wallet entries. The entry fields never reveal saved keys.
+
+A locked or unreadable wallet, malformed account data, or a removed selection pauses providers using named accounts rather than silently choosing another credential. Existing requests may finish, but results from changed keys, selectors, or selections are discarded. Unlock the wallet and press the widget's **Refresh** button to reconnect; use **Open / retry KWallet** in settings to reload its account list. Repair malformed named entries with KWallet Manager. Removing an account leaves affected widgets paused until another account or Default is explicitly selected. Label-only edits and changes to unselected accounts do not refetch; replacing a selected key clears its retained data.
+
+### Wallet recovery
+
+The widget's **Refresh** action and **Open / retry KWallet** reload both Default credentials and named accounts. An already-ready wallet is reread without another open request. A failed or malformed Default-credential read clears its cached keys and readiness; a later wallet update or manual retry can recover them. Valid named accounts remain usable when only Default entries are unreadable. Existing environment precedence and Default discovery rules are unchanged.
+
+Closing the wallet clears both registries. Late read replies and abandoned open completions cannot restore closed-wallet keys or overwrite a newer read. A key write may succeed before its follow-up read fails; retry the wallet and check its state before repeating the write. Automatic polling does not reopen a closed wallet.
+
+## Cost history
+
+Provider details show **Daily spend (USD)** when xAI or OpenRouter returns daily history. Choose 7 or 30 days; the range selector changes only the view and does not fetch data or persist a preference. Click a bar, or focus it with Tab and press Space, to read that day's amount. Hover and keyboard focus also expose date-and-amount tooltips.
+
+The chart uses UTC calendar days anchored to the snapshot. xAI includes the incomplete day when the refresh started; OpenRouter ends on the preceding completed day. Refreshes keep one date window even if their requests cross midnight. Retained snapshots keep their original dates rather than sliding forward with the clock.
+
+Only explicitly reported daily amounts contribute to the chart's total. Missing days say **Not reported**, not `$0.00`; a positive amount below one cent says **<$0.01**. Partial history, unreported days, incomplete days, and provider estimates have visible notes. Provider-level partial and estimated flags apply to both ranges. Daily sums can differ from other billing figures, which may cover different periods or scopes.
+
+The chart uses existing adapter results—no extra requests, credential access, billing-data files, or Qt Charts dependency. Invalid history hides the chart without hiding valid balances. Providers that expose only balances or quota do not get a synthetic spend history.
+
+## Quota notifications
+
+Notifications are off by default. Enable **Notify when quota is low** in General settings and choose a threshold from 1% to 50% remaining; the default is 10%.
+
+A fresh successful result at or below the threshold produces one alert for that provider. Kodometer uses its most constrained non-idle quota window, including reported spending caps. Balance-only data, failed refreshes, retained snapshots, and invalid percentages do not generate alerts. Invalid active windows also cannot prove recovery.
+
+A provider is rearmed after its valid active quotas recover to at least five percentage points above the threshold. At the default threshold, quota must recover to 15% before another drop to 10% can alert. Results with no usable quota do not rearm the provider. This state is per provider, per widget session; restarting the widget, toggling notifications, or changing the threshold clears it. Settings changes wait for a fresh result rather than replaying cached data. Changing an OAuth profile or selected KWallet account, replacing its key, or losing access to it clears suppression only for that provider. A fresh low result can alert again, including after switching back or unlocking the wallet. Profile names, account names, and paths never enter notification text.
+
+Alerts contain only a public provider name and the remaining percentage—not account identities, window labels, or credentials. KDE Notifications delivers normal-urgency popups under your desktop notification and Do Not Disturb settings. Delivery is best effort; Kodometer does not retry suppressed or undelivered alerts. The default event has no sound or actions.
+
+## Provider actions
+
+Provider details include **Open dashboard** and **Documentation** buttons. They open official pages in your default browser only when clicked. Hover over a button to preview its destination. If the desktop cannot launch the page, Kodometer shows an error without changing the usage snapshot.
+
+Destinations are fixed in the C++ action catalog. Provider response URLs, account IDs, API keys, and OAuth tokens never enter the links. z.ai uses its global or BigModel CN destinations according to the normalized region of the displayed snapshot; unknown regions have no actions. Gemini opens Google Cloud Console rather than the unsupported consumer Gemini dashboard. BigModel CN opens the console home so you can choose the appropriate personal or team view.
+
+Your browser may ask you to sign in. Kodometer does not read the browser session or import credentials from it. These links do not change provider authentication or refresh behavior.
+
+## Development
+
+Build and run all tests:
 
 ```bash
-git cliff
+cmake -S . -B build -G Ninja -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+cmake --build build --target org.kyaulabs.kodometer_qmllint
+ctest --test-dir build --output-on-failure
 ```
 
-A typical workflow should look like the following.
+Run repository checks:
 
 ```bash
-git add -A                      # add all un-indexed and changed files to the commit
-git commit -S -a -m "<message>" # add a conventional commit message and sign the commit
-git cliff                       # generate a new changelog
-git add CHANGELOG.md            # add the changelog file to the commit
-git commit --amend --no-edit    # ammend the added file to the previous un-pushed commit
-git push -u origin develop      # finally, push the commit
+scripts/check-format.sh
+shellcheck scripts/*.sh
+scripts/coverage.sh
 ```
 
-## Unity Projects
+The coverage command scans only its freshly instrumented build directory, writes reports to `coverage/`, and fails below 96% for line, function, or branch coverage. QML primitives and general settings controls run through Qt Quick Test in an offscreen session. Applet-enabled builds also test the compiled configuration resources, KConfig persistence, and idle-window presentation without opening a wallet or calling provider APIs. Notification delivery tests run against a fake service on a private D-Bus session, never the desktop's notification service.
 
-### Unity Activation
+Build the release archive and checksum:
 
-Visit the repository page and navigate to `Actions`. Manually run the `Unity Activation 🔐` action and then download the artifact.
+```bash
+scripts/package.sh
+```
 
-Extract the zip file somewhere accessible.
+## Release flow
 
-Visit [license.unity3d.com](https://license.unity3d.com/manual) and upload the `Unity_v20XX.X.XXXX.alf` file, receiving a license file `Unity_v20XX.X.ulf` in return.
+Development follows Git Flow and Conventional Commits.
 
-Navigate on Github to `Settings > Secrets and variables > Actions`.
+1. Merge feature and fix branches into `develop`.
+2. Create `release/X.Y.Z` from `develop`, match versions in `CMakeLists.txt`, `applet/metadata.json`, and `package.json`, and add release notes under `docs/releases/`.
+3. Open the release pull request against `main`. Wait for green CI and approval, then merge with a merge commit.
+4. After merge, the release workflow validates the version and merge SHA, packages the applet, pushes annotated tag `vX.Y.Z`, and uploads assets to a draft release. It downloads and verifies the archive/checksum before publishing.
+5. The workflow opens or reuses a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret. Published assets are never replaced on retry.
 
-Create the following repository secrets:
+See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.1.0 overview](docs/releases/0.1.0.md) for supported providers and compatibility limits.
 
-* `UNITY_LICENSE` - (Copy the contents of your license file into here)
-* `UNITY_EMAIL` - (Add the email address that you use to login to Unity)
-* `UNITY_PASSWORD` - (Add the password that you use to login to Unity)
+## Security and privacy
+
+Kodometer reads OAuth credentials only from the expected Codex, Claude, Gemini, and Kimi Code authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state. Kimi Code credentials remain read-only; Kodometer creates only a missing owner-only device ID required by the official API. Manually entered API keys are held by KDE Wallet, not plaintext Plasma configuration. Non-empty API-key environment values retain precedence over corresponding Default KWallet entries. Explicit named DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai accounts bypass that discovery and have no credential fallback. BigModel CN and Zhipu key files are read-only inputs.
+
+Network requests use fixed provider endpoints, bounded response buffers, explicit timeouts, and disabled automatic redirects. Account email addresses are redacted before data reaches QML. Tokens are never added to the presentation model or logs.
+
+Report vulnerabilities according to [SECURITY.md](SECURITY.md).
 
 ## Attribution
 
-* [Commitlint](https://github.com/conventional-changelog/commitlint)
-* [git-cliff](https://github.com/orhun/git-cliff)
+Kodometer is an independent Linux client inspired by Peter Steinberger's MIT-licensed [CodexBar](https://github.com/steipete/CodexBar). CodexBar and provider names and marks belong to their respective owners.
+
+## License
+
+Kodometer is licensed under the [GNU Affero General Public License v3.0](LICENSE).

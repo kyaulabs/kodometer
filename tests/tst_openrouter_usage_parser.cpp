@@ -21,6 +21,7 @@ class OpenRouterUsageParserTest final : public QObject
 
   private slots:
     void parsesCreditsAndKeyQuota();
+    void acceptsDeprecatedRateLimitSentinel();
     void mapsCreditsWithoutOptionalEnrichment();
     void mapsKeyQuotaFallbacks();
     void parsesAndMergesActivity();
@@ -64,6 +65,21 @@ void OpenRouterUsageParserTest::parsesCreditsAndKeyQuota()
     const QVariantList details = provider.value(QStringLiteral("details")).toList();
     QCOMPARE(details.size(), 3);
     QCOMPARE(details.at(1).toMap().value(QStringLiteral("rows")).toList().size(), 8);
+    QVERIFY(error.isEmpty());
+}
+
+void OpenRouterUsageParserTest::acceptsDeprecatedRateLimitSentinel()
+{
+    QString error;
+    const auto key = OpenRouterUsageParser::parseKey(
+        R"({"data":{"limit":20,"limit_remaining":15,"usage":5,"usage_monthly":4,"rate_limit":{"requests":-1,"interval":"10s","note":"This field is deprecated and safe to ignore."}}})",
+        &error);
+    QVERIFY2(key, qPrintable(error));
+    QCOMPARE(key->limit.value(), 20.0);
+    QCOMPARE(key->limitRemaining.value(), 15.0);
+    QCOMPARE(key->monthly.value(), 4.0);
+    QVERIFY(!key->rateLimitRequests.has_value());
+    QVERIFY(key->rateLimitInterval.isEmpty());
     QVERIFY(error.isEmpty());
 }
 

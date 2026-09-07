@@ -145,6 +145,18 @@ class ReleaseTest(unittest.TestCase):
                 self.env["GITHUB_HEAD_REF"] = branch
                 self.assertNotEqual(self.run_shell('scripts/validate-release.sh').returncode, 0)
 
+    def test_changelog_scope_handles_untagged_and_retry_checkouts(self):
+        for tagged in [False, True]:
+            with self.subTest(tagged=tagged):
+                self.set_state({'tag': 'a' * 40} if tagged else {})
+                state = self.publish()
+                calls = [event for event in state['events'] if event[0] == 'git-cliff']
+                self.assertEqual(len(calls), 1)
+                self.assertIn('--current' if tagged else '--unreleased', calls[0])
+                self.assertNotIn('--latest', calls[0])
+                if not tagged:
+                    self.assertEqual(calls[0][-2:], ['--tag', 'v0.1.0'])
+
     def test_new_release_is_verified_as_draft_before_publication(self):
         state = self.publish()
         self.assertEqual(state["release"], "published")

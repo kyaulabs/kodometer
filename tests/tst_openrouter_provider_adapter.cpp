@@ -147,7 +147,9 @@ void OpenRouterProviderAdapterTest::fetchesCreditsKeyQuotaAndActivity()
 {
     HttpServer server;
     server.enqueue({200, credits()});
-    server.enqueue({200, keyUsage()});
+    server.enqueue(
+        {200,
+         R"({"data":{"limit":20,"limit_remaining":15,"usage":5,"rate_limit":{"requests":-1,"interval":"10s"}}})"});
     server.enqueue(
         {200,
          R"({"data":[{"date":"2027-01-13","prompt_tokens":2,"completion_tokens":1,"requests":1,"usage":0.5}]})"});
@@ -194,6 +196,9 @@ void OpenRouterProviderAdapterTest::fetchesCreditsKeyQuotaAndActivity()
     QCOMPARE(server.requests.at(2).headers.value("authorization"),
              QByteArray("Bearer management-key"));
     QCOMPARE(adapter.provider().value(QStringLiteral("id")), QStringLiteral("openrouter"));
+    const QVariantList windows = adapter.provider().value(QStringLiteral("windows")).toList();
+    QCOMPARE(windows.size(), 1);
+    QCOMPARE(windows.first().toMap().value(QStringLiteral("remainingPercent")).toDouble(), 75.0);
     QCOMPARE(adapter.provider()
                  .value(QStringLiteral("cost"))
                  .toMap()

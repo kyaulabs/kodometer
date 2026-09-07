@@ -277,6 +277,12 @@ std::optional<OpenRouterKeyUsage> OpenRouterUsageParser::parseKey(const QByteArr
     const QJsonValue rate = object.value(QStringLiteral("rate_limit"));
     if (!rate.isUndefined() &&
         !rate.isNull()) { // GCOVR_EXCL_BR_LINE -- optional rate-limit classes are tested
+        // The current API reports -1 for this deprecated request-rate field.
+        // It is not a spending cap and must not invalidate the key's USD usage.
+        const QJsonValue requestCount = rate.toObject().value(QStringLiteral("requests"));
+        if (requestCount.isDouble() && requestCount.toDouble() == -1.0) {
+            return result;
+        }
         qint64 requests = 0;
         // GCOVR_EXCL_BR_START -- malformed rate-limit classes are line-tested
         if (!rate.isObject() ||

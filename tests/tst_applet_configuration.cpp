@@ -291,7 +291,8 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(selector->property("currentIndex").toInt(), 1);
         auto *label = selector->property("contentItem").value<QObject *>();
         QVERIFY(label);
-        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
+        // Keep the style's plain-text input; a replacement label double-paints in KDE Desktop.
+        QVERIFY(label->inherits("QQuickTextInput"));
         if (oauth)
             QCOMPARE(label->property("text").toString(), QStringLiteral("<b>Work</b>"));
         QQuickWindow window;
@@ -499,6 +500,8 @@ class AppletConfigurationTest final : public QObject
         auto *remove = page->findChild<QObject *>(provider + QStringLiteral("-profile-remove"));
         QVERIFY(selector);
         QVERIFY(remove);
+        auto *profileField = selector->property("contentItem").value<QObject *>();
+        QVERIFY(profileField && profileField->inherits("QQuickTextInput"));
         QCOMPARE(selector->property("count").toInt(), 2);
         QVERIFY(selector->setProperty("currentIndex", 0));
         QVERIFY(QMetaObject::invokeMethod(selector, "activated", Q_ARG(int, 0)));
@@ -549,6 +552,15 @@ class AppletConfigurationTest final : public QObject
         auto *remove = page->findChild<QObject *>(QStringLiteral("deepseek-wallet-remove"));
         auto *selector = page->findChild<QObject *>(QStringLiteral("deepseek-wallet-selector"));
         QVERIFY(name && key && add && replace && remove && selector);
+        for (const QString &provider :
+             {QStringLiteral("deepseek"), QStringLiteral("kimi"), QStringLiteral("openrouter"),
+              QStringLiteral("xai"), QStringLiteral("zai")}) {
+            auto *accountSelector =
+                page->findChild<QObject *>(provider + QStringLiteral("-wallet-selector"));
+            QVERIFY(accountSelector);
+            auto *field = accountSelector->property("contentItem").value<QObject *>();
+            QVERIFY(field && field->inherits("QQuickTextInput"));
+        }
         QCOMPARE(key->property("echoMode").toInt(), 2); // TextInput.Password
         QCOMPARE(key->property("text").toString(), QString{});
         QVERIFY(!add->property("enabled").toBool());
@@ -798,6 +810,60 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(label);
         QCOMPARE(label->property("text").toString(), QStringLiteral("Account: <b>Work</b>"));
         QCOMPARE(label->property("textFormat").toInt(), static_cast<int>(Qt::PlainText));
+    }
+
+    void displaysBankedResetsOnlyWhenAvailable()
+    {
+        QQmlEngine engine;
+        for (const QString &file :
+             {QStringLiteral("ProviderDetails.qml"), QStringLiteral("ProviderSummary.qml")}) {
+            QQmlComponent component(
+                &engine,
+                QUrl(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/") + file));
+            QVariantMap provider{{"id", "codex"}, {"bankedResets", 2}};
+            QScopedPointer<QObject> object(component.createWithInitialProperties(
+                {{"provider", provider}, {"width", 400}, {"height", 400}}));
+            QVERIFY2(object, qPrintable(component.errorString()));
+            auto *label = object->findChild<QQuickItem *>(QStringLiteral("bankedResets"));
+            QVERIFY(label);
+            QVERIFY(label->isVisible());
+            QCOMPARE(label->property("text").toString(), QStringLiteral("Banked resets: 2"));
+            provider.insert(QStringLiteral("bankedResets"), 1);
+            QVERIFY(object->setProperty("provider", provider));
+            QVERIFY(label->isVisible());
+            QCOMPARE(label->property("text").toString(), QStringLiteral("Banked resets: 1"));
+            provider.insert(QStringLiteral("bankedResets"), 0);
+            QVERIFY(object->setProperty("provider", provider));
+            QVERIFY(!label->isVisible());
+            provider.remove(QStringLiteral("bankedResets"));
+            QVERIFY(object->setProperty("provider", provider));
+            QVERIFY(!label->isVisible());
+        }
+    }
+
+    void reservesScrollbarGutters()
+    {
+        QQmlEngine engine;
+        for (const QString &file :
+             {QStringLiteral("ProviderDetails.qml"), QStringLiteral("OverviewPage.qml")}) {
+            QQmlComponent component(
+                &engine,
+                QUrl(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/") + file));
+            QVariantMap properties{{"width", 240}, {"height", 80}};
+            if (file == QStringLiteral("ProviderDetails.qml"))
+                properties.insert(QStringLiteral("provider"), QVariantMap{{"id", "openrouter"}});
+            QScopedPointer<QObject> object(component.createWithInitialProperties(properties));
+            QVERIFY2(object, qPrintable(component.errorString()));
+            auto *content = object->findChild<QQuickItem *>(QStringLiteral("pageContent"));
+            auto *scrollbar = object->findChild<QQuickItem *>(QStringLiteral("pageScrollBar"));
+            QVERIFY(content);
+            QVERIFY(scrollbar);
+            QTRY_VERIFY(scrollbar->width() > 0);
+            QTRY_VERIFY(content->width() + scrollbar->width() < 240);
+            QVERIFY(object->setProperty("width", 480));
+            QTRY_VERIFY(content->width() > 240);
+            QTRY_VERIFY(content->width() + scrollbar->width() < 480);
+        }
     }
 
     void propagatesIdleWindowPreference()

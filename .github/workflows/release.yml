@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: release-${{ github.event.pull_request.head.ref }}
   cancel-in-progress: false
@@ -17,12 +21,15 @@ jobs:
     name: Tag, release, and back-merge
     if: >-
       github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release/')
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     container: archlinux:base-devel
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
+      RELEASE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
     steps:
       - name: Install release tools
         run: >-
@@ -38,63 +45,16 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Validate release version
         id: version
-        run: echo "version=$(scripts/validate-release.sh "$RELEASE_BRANCH")" >>"$GITHUB_OUTPUT"
-      - name: Build release package
-        run: scripts/package.sh
-      - name: Create annotated tag
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          tag="v$VERSION"
-          if git rev-parse --verify --quiet "$tag^{commit}" >/dev/null; then
-            test "$(git rev-parse "$tag^{commit}")" = "$(git rev-parse HEAD)"
-          else
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git tag --annotate "$tag" --message "Kodometer $tag"
-            git push origin "$tag"
-          fi
-      - name: Create GitHub release
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          tag="v$VERSION"
-          if ! gh release view "$tag" >/dev/null 2>&1; then
-            git cliff --tag "$tag" --output release-notes.md
-            gh release create "$tag" dist/* \
-              --title "Kodometer $tag" \
-              --notes-file release-notes.md \
-              --verify-tag
-          fi
-      - name: Create back-merge pull request
+          version="$(scripts/validate-release.sh "$RELEASE_BRANCH")"
+          printf 'version=%s\n' "$version" >>"$GITHUB_OUTPUT"
+      - name: Check back-merge credential
         env:
           BOT_TOKEN: ${{ secrets.KYAULABS_BOT_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          if [[ -z "$BOT_TOKEN" ]]; then
-            echo "release: KYAULABS_BOT_TOKEN is required for back-merge pull requests" >&2
-            exit 1
-          fi
-          existing="$(GH_TOKEN="$BOT_TOKEN" gh pr list \
-            --base develop --head main --state open --json number --jq '.[0].number // empty')"
-          if [[ -n "$existing" ]]; then
-            echo "Back-merge pull request #$existing already exists"
-            exit 0
-          fi
-          cat >back-merge.md <<EOF
-          ## Summary
-
-          Back-merge release v$VERSION from \`main\` into \`develop\` so release history remains in both branches.
-
-          ## Verification
-
-          - The release branch version matched CMake, Plasma metadata, and package metadata.
-          - CI passed before the release pull request merged.
-          - GitHub release \`v$VERSION\` was created from the merge commit.
-          EOF
-          GH_TOKEN="$BOT_TOKEN" gh pr create \
-            --repo "$GITHUB_REPOSITORY" \
-            --base develop \
-            --head main \
-            --title "chore(release): back-merge v$VERSION into develop" \
-            --body-file back-merge.md
+        run: ': "${BOT_TOKEN:?release: KYAULABS_BOT_TOKEN is required}"'
+      - name: Build release package
+        run: scripts/package.sh
+      - name: Publish verified release and back-merge
+        env:
+          BOT_TOKEN: ${{ secrets.KYAULABS_BOT_TOKEN }}
+        run: scripts/publish-release.sh "$RELEASE_BRANCH"

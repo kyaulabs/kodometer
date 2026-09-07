@@ -25,3 +25,4 @@ node_modules/
 # Test output
 Testing/
 coverage/
+__pycache__/

@@ -148,7 +148,7 @@ class ReleaseTest(unittest.TestCase):
                 self.publish(False)
                 self.assertEqual(self.mutations(), [])
                 self.env[variable] = original
-        for flag in ["fail_bot", "fail_api", "fail_notes"]:
+        for flag in ["dirty", "fail_bot", "fail_api", "fail_notes"]:
             with self.subTest(flag=flag):
                 self.set_state({flag: True})
                 self.publish(False)
@@ -188,7 +188,7 @@ class ReleaseTest(unittest.TestCase):
         self.assertEqual(sum(event[:3] == ["gh", "release", "create"] for event in state["events"]), 1)
 
     def test_transport_failures_never_publish_unverified_assets(self):
-        for flag in ["fail_push", "fail_create", "fail_download", "corrupt_download", "fail_publish"]:
+        for flag in ["fail_push", "fail_create", "fail_download", "corrupt_download", "different_download_pair", "fail_publish"]:
             with self.subTest(flag=flag):
                 self.set_state({flag: True})
                 state = self.publish(False)
@@ -225,6 +225,21 @@ class ReleaseTest(unittest.TestCase):
         self.set_state(state)
         state = self.publish()
         self.assertEqual([event[:3] for event in self.mutations(state)], [["gh", "pr", "create"]])
+
+    def test_failed_tag_push_can_resume(self):
+        self.set_state({"fail_push": True})
+        state = self.publish(False)
+        self.assertEqual(state["tag"], "a" * 40)
+        self.assertNotIn("remote_tag", state)
+        state["fail_push"] = False
+        self.set_state(state)
+        self.assertEqual(self.publish()["release"], "published")
+
+    def test_existing_backmerge_is_reused_on_initial_publication(self):
+        self.set_state({"pr": "123"})
+        state = self.publish()
+        self.assertEqual(state["pr"], "123")
+        self.assertFalse(any(event[:3] == ["gh", "pr", "create"] for event in state["events"]))
 
     def test_concurrently_published_draft_is_not_uploaded_again(self):
         self.set_state({"publish_race": True})

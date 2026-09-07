@@ -31,6 +31,8 @@ def main():
             print(state["tag"])
         elif args[:2] == ["cat-file", "-t"]:
             print(state.get("tag_type", "tag"))
+        elif args[0] == "diff":
+            return 1 if state.get("dirty") else 0
         elif args[0] == "config":
             pass
         elif args[:2] == ["tag", "--annotate"]:
@@ -104,6 +106,12 @@ def main():
             if state.get("corrupt_download") and filename.endswith(".tar.gz"):
                 with (destination / filename).open("ab") as stream:
                     stream.write(b"corruption")
+        if state.get("different_download_pair"):
+            archive = next(destination.glob("*.tar.gz"))
+            archive.write_bytes(b"different but internally consistent archive")
+            import hashlib
+            digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+            archive.with_name(archive.name + ".sha256").write_text(f"{digest}  {archive.name}\n")
     elif args[:2] == ["release", "edit"]:
         assert state["release"] == "draft" and "--draft=false" in args
         if state.get("fail_publish"):

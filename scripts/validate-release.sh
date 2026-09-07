@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 release_branch="${1:-${GITHUB_HEAD_REF:-}}"
 
-if [[ ! "$release_branch" =~ ^release/([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+if [[ ! "$release_branch" =~ ^release/((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$ ]]; then
     echo "release: expected a release/X.Y.Z branch, got '$release_branch'" >&2
     exit 1
 fi

@@ -1,0 +1,29 @@
+# Maintainer: kyaulabs <kyau@kyau.net>
+pkgname=kodometer
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Native AI provider usage meter for KDE Plasma'
+arch=('x86_64')
+url='https://github.com/kyaulabs/kodometer'
+license=('AGPL-3.0-only')
+depends=('gcc-libs' 'glibc' 'qt6-base' 'qt6-declarative' 'kconfig' 'kcoreaddons'
+         'kirigami' 'knotifications' 'kwallet' 'libplasma>=6.4' 'plasma-workspace>=6.4')
+makedepends=('cmake' 'ninja' 'extra-cmake-modules' 'git' 'dbus')
+options=('!debug')
+source=("https://github.com/kyaulabs/kodometer/releases/download/v${pkgver}/kodometer-${pkgver}-source.tar.gz")
+sha256sums=('@SHA256@')
+
+build() {
+    cmake -S "${srcdir}/kodometer-${pkgver}" -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+        -DBUILD_TESTING=ON -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+    cmake --build build
+}
+
+check() {
+    QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
+}
+
+package() {
+    DESTDIR="${pkgdir}" cmake --install build
+}

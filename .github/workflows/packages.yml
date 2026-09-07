@@ -1,0 +1,156 @@
+name: Native packages
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Exact source revision to build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  source:
+    name: Source archive and x64 matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare source and targets
+        id: targets
+        run: |
+          scripts/prepare-source.sh
+          printf 'matrix=%s\n' "$(python3 scripts/package_metadata.py matrix)" >>"$GITHUB_OUTPUT"
+      - name: Upload source archive
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: kodometer-dist-source
+          path: dist/source/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  build:
+    name: Package and install (${{ matrix.id }}, x64)
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.source.outputs.matrix) }}
+    container: ${{ matrix.image }}
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+    steps:
+      - name: Bootstrap checkout tools
+        env:
+          KIND: ${{ matrix.kind }}
+        run: |
+          case "$KIND" in
+            arch) pacman -Syu --needed --noconfirm git python ;;
+            deb) apt-get update && apt-get install -y --no-install-recommends git python3 ca-certificates ;;
+            rpm) dnf install -y git python3 ;;
+            *) exit 1 ;;
+          esac
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Trust container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Install native build dependencies
+        env:
+          TARGET: ${{ matrix.id }}
+        run: scripts/install-package-deps.sh "$TARGET"
+      - name: Download exact source archive
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: kodometer-dist-source
+          path: dist/source
+      - name: Build, test, install, and smoke-check
+        env:
+          TARGET: ${{ matrix.id }}
+        run: scripts/build-native-package.sh "$TARGET"
+      - name: Upload native artifacts
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: kodometer-dist-${{ matrix.id }}
+          path: dist/${{ matrix.id }}/*
+          if-no-files-found: error
+          retention-days: 7
+
+  install:
+    name: Clean runtime install (${{ matrix.id }}, x64)
+    needs: [source, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.source.outputs.matrix) }}
+    container: ${{ matrix.image }}
+    steps:
+      - name: Bootstrap checkout tools only
+        env:
+          KIND: ${{ matrix.kind }}
+        run: |
+          case "$KIND" in
+            arch) pacman -Syu --needed --noconfirm git python ;;
+            deb) apt-get update && apt-get install -y --no-install-recommends git python3 ca-certificates ;;
+            rpm) dnf install -y git python3 ;;
+            *) exit 1 ;;
+          esac
+      - name: Check out test scripts
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Download native package
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: kodometer-dist-${{ matrix.id }}
+          path: dist/install
+      - name: Install, reinstall, and launch without development dependencies
+        env:
+          TARGET: ${{ matrix.id }}
+        run: scripts/test-native-install.sh "$TARGET"
+
+  verify:
+    name: Verify complete x64 release inventory
+    needs: [source, build, install]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Collect native artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          pattern: kodometer-dist-*
+          path: dist/verified
+          merge-multiple: true
+      - name: Check inventory and generate checksums
+        run: |
+          python3 scripts/package_metadata.py manifest dist/verified
+          python3 scripts/package_metadata.py verify dist/verified
+      - name: Upload verified release bundle
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: kodometer-release-bundle
+          path: dist/verified/*
+          if-no-files-found: error
+          retention-days: 7

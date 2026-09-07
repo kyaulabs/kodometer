@@ -15,7 +15,7 @@ The minimum is Plasma 6.4. Ubuntu 24.04's standard desktop stack is too old; its
 
 `packaging/targets.json` defines the reviewed build matrix. The policy is the current compatible Ubuntu LTS and supported newer Ubuntu releases, plus supported stable Fedora releases with Plasma 6.4 or newer. Add releases after checking their development packages and passing native CI; remove expired targets. The workflow does not discover or enable untested distributions automatically.
 
-The `v0.1.0` release remains archive-only. Releases built with the native-package workflow include the formats above; existing public assets are not changed.
+The `v0.1.0` release remains archive-only. Native formats start with `v0.2.0`; existing public assets are not changed.
 
 ## Install or upgrade
 

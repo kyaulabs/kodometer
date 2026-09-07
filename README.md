@@ -9,7 +9,7 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 
 ## Status
 
-Kodometer targets KDE Plasma 6.4 and newer. Version 0.1.0 includes:
+Kodometer targets KDE Plasma 6.4 and newer. Version 0.2.0 adds native x64 packages for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
 
 - a compiled Plasma 6 applet for Wayland and X11;
 - native Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
@@ -143,7 +143,7 @@ sudo pacman -S --needed base-devel cmake extra-cmake-modules \
 
 The native-package workflow builds x64 packages for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44. It also produces source-based AUR recipes. Each distribution builds against its own Qt and KDE libraries; Ubuntu 24.04 and ARM are not targets.
 
-See [native package installation and compatibility](docs/packaging.md) for downloads, checksums, package-manager commands, and AUR availability. The existing `v0.1.0` release is archive-only; native formats arrive with releases built by the updated workflow. No APT or DNF repository is configured.
+See [native package installation and compatibility](docs/packaging.md) for downloads, checksums, package-manager commands, and AUR availability. Version `v0.1.0` remains archive-only; `v0.2.0` introduces the native formats. No APT or DNF repository is configured.
 
 ## Build and install
 
@@ -319,7 +319,7 @@ Development follows Git Flow and Conventional Commits.
 5. The workflow opens or reuses a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret. Published assets are never replaced on retry.
 6. When explicitly enabled and configured, a separate job updates AUR recipes with a GPG-signed commit after GitHub publication. A failed AUR update can be retried without replacing GitHub assets.
 
-See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.1.0 overview](docs/releases/0.1.0.md) for supported providers and compatibility limits.
+See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.2.0 overview](docs/releases/0.2.0.md) for native packages and compatibility limits.
 
 ## Security and privacy
 

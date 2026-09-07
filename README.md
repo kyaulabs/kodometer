@@ -9,7 +9,7 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 
 ## Status
 
-Kodometer is under active development. The current release foundation includes:
+Kodometer targets KDE Plasma 6.4 and newer. Version 0.1.0 includes:
 
 - a compiled Plasma 6 applet for Wayland and X11;
 - native Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
@@ -306,10 +306,12 @@ scripts/package.sh
 Development follows Git Flow and Conventional Commits.
 
 1. Merge feature and fix branches into `develop`.
-2. Create `release/X.Y.Z` from `develop` and update versions in `CMakeLists.txt`, `applet/metadata.json`, and `package.json`.
-3. Open the release pull request against `main`.
-4. After merge, the release workflow validates the version, creates tag `vX.Y.Z`, packages the applet, and creates the GitHub release.
-5. The workflow opens a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret.
+2. Create `release/X.Y.Z` from `develop`, match versions in `CMakeLists.txt`, `applet/metadata.json`, and `package.json`, and add release notes under `docs/releases/`.
+3. Open the release pull request against `main`. Wait for green CI and approval, then merge with a merge commit.
+4. After merge, the release workflow validates the version and merge SHA, packages the applet, pushes annotated tag `vX.Y.Z`, and uploads assets to a draft release. It downloads and verifies the archive/checksum before publishing.
+5. The workflow opens or reuses a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret. Published assets are never replaced on retry.
+
+See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.1.0 overview](docs/releases/0.1.0.md) for supported providers and compatibility limits.
 
 ## Security and privacy
 

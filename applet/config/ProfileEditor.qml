@@ -39,13 +39,7 @@ ColumnLayout {
             Accessible.name: qsTr("%1 profile").arg(root.providerName)
             onActivated: root.profileModel.selectProfile(root.providerId, currentValue)
 
-            contentItem: QQC2.Label {
-                text: selector.displayText
-                textFormat: Text.PlainText
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
-            }
-
+            // Preserve native ComboBox text painting; only popup labels need a plain-text override.
             delegate: QQC2.ItemDelegate {
                 id: choice
                 required property var modelData

@@ -49,8 +49,10 @@ Flickable {
 
     ColumnLayout {
         id: details
+        objectName: "pageContent"
 
-        width: root.width
+        width: Math.max(0, root.width - pageScrollBar.width - Kirigami.Units.smallSpacing)
+        x: pageScrollBar.mirrored ? root.width - width : 0
         spacing: Kirigami.Units.largeSpacing
 
         RowLayout {
@@ -153,6 +155,15 @@ Flickable {
                 text: root.identity.plan || ""
                 color: Kirigami.Theme.disabledTextColor
             }
+        }
+
+        QQC2.Label {
+            objectName: "bankedResets"
+            Layout.fillWidth: true
+            visible: Number(root.provider.bankedResets || 0) >= 1
+            text: qsTr("Banked resets: %1").arg(root.provider.bankedResets || 0)
+            textFormat: Text.PlainText
+            wrapMode: Text.WordWrap
         }
 
         Repeater {
@@ -309,5 +320,8 @@ Flickable {
         }
     }
 
-    QQC2.ScrollBar.vertical: QQC2.ScrollBar {}
+    QQC2.ScrollBar.vertical: QQC2.ScrollBar {
+        id: pageScrollBar
+        objectName: "pageScrollBar"
+    }
 }

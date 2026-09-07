@@ -21,8 +21,10 @@ Flickable {
 
     ColumnLayout {
         id: overview
+        objectName: "pageContent"
 
-        width: root.width
+        width: Math.max(0, root.width - pageScrollBar.width - Kirigami.Units.smallSpacing)
+        x: pageScrollBar.mirrored ? root.width - width : 0
         spacing: Kirigami.Units.smallSpacing
 
         QQC2.Label {
@@ -62,5 +64,8 @@ Flickable {
         }
     }
 
-    QQC2.ScrollBar.vertical: QQC2.ScrollBar {}
+    QQC2.ScrollBar.vertical: QQC2.ScrollBar {
+        id: pageScrollBar
+        objectName: "pageScrollBar"
+    }
 }

@@ -62,6 +62,7 @@ Item {
 
         delegate: QQC2.TabButton {
             id: button
+            objectName: "provider-tab-" + index
 
             required property int index
             required property var modelData
@@ -70,40 +71,45 @@ Item {
             checked: index === root.selectedIndex
             onClicked: root.activateTab(index)
 
-            contentItem: Column {
-                spacing: 2
-
-                Item {
+            contentItem: Item {
+                Column {
+                    objectName: "provider-tab-content-" + button.index
+                    anchors.centerIn: parent
                     width: parent.width
-                    height: Kirigami.Units.iconSizes.smallMedium
+                    spacing: 2
 
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: Kirigami.Units.iconSizes.small
-                        height: width
-                        radius: width / 2
-                        color: button.modelData.overview ? Kirigami.Theme.highlightColor :
-                                                           button.modelData.color
+                    Item {
+                        width: parent.width
+                        height: Kirigami.Units.iconSizes.smallMedium
 
-                        QQC2.Label {
+                        Rectangle {
                             anchors.centerIn: parent
-                            text: button.modelData.overview ? "●" : button.modelData.name.charAt(0).toUpperCase(
-                                                                  )
+                            width: Kirigami.Units.iconSizes.small
+                            height: width
+                            radius: width / 2
+                            color: button.modelData.overview ? Kirigami.Theme.highlightColor :
+                                                               button.modelData.color
 
-                            color: "white"
-                            font.bold: true
+                            QQC2.Label {
+                                anchors.centerIn: parent
+                                text: button.modelData.overview ? "●" : button.modelData.name.charAt(
+                                                                      0).toUpperCase()
+
+                                color: "white"
+                                font.bold: true
+                            }
                         }
                     }
-                }
 
-                QQC2.Label {
-                    width: parent.width
-                    horizontalAlignment: Text.AlignHCenter
-                    elide: Text.ElideRight
-                    text: button.modelData.name
-                    font: Kirigami.Theme.smallFont
-                    color: button.checked ? Kirigami.Theme.highlightedTextColor :
-                                            Kirigami.Theme.textColor
+                    QQC2.Label {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
+                        text: button.modelData.name
+                        font: Kirigami.Theme.smallFont
+                        color: button.checked ? Kirigami.Theme.highlightedTextColor :
+                                                Kirigami.Theme.textColor
+                    }
                 }
             }
         }

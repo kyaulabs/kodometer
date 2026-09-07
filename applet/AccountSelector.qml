@@ -39,12 +39,7 @@ RowLayout {
             })
         }
 
-        contentItem: QQC2.Label {
-            text: selector.displayText
-            textFormat: Text.PlainText
-            elide: Text.ElideRight
-            verticalAlignment: Text.AlignVCenter
-        }
+        // Preserve the style's plain-text field: KDE Desktop paints displayText in its background.
         delegate: QQC2.ItemDelegate {
             id: choice
             required property var modelData

@@ -15,6 +15,8 @@ class CodexUsageParserTest final : public QObject
     void toleratesOptionalAndMalformedWindows();
     void mapsAdditionalWindowFallbacks();
     void rejectsInvalidResponses();
+    void mapsBankedResets_data();
+    void mapsBankedResets();
     void formatsPlanNames_data();
     void formatsPlanNames();
 };
@@ -195,11 +197,47 @@ void CodexUsageParserTest::rejectsInvalidResponses()
     QVERIFY(!CodexUsageParser::parse("{", credentials, QDateTime::currentDateTimeUtc(), nullptr));
 }
 
+void CodexUsageParserTest::mapsBankedResets_data()
+{
+    QTest::addColumn<QByteArray>("metadata");
+    QTest::addColumn<QVariant>("expected");
+    QTest::newRow("one") << QByteArray(R"({"available_count":1})") << QVariant(1);
+    QTest::newRow("several") << QByteArray(R"({"available_count":3})") << QVariant(3);
+    QTest::newRow("none") << QByteArray(R"({"available_count":0})") << QVariant(0);
+    for (const QByteArray &metadata :
+         {QByteArray("null"), QByteArray("[]"), QByteArray("{}"),
+          QByteArray(R"({"available_count":-1})"), QByteArray(R"({"available_count":1.5})"),
+          QByteArray(R"({"available_count":"2"})"), QByteArray(R"({"available_count":true})"),
+          QByteArray(R"({"available_count":1e30})")}) {
+        QTest::newRow(metadata.constData()) << metadata << QVariant{};
+    }
+}
+
+void CodexUsageParserTest::mapsBankedResets()
+{
+    QFETCH(QByteArray, metadata);
+    QFETCH(QVariant, expected);
+    const QByteArray payload =
+        R"({"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":25,"reset_at":1800000000,"limit_window_seconds":18000}},"rate_limit_reset_credits":)" +
+        metadata + '}';
+    const auto provider = CodexUsageParser::parse(payload, {}, QDateTime::currentDateTimeUtc());
+    QVERIFY(provider);
+    QCOMPARE(provider->value(QStringLiteral("bankedResets")), expected);
+    QCOMPARE(provider->value(QStringLiteral("windows")).toList().size(), 1);
+    QCOMPARE(provider->value(QStringLiteral("identity")).toMap().value(QStringLiteral("plan")),
+             QStringLiteral("Pro ($200/month)"));
+}
+
 void CodexUsageParserTest::formatsPlanNames_data()
 {
     QTest::addColumn<QString>("input");
     QTest::addColumn<QString>("expected");
 
+    QTest::newRow("pro") << QStringLiteral("pro") << QStringLiteral("Pro ($200/month)");
+    for (const QString &plan : {QStringLiteral("prolite"), QStringLiteral("pro_lite"),
+                                QStringLiteral("pro-lite"), QStringLiteral(" Pro Lite ")}) {
+        QTest::newRow(qPrintable(plan)) << plan << QStringLiteral("Pro-Lite ($100/month)");
+    }
     QTest::newRow("plus") << QStringLiteral("plus") << QStringLiteral("Plus");
     QTest::newRow("free workspace")
         << QStringLiteral("free_workspace") << QStringLiteral("Free Workspace");

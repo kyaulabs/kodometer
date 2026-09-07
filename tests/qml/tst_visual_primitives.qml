@@ -88,6 +88,25 @@ TestCase {
         compare(providerSpy.signalArguments[0][0], "claude")
     }
 
+    function test_providerTabsCenterTheirContents() {
+        const tabs = createTemporaryObject(providerTabsComponent, this, {
+                                               providers: [
+                                                   {
+                                                       id: "codex",
+                                                       name: "Codex"
+                                                   }
+                                               ]
+                                           })
+        verify(tabs)
+        const button = findChild(tabs, "provider-tab-0")
+        const content = findChild(tabs, "provider-tab-content-0")
+        verify(button)
+        verify(content)
+        const position = content.mapToItem(button, 0, 0)
+        fuzzyCompare(position.y + content.implicitHeight / 2, button.height / 2, 1)
+        fuzzyCompare(position.x + content.width / 2, button.width / 2, 1)
+    }
+
     function test_providerTabsCanHideOverview() {
         const tabs = createTemporaryObject(providerTabsComponent, this, {
                                                providers: [

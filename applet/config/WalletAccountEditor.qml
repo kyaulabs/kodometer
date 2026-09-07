@@ -96,12 +96,7 @@ ColumnLayout {
         currentIndex: root.choices.findIndex(entry => entry.id === root.selectedId)
         Accessible.name: qsTr("%1 account").arg(root.providerName)
         onActivated: root.selectedId = currentValue
-        contentItem: QQC2.Label {
-            text: selector.displayText
-            textFormat: Text.PlainText
-            elide: Text.ElideRight
-            verticalAlignment: Text.AlignVCenter
-        }
+        // Preserve native ComboBox text painting; only popup labels need a plain-text override.
         delegate: QQC2.ItemDelegate {
             id: choice
             required property var modelData

@@ -76,6 +76,16 @@ QQC2.ItemDelegate {
                 }
             }
 
+            QQC2.Label {
+                objectName: "bankedResets"
+                Layout.fillWidth: true
+                visible: Number(root.provider.bankedResets || 0) >= 1
+                text: qsTr("Banked resets: %1").arg(root.provider.bankedResets || 0)
+                textFormat: Text.PlainText
+                wrapMode: Text.WordWrap
+                font: Kirigami.Theme.smallFont
+            }
+
             Repeater {
                 model: root.windows
 

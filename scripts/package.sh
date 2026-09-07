@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
+[[ "$(uname -m)" == x86_64 ]] || { echo 'packaging: x64 only' >&2; exit 1; }
 
 repo_root="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 build_dir="${KODOMETER_PACKAGE_BUILD_DIR:-$repo_root/build-package}"
 staging_dir="$build_dir/staging"
 dist_dir="${KODOMETER_DIST_DIR:-$repo_root/dist}"
 version="$(awk '/^[[:space:]]*VERSION [0-9]+\.[0-9]+\.[0-9]+/{print $2; exit}' "$repo_root/CMakeLists.txt")"
-architecture="$(uname -m)"
-artifact="kodometer-$version-linux-$architecture.tar.gz"
+artifact="kodometer-$version-linux-x86_64.tar.gz"
 
 rm -rf "$build_dir"
 mkdir -p "$staging_dir" "$dist_dir"

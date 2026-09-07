@@ -84,7 +84,8 @@ def main():
         assert state["release"] == "draft"
         assert "--clobber" in args
         sources = [Path(arg) for arg in args[3:] if Path(arg).is_file()]
-        assert len(sources) == 2
+        assert len(sources) == 15
+        assert any(source.name.endswith('-SHA256SUMS') for source in sources)
         remote = root / "remote"
         remote.mkdir(exist_ok=True)
         for source in sources:
@@ -112,6 +113,9 @@ def main():
             import hashlib
             digest = hashlib.sha256(archive.read_bytes()).hexdigest()
             archive.with_name(archive.name + ".sha256").write_text(f"{digest}  {archive.name}\n")
+            manifest = next(destination.glob('*-SHA256SUMS'))
+            lines = manifest.read_text().splitlines()
+            manifest.write_text(''.join(f'{digest}  {archive.name}\n' if line.endswith('  ' + archive.name) else line + '\n' for line in lines))
     elif args[:2] == ["release", "edit"]:
         assert state["release"] == "draft" and "--draft=false" in args
         if state.get("fail_publish"):

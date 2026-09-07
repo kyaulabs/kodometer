@@ -1,0 +1,6 @@
+[
+  {"id": "arch", "kind": "arch", "distro": "arch", "version": "rolling", "image": "archlinux:base-devel"},
+  {"id": "ubuntu-26.04", "kind": "deb", "distro": "ubuntu", "version": "26.04", "image": "ubuntu:26.04"},
+  {"id": "fedora-43", "kind": "rpm", "distro": "fedora", "version": "43", "image": "registry.fedoraproject.org/fedora:43"},
+  {"id": "fedora-44", "kind": "rpm", "distro": "fedora", "version": "44", "image": "registry.fedoraproject.org/fedora:44"}
+]

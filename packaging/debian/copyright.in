@@ -1,0 +1,9 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Kodometer
+Upstream-Contact: kyau <kyau@kyau.net>
+Source: https://github.com/kyaulabs/kodometer
+
+Files: *
+Copyright: 2026 kyaulabs contributors
+License: AGPL-3.0-only
+ @package_license@

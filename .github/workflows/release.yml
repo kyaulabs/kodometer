@@ -6,55 +6,128 @@ on:
     types: [closed]
 
 permissions:
-  contents: write
-
-defaults:
-  run:
-    shell: bash
+  contents: read
 
 concurrency:
   group: release-${{ github.event.pull_request.head.ref }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  release:
-    name: Tag, release, and back-merge
+  preflight:
+    name: Validate merged release
     if: >-
       github.event.pull_request.merged == true &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release/')
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    container: archlinux:base-devel
-    env:
-      GH_TOKEN: ${{ github.token }}
-      RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
-      RELEASE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
     steps:
-      - name: Install release tools
-        run: >-
-          pacman -Syu --needed --noconfirm
-          cmake extra-cmake-modules git git-cliff github-cli jq kconfig kcoreaddons
-          kirigami knotifications kwallet libplasma ninja qt6-declarative
       - name: Check out merged release
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          fetch-depth: 0
           ref: ${{ github.event.pull_request.merge_commit_sha }}
-      - name: Trust the container workspace
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          persist-credentials: false
       - name: Validate release version
         id: version
+        env:
+          RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           version="$(scripts/validate-release.sh "$RELEASE_BRANCH")"
           printf 'version=%s\n' "$version" >>"$GITHUB_OUTPUT"
-      - name: Check back-merge credential
+      - name: Check release automation credentials
         env:
           BOT_TOKEN: ${{ secrets.KYAULABS_BOT_TOKEN }}
-        run: ': "${BOT_TOKEN:?release: KYAULABS_BOT_TOKEN is required}"'
-      - name: Build release package
-        run: scripts/package.sh
-      - name: Publish verified release and back-merge
+        run: test -n "$BOT_TOKEN"
+
+  packages:
+    name: Build native release artifacts
+    needs: preflight
+    uses: ./.github/workflows/packages.yml
+    with:
+      ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+  release:
+    name: Publish verified release and open back-merge
+    needs: packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: archlinux:base-devel
+    permissions:
+      contents: write
+    steps:
+      - name: Install publication tools
+        run: pacman -Syu --needed --noconfirm git git-cliff github-cli jq python
+      - name: Check out merged release
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+      - name: Trust the container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Configure release identity
+        run: |
+          git config user.name "kyaulabs-bot"
+          git config user.email "bot@kyaulabs.com"
+      - name: Download complete verified release bundle
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: kodometer-release-bundle
+          path: dist/release
+      - name: Publish verified artifacts and open back-merge PR
         env:
+          GH_TOKEN: ${{ github.token }}
           BOT_TOKEN: ${{ secrets.KYAULABS_BOT_TOKEN }}
+          RELEASE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+          RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
+          KODOMETER_DIST_DIR: dist/release
         run: scripts/publish-release.sh "$RELEASE_BRANCH"
+
+  aur:
+    name: Update AUR after GitHub publication
+    needs: release
+    if: vars.AUR_PUBLISH_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: archlinux:base-devel
+    concurrency:
+      group: aur-kodometer
+      cancel-in-progress: false
+    steps:
+      - name: Install AUR publication tools
+        run: pacman -Syu --needed --noconfirm git github-cli gnupg jq openssh python
+      - name: Check out merged release recipes
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          persist-credentials: false
+      - name: Trust the container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Verify published source and recipes before loading credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          version="$(scripts/validate-release.sh "$RELEASE_BRANCH")"
+          state="$(gh release view "v$version" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease --jq '[.isDraft,.isPrerelease]|tostring')"
+          test "$state" = '[false,false]'
+          gh release download "v$version" --repo "$GITHUB_REPOSITORY" --dir dist/aur-input \
+            --pattern "kodometer-$version-SHA256SUMS" \
+            --pattern "kodometer-$version-source.tar.gz" --pattern "kodometer-$version-aur.tar.gz"
+          python3 scripts/package_metadata.py prepare-aur dist/aur-input dist/aur-verified
+          useradd --create-home recipecheck
+          chown -R recipecheck:recipecheck dist/aur-verified
+          (cd dist/aur-verified && runuser -u recipecheck -- makepkg --printsrcinfo) >dist/generated.SRCINFO
+          cmp dist/generated.SRCINFO dist/aur-verified/.SRCINFO
+      - name: Push signed AUR metadata update
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          AUR_SSH_KNOWN_HOSTS: ${{ vars.AUR_SSH_KNOWN_HOSTS }}
+          AUR_GPG_PRIVATE_KEY: ${{ secrets.AUR_GPG_PRIVATE_KEY }}
+          AUR_GPG_PASSPHRASE: ${{ secrets.AUR_GPG_PASSPHRASE }}
+          AUR_SIGNING_KEY: ${{ vars.AUR_SIGNING_KEY }}
+          AUR_COMMIT_NAME: ${{ vars.AUR_COMMIT_NAME }}
+          AUR_COMMIT_EMAIL: ${{ vars.AUR_COMMIT_EMAIL }}
+        run: scripts/update-aur.sh dist/aur-verified "$(python3 scripts/package_metadata.py version)"

@@ -193,7 +193,7 @@ std::optional<QVariantMap> CodexUsageParser::parse(const QByteArray &data,
     }
 
     // GCOVR_EXCL_BR_START -- Qt container allocation branches
-    return QVariantMap{
+    QVariantMap provider{
         {QStringLiteral("id"), QStringLiteral("codex")},
         {QStringLiteral("name"), QStringLiteral("Codex")},
         {QStringLiteral("enabled"), true},
@@ -211,12 +211,28 @@ std::optional<QVariantMap> CodexUsageParser::parse(const QByteArray &data,
         {QStringLiteral("updatedAt"), updatedAt.toUTC().toString(Qt::ISODateWithMs)},
     };
     // GCOVR_EXCL_BR_STOP
+    // Optional summary returned by wham/usage; reading it never redeems a reset credit.
+    const QJsonValue available = root.value(QStringLiteral("rate_limit_reset_credits"))
+                                     .toObject()
+                                     .value(QStringLiteral("available_count"));
+    const int count = available.toInt(-1);
+    if (count >= 0) {
+        provider.insert(QStringLiteral("bankedResets"), count);
+    }
+    return provider;
 }
 
 QString CodexUsageParser::formatPlan(const QString &plan)
 {
-    const QStringList words = plan.trimmed().toLower().split(
-        QRegularExpression(QStringLiteral("[_-]+")), Qt::SkipEmptyParts);
+    const QString normalized = plan.trimmed().toLower();
+    if (normalized == QLatin1String("pro")) {
+        return QStringLiteral("Pro ($200/month)");
+    }
+    const QStringList words =
+        normalized.split(QRegularExpression(QStringLiteral("[\\s_-]+")), Qt::SkipEmptyParts);
+    if (words.join(QString{}) == QLatin1String("prolite")) {
+        return QStringLiteral("Pro-Lite ($100/month)");
+    }
     QStringList formatted;
     formatted.reserve(words.size());
     for (QString word : words) {

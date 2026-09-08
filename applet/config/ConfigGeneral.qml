@@ -10,8 +10,10 @@ Kirigami.ScrollablePage {
     verticalScrollBarPolicy: flickable.contentHeight > flickable.height ? QQC2.ScrollBar.AlwaysOn :
                                                                           QQC2.ScrollBar.AlwaysOff
 
+    readonly property QQC2.ScrollView scrollView: contentItem as QQC2.ScrollView
+
     Binding {
-        target: root.contentItem.QQC2.ScrollBar.vertical
+        target: root.scrollView.QQC2.ScrollBar.vertical
         property: "visible"
         value: root.verticalScrollBarPolicy === QQC2.ScrollBar.AlwaysOn
     }

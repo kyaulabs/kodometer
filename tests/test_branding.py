@@ -41,6 +41,7 @@ class BrandingTests(unittest.TestCase):
         row = f'"website/tokens.json": "{manifest["website/tokens.json"]}"'
         self.assertIsNotNone(re.fullmatch(pattern, row))
         self.assertIsNone(re.search(pattern, 'api_key = "unrelated-synthetic-test-value"'))
+        self.assertIsNone(re.search(pattern, row + ', "api_key": "unrelated-synthetic-test-value"'))
         self.assertIsNone(re.fullmatch(pattern, row.replace(manifest["website/tokens.json"], "0" * 64)))
 
     def test_runtime_brand_masters_are_unchanged(self):

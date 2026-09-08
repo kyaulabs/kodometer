@@ -7,6 +7,8 @@ import org.kde.kirigami as Kirigami
 Kirigami.ScrollablePage {
     id: root
     title: qsTr("General")
+    verticalScrollBarPolicy: flickable.contentHeight > flickable.height ? QQC2.ScrollBar.AlwaysOn :
+                                                                          QQC2.ScrollBar.AlwaysOff
 
     property alias cfg_autoRefresh: automatic.checked
     property alias cfg_refreshIntervalMinutes: refreshInterval.value

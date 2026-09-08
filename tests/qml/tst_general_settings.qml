@@ -27,8 +27,9 @@ TestCase {
         tryVerify(() => flick.contentHeight > flick.height)
         const scrollBar = page.contentItem.ScrollBar.vertical
         verify(scrollBar)
-        compare(scrollBar.policy, ScrollBar.AsNeeded)
+        compare(scrollBar.policy, ScrollBar.AlwaysOn)
         verify(scrollBar.size < 1)
+        tryCompare(scrollBar, "opacity", 1)
         verify(flick.contentY <= flick.originY + 1, "Page must start at the top")
         const first = findChild(page, "refreshInterval")
         verify(first.mapToItem(page, 0, 0).y >= 0)
@@ -39,6 +40,7 @@ TestCase {
         verify(page.cfg_disabledProviders.includes("openrouter"))
         page.height = flick.contentHeight + 100
         tryVerify(() => flick.contentY <= flick.originY + 1)
+        tryCompare(scrollBar, "policy", ScrollBar.AlwaysOff)
     }
 
     function test_defaultsAndBindings() {

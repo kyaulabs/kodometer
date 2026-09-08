@@ -1,7 +1,10 @@
 [extend]
 useDefault = true
 
-[[allowlists]]
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
 description = "Verified SHA-256 of the supplied website/tokens.json palette, not an API token"
 condition = "AND"
 regexTarget = "line"

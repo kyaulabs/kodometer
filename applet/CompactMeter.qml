@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import org.kde.plasma.core as PlasmaCore
 
 Item {
     id: root
@@ -11,6 +12,9 @@ Item {
     property bool vertical: false
     property bool systemAccent: false
     property color accentColor: palette.accentColor
+    property var providers: []
+    property bool toolTipsEnabled: true
+    property int toolTipLocation: PlasmaCore.Types.Floating
     readonly property real sessionFillWidth: width * session.value / 100
     readonly property real weeklyFillWidth: width * weekly.value / 100
     readonly property real ringSpacing: 4
@@ -69,6 +73,21 @@ Item {
         remaining: root.sessionRemaining
         accentColor: root.accentColor
         quotaLabel: qsTr("Session quota")
+        PlasmaCore.ToolTipArea {
+            objectName: "sessionToolTip"
+            anchors.fill: parent
+            active: root.donutCharts && root.toolTipsEnabled
+            mainText: sessionTip.mainText
+            subText: sessionTip.subText
+            textFormat: Text.PlainText
+            location: root.toolTipLocation
+        }
+        PanelToolTip {
+            id: sessionTip
+            providers: root.providers
+            donutCharts: true
+            hoveredQuota: "session"
+        }
     }
 
     QuotaRing {
@@ -82,5 +101,20 @@ Item {
         remaining: root.weeklyRemaining
         accentColor: root.accentColor
         quotaLabel: qsTr("Weekly quota")
+        PlasmaCore.ToolTipArea {
+            objectName: "weeklyToolTip"
+            anchors.fill: parent
+            active: root.donutCharts && root.toolTipsEnabled
+            mainText: weeklyTip.mainText
+            subText: weeklyTip.subText
+            textFormat: Text.PlainText
+            location: root.toolTipLocation
+        }
+        PanelToolTip {
+            id: weeklyTip
+            providers: root.providers
+            donutCharts: true
+            hoveredQuota: "weekly"
+        }
     }
 }

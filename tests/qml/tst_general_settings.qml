@@ -6,6 +6,7 @@ import "../../applet/config" as Config
 TestCase {
     name: "GeneralSettings"
     when: windowShown
+    visible: true
     width: 640
     height: 640
 
@@ -14,6 +15,30 @@ TestCase {
         Config.ConfigGeneral {
             width: 600
         }
+    }
+
+    function test_scrollsFromTopToLastProvider() {
+        const page = createTemporaryObject(settingsComponent, this, {
+                                               width: 420,
+                                               height: 280
+                                           })
+        verify(page.flickable, "General must own a scrolling viewport")
+        const flick = page.flickable
+        tryVerify(() => flick.contentHeight > flick.height)
+        const scrollBar = page.contentItem.ScrollBar.vertical
+        verify(scrollBar)
+        compare(scrollBar.policy, ScrollBar.AsNeeded)
+        verify(scrollBar.size < 1)
+        verify(flick.contentY <= flick.originY + 1, "Page must start at the top")
+        const first = findChild(page, "refreshInterval")
+        verify(first.mapToItem(page, 0, 0).y >= 0)
+        flick.contentY = flick.contentHeight - flick.height + flick.originY
+        const last = findChild(page, "provider-openrouter")
+        tryVerify(() => last.mapToItem(page, 0, 0).y < page.height)
+        last.click()
+        verify(page.cfg_disabledProviders.includes("openrouter"))
+        page.height = 1200
+        tryVerify(() => flick.contentY <= flick.originY + 1)
     }
 
     function test_defaultsAndBindings() {

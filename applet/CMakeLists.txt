@@ -6,6 +6,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         UsageNavigation.qml
         BrandPalette.qml
         CompactMeter.qml
+        PanelToolTip.qml
         QuotaRing.qml
         ProviderIcon.qml
         CostHistory.qml

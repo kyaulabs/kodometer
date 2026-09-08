@@ -96,6 +96,61 @@ TestCase {
         compare(session.visible, false)
     }
 
+    function test_donutToolTipsHaveSeparateHitAreas() {
+        const meter = createTemporaryObject(compactMeterComponent, this, {
+                                                x: 100,
+                                                y: 100,
+                                                width: 120,
+                                                height: 56,
+                                                donutCharts: true,
+                                                providers: [
+                                                    {
+                                                        id: "codex",
+                                                        windows: [
+                                                            {
+                                                                kind: "session",
+                                                                remainingPercent: 90
+                                                            },
+                                                            {
+                                                                kind: "weekly",
+                                                                remainingPercent: 75
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            })
+        // The click target overlays the meter in the applet, but must not eat hover events.
+        const overlay = Qt.createQmlObject('import QtQuick; MouseArea { anchors.fill: parent }',
+                                           meter)
+        const session = findChild(meter, "sessionToolTip")
+        const weekly = findChild(meter, "weeklyToolTip")
+        compare(session.subText, "Codex: 90% session remaining")
+        compare(weekly.subText, "Codex: 75% weekly remaining")
+        compare(session.textFormat, Text.PlainText)
+        compare(weekly.textFormat, Text.PlainText)
+        mouseMove(session, session.width / 2, session.height / 2)
+        tryCompare(session, "containsMouse", true)
+        compare(weekly.containsMouse, false)
+        mouseMove(weekly, weekly.width / 2, weekly.height / 2)
+        tryCompare(weekly, "containsMouse", true)
+        compare(session.containsMouse, false)
+        meter.vertical = true
+        meter.width = 56
+        meter.height = 120
+        mouseMove(session, session.width / 2, session.height / 2)
+        tryCompare(session, "containsMouse", true)
+        compare(weekly.containsMouse, false)
+        meter.toolTipsEnabled = false
+        compare(session.active, false)
+        compare(weekly.active, false)
+        meter.toolTipsEnabled = true
+        meter.donutCharts = false
+        compare(session.active, false)
+        compare(weekly.active, false)
+        mouseMove(this, 1, 1)
+        overlay.destroy()
+    }
+
     function test_providerTabsExposeOverviewAndProviders() {
         const tabs = createTemporaryObject(providerTabsComponent, this, {
                                                providers: [

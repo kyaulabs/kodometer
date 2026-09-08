@@ -204,7 +204,8 @@ find_program(QMLTESTRUNNER_EXECUTABLE qmltestrunner HINTS "${QT6_INSTALL_PREFIX}
 if(QMLTESTRUNNER_EXECUTABLE)
     add_test(
         NAME visual-primitives
-        COMMAND "${QMLTESTRUNNER_EXECUTABLE}" -input "${CMAKE_CURRENT_SOURCE_DIR}/qml"
+        COMMAND bash "${PROJECT_SOURCE_DIR}/scripts/test-qml.sh"
+            "${QMLTESTRUNNER_EXECUTABLE}" -input "${CMAKE_CURRENT_SOURCE_DIR}/qml"
     )
     set_tests_properties(
         visual-primitives

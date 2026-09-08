@@ -41,8 +41,9 @@ QtObject {
             const cost = provider.cost || {}
             const balance = cost.balance !== undefined ? cost.balance : cost.balanceUSD
             const currency = cost.currencyCode === undefined ? "USD" : cost.currencyCode
-            if (kind === "" && validNumber(balance) && typeof currency === "string" && /^[A-Z]{3}$/.test(
-                        currency)) {
+            const balanceProvider = ["deepseek", "xai", "openrouter"].includes(provider.id)
+            if (kind === "" && balanceProvider && validNumber(balance) && typeof currency
+                    === "string" && /^[A-Z]{3}$/.test(currency)) {
                 const money = currency === "USD" ? "$" + balance.toFixed(2) : balance.toFixed(2) + " "
                                                    + currency
                 lines.push(qsTr("%1 Balance: %2").arg(name).arg(money))

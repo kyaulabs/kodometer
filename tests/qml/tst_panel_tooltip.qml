@@ -67,6 +67,23 @@ TestCase {
         compare(summary.subText, "No provider data")
     }
 
+    function test_codingQuotaRemainsAuthoritativeOverOptionalBalance() {
+        const summary = createTemporaryObject(summaryComponent, this, {
+                                                  providers: [
+                                                      {
+                                                          id: "zai",
+                                                          cost: {
+                                                              balance: 99,
+                                                              currencyCode: "CNY"
+                                                          },
+                                                          windows: [window("weekly", 40), window(
+                                                                  "session", 80)]
+                                                      }
+                                                  ]
+                                              })
+        compare(summary.subText, "z.ai: 40% weekly remaining")
+    }
+
     function test_malformedMissingAndPrivateData() {
         const summary = createTemporaryObject(summaryComponent, this, {
                                                   providers: [

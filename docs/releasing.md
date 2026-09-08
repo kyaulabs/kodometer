@@ -5,7 +5,7 @@ Releases use `release/X.Y.Z` branches from `develop`, merged into `main`. Merge 
 ## Before merge
 
 1. Match the canonical `X.Y.Z` version in `CMakeLists.txt`, `applet/metadata.json`, and `package.json`. Leading-zero versions and prerelease branch suffixes are rejected.
-2. Add a reader-facing overview in `docs/releases/X.Y.Z.md`. The workflow prepends it to the generated git-cliff changelog when creating the release draft.
+2. Derive the bump from the actual Conventional Commits since the preceding release: features normally require a minor bump, fixes a patch, and breaking changes need an explicit compatibility assessment (including pre-1.0 policy). Preview `git-cliff --bumped-version`; do not let a branch name dictate the answer. Add a reader-facing overview in `docs/releases/X.Y.Z.md` using the [standard release-note format](#standard-release-note-format). The workflow prepends it to the generated git-cliff changelog when creating the release draft.
 3. Run `scripts/validate-release.sh release/X.Y.Z`, native tests, coverage, QML/format checks, and the offline automation tests:
    ```bash
    python3 -m unittest discover -s tests -p 'test_*.py'
@@ -17,6 +17,35 @@ Releases use `release/X.Y.Z` branches from `develop`, merged into `main`. Merge 
 7. If AUR publication is enabled, check its dedicated credentials and package ownership before merging. AUR setup is independent of GitHub package generation.
 
 The CI conventions job runs the offline tests and validates the release version before a PR into `main` can pass that job. Native package generation waits for conventions, native tests, coverage, and security checks. Repository rules should require the CI checks if merge-time enforcement is desired.
+
+## Standard release-note format
+
+Starting with 0.3.0, copy [the release template](releases/TEMPLATE.md) and keep these sections in order, with the exact emoji-headed titles:
+
+1. `✨ Highlights`: purpose, previous version, SemVer rationale, and breaking-change/migration assessment.
+2. `🚀 Features`: new behavior, where to find it, defaults, and opt-in settings.
+3. `🐛 Fixes`: corrected symptoms and their user impact.
+4. `📦 Packages`: every exact versioned payload filename, distribution/version or source-build purpose, and architecture; checksum inventory and verified AUR availability.
+5. `🛠️ Installation and upgrade`: version-specific verification/install commands, stopping Plasma, installation prefixes, and migration/removal implications.
+6. `⚠️ Compatibility and known limitations`: minimum versions, unsupported targets, ABI limits, and relevant provider restrictions.
+7. `🔒 Security and privacy`: credential boundaries, security changes, and checksum/signature guarantees.
+8. `✅ Validation`: performed checks or clearly identified publication gates; never claim pending work has passed.
+9. `📜 Changelog`: appended automatically from Conventional Commits, with version and commit-group subheadings nested below it.
+
+Use `# 🚀 Kodometer X.Y.Z` for the title and `##` for the fixed sections. Do not omit a section for a patch release: say there are no changes when appropriate. Be specific and detailed without copying the whole README. Generate the package inventory from `python3 scripts/package_metadata.py assets` and check distro rows against `packaging/targets.json`. List all native packages, the legacy archive, source, and AUR recipes, not just selected downloads. Distinguish recipe availability from a configured/live AUR entry. Keep tagged links version-specific. Historical notes and published assets are not retrofitted.
+
+`tests/test_release_notes.py`, run by the existing CI conventions job, checks the current overview/template headings, nonempty sections, package inventory, native distro labels, and generated changelog hierarchy. Preview the real combined document before tagging:
+
+```bash
+version="$(python3 scripts/package_metadata.py version)"
+preview="$(mktemp)"
+cp "docs/releases/$version.md" "$preview"
+printf '\n\n' >>"$preview"
+git-cliff --unreleased --use-branch-tags --tag "v$version" >>"$preview"
+printf 'Review release notes: %s\n' "$preview"
+```
+
+For an already-tagged retry checkout, replace the git-cliff arguments with `--current --use-branch-tags`; do not use `--latest`, which can select the preceding release. Review the rendered section order, package rows, links, version range, and actual commit list. Missing facts or unavailable checks must remain explicit rather than being filled with assumed results.
 
 ## After merge
 

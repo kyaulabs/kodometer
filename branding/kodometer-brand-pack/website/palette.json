@@ -1,0 +1,13 @@
+{
+  "brand": {
+    "iris": "#A28BE0",
+    "deep": "#7052B5",
+    "pale": "#C2B0E8",
+    "ink": "#252333",
+    "cloud": "#F7F5FB",
+    "mist": "#B8B0CB",
+    "night": "#1B1924",
+    "muted": "#625C73"
+  },
+  "note": "Widget surfaces and semantic colors follow Plasma theme roles."
+}

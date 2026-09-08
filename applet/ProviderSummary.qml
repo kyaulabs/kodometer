@@ -39,20 +39,11 @@ QQC2.ItemDelegate {
 
         spacing: Kirigami.Units.largeSpacing
 
-        Rectangle {
+        ProviderIcon {
             Layout.alignment: Qt.AlignTop
             Layout.preferredWidth: Kirigami.Units.iconSizes.medium
             Layout.preferredHeight: Layout.preferredWidth
-            radius: width / 2
-            color: root.accentColor
-
-            QQC2.Label {
-                anchors.centerIn: parent
-                text: (root.provider.name || root.provider.label || root.provider.id).charAt(
-                          0).toUpperCase()
-                color: "white"
-                font.bold: true
-            }
+            providerId: root.provider.id
         }
 
         ColumnLayout {
@@ -65,6 +56,7 @@ QQC2.ItemDelegate {
                 QQC2.Label {
                     Layout.fillWidth: true
                     text: root.provider.name || root.provider.label || root.provider.id
+                    textFormat: Text.PlainText
                     font.bold: true
                     elide: Text.ElideRight
                 }

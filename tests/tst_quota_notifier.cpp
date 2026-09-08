@@ -80,7 +80,7 @@ class QuotaNotifierTest final : public QObject
             QTRY_COMPARE(service.count, 1U);
             QCOMPARE(service.title, QStringLiteral("Codex quota is low"));
             QCOMPARE(service.body, QStringLiteral("Most constrained quota: 5.0% remaining."));
-            QCOMPARE(service.icon, QStringLiteral("view-statistics"));
+            QCOMPARE(service.icon, QStringLiteral("kodometer"));
             QCOMPARE(service.hints.value(QStringLiteral("urgency")).toUInt(), 1U);
             QVERIFY(service.actions.isEmpty());
             notifier.observe(provider);

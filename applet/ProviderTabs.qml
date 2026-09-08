@@ -23,8 +23,6 @@ Item {
             result.push({
                             id: provider.id,
                             name: provider.name || provider.id,
-                            color: provider.display && provider.display.accentColor
-                                   ? provider.display.accentColor : Kirigami.Theme.highlightColor,
                             overview: false
                         })
         }
@@ -82,22 +80,23 @@ Item {
                         width: parent.width
                         height: Kirigami.Units.iconSizes.smallMedium
 
-                        Rectangle {
+                        ProviderIcon {
                             anchors.centerIn: parent
-                            width: Kirigami.Units.iconSizes.small
+                            width: Kirigami.Units.iconSizes.smallMedium
                             height: width
-                            radius: width / 2
-                            color: button.modelData.overview ? Kirigami.Theme.highlightColor :
-                                                               button.modelData.color
+                            visible: !button.modelData.overview
+                            providerId: button.modelData.id
+                        }
 
-                            QQC2.Label {
-                                anchors.centerIn: parent
-                                text: button.modelData.overview ? "●" : button.modelData.name.charAt(
-                                                                      0).toUpperCase()
-
-                                color: "white"
-                                font.bold: true
-                            }
+                        Kirigami.Icon {
+                            anchors.centerIn: parent
+                            width: Kirigami.Units.iconSizes.smallMedium
+                            height: width
+                            visible: button.modelData.overview
+                            source: Qt.resolvedUrl("assets/kodometer-symbolic.svg")
+                            isMask: true
+                            color: button.checked ? Kirigami.Theme.highlightedTextColor :
+                                                    Kirigami.Theme.textColor
                         }
                     }
 
@@ -106,6 +105,7 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         elide: Text.ElideRight
                         text: button.modelData.name
+                        textFormat: Text.PlainText
                         font: Kirigami.Theme.smallFont
                         color: button.checked ? Kirigami.Theme.highlightedTextColor :
                                                 Kirigami.Theme.textColor

@@ -7,10 +7,9 @@
 [changelog]
 # changelog header
 header = """
-# 📜 Changelog\n
-All notable changes to this project will be documented in this file.\\
-See [Conventional Commits](https://conventionalcommits.org) for commit guidelines
-and [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for versioning adherence.
+## 📜 Changelog\n
+Changes since the preceding release, grouped from [Conventional Commits](https://conventionalcommits.org).
+Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 """
 # template for the changelog body
 # https://tera.netlify.app/docs
@@ -18,20 +17,20 @@ body = """
 {% if previous %}\
     {% if previous.commit_id %}
         {% if version %}\
-            ## [💾](https://github.com/kyaulabs/kodometer/releases/tag/{{ version }}) [{{ version | trim_start_matches(pat="v") }}](https://github.com/kyaulabs/kodometer/compare/{{ previous.version }}...{{ version }}) - ({{ timestamp | date(format="%Y-%m-%d") }})
+            ### [💾](https://github.com/kyaulabs/kodometer/releases/tag/{{ version }}) [{{ version | trim_start_matches(pat="v") }}](https://github.com/kyaulabs/kodometer/compare/{{ previous.version }}...{{ version }}) - ({{ timestamp | date(format="%Y-%m-%d") }})
         {% else %}\
-            ## [unreleased]
+            ### 🧪 Unreleased
         {% endif %}\
     {% else %}
         {% if version %}\
-            ## [💾](https://github.com/kyaulabs/kodometer/releases/tag/{{ version }}) [{{ version | trim_start_matches(pat="v") }}](https://github.com/kyaulabs/kodometer/commit/{{ commit_id }}) - ({{ timestamp | date(format="%Y-%m-%d") }})
+            ### [💾](https://github.com/kyaulabs/kodometer/releases/tag/{{ version }}) [{{ version | trim_start_matches(pat="v") }}](https://github.com/kyaulabs/kodometer/commit/{{ commit_id }}) - ({{ timestamp | date(format="%Y-%m-%d") }})
         {% else %}\
-            ## [unreleased]
+            ### 🧪 Unreleased
         {% endif %}\
     {% endif %}\
 {% endif %}\
 {% for group, commits in commits | sort(attribute="group") | group_by(attribute="group") %}
-    ### {{ group | upper_first }}
+    #### {{ group | upper_first }}
     {% for commit in commits
     | filter(attribute="scope")
     | sort(attribute="scope") %}

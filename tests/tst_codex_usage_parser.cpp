@@ -225,7 +225,7 @@ void CodexUsageParserTest::mapsBankedResets()
     QCOMPARE(provider->value(QStringLiteral("bankedResets")), expected);
     QCOMPARE(provider->value(QStringLiteral("windows")).toList().size(), 1);
     QCOMPARE(provider->value(QStringLiteral("identity")).toMap().value(QStringLiteral("plan")),
-             QStringLiteral("Pro ($200/month)"));
+             QStringLiteral("Pro"));
 }
 
 void CodexUsageParserTest::formatsPlanNames_data()
@@ -233,10 +233,11 @@ void CodexUsageParserTest::formatsPlanNames_data()
     QTest::addColumn<QString>("input");
     QTest::addColumn<QString>("expected");
 
-    QTest::newRow("pro") << QStringLiteral("pro") << QStringLiteral("Pro ($200/month)");
+    QTest::newRow("pro") << QStringLiteral("pro") << QStringLiteral("Pro");
+    QTest::newRow("pro normalized") << QStringLiteral(" PRO ") << QStringLiteral("Pro");
     for (const QString &plan : {QStringLiteral("prolite"), QStringLiteral("pro_lite"),
                                 QStringLiteral("pro-lite"), QStringLiteral(" Pro Lite ")}) {
-        QTest::newRow(qPrintable(plan)) << plan << QStringLiteral("Pro-Lite ($100/month)");
+        QTest::newRow(qPrintable(plan)) << plan << QStringLiteral("Pro-Lite");
     }
     QTest::newRow("plus") << QStringLiteral("plus") << QStringLiteral("Plus");
     QTest::newRow("free workspace")

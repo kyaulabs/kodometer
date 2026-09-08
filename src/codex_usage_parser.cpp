@@ -226,12 +226,12 @@ QString CodexUsageParser::formatPlan(const QString &plan)
 {
     const QString normalized = plan.trimmed().toLower();
     if (normalized == QLatin1String("pro")) {
-        return QStringLiteral("Pro ($200/month)");
+        return QStringLiteral("Pro");
     }
     const QStringList words =
         normalized.split(QRegularExpression(QStringLiteral("[\\s_-]+")), Qt::SkipEmptyParts);
     if (words.join(QString{}) == QLatin1String("prolite")) {
-        return QStringLiteral("Pro-Lite ($100/month)");
+        return QStringLiteral("Pro-Lite");
     }
     QStringList formatted;
     formatted.reserve(words.size());

@@ -5,20 +5,32 @@ import QtQuick
 Item {
     id: root
 
-    property real sessionRemaining: 0
-    property real weeklyRemaining: 0
-    property color accentColor: "#49a3b0"
-    readonly property real sessionFillWidth: width * Math.max(0, Math.min(100, sessionRemaining))
-                                             / 100
-    readonly property real weeklyFillWidth: width * Math.max(0, Math.min(100, weeklyRemaining))
-                                            / 100
+    property real sessionRemaining: NaN
+    property real weeklyRemaining: NaN
+    property bool donutCharts: false
+    property bool vertical: false
+    property bool systemAccent: false
+    property color accentColor: palette.accentColor
+    readonly property real sessionFillWidth: width * session.value / 100
+    readonly property real weeklyFillWidth: width * weekly.value / 100
+    readonly property real ringSpacing: 4
+    readonly property real ringSpan: ((vertical ? height : width) - ringSpacing) / 2
+    readonly property real ringSize: Math.max(0, Math.min(vertical ? width : height, ringSpan))
+    readonly property string quotaDescription: qsTr("Session: %1; Weekly: %2").arg(
+                                                   session.remainingText).arg(weekly.remainingText)
 
-    implicitWidth: 22
-    implicitHeight: 18
+    implicitWidth: donutCharts ? (vertical ? 48 : 100) : 22
+    implicitHeight: donutCharts ? (vertical ? 100 : 48) : 18
+
+    BrandPalette {
+        id: palette
+        systemAccent: root.systemAccent
+    }
 
     Column {
         anchors.fill: parent
         spacing: 2
+        visible: !root.donutCharts
 
         Repeater {
             model: [root.sessionFillWidth, root.weeklyFillWidth]
@@ -26,12 +38,12 @@ Item {
             Item {
                 required property real modelData
                 width: root.width
-                height: (root.height - 2) / 2
+                height: Math.max(0, (root.height - 2) / 2)
 
                 Rectangle {
                     anchors.fill: parent
                     radius: height / 2
-                    color: Qt.alpha(root.accentColor, 0.18)
+                    color: Qt.alpha(root.accentColor, 0.22)
                 }
 
                 Rectangle {
@@ -42,5 +54,33 @@ Item {
                 }
             }
         }
+    }
+
+    QuotaRing {
+        id: session
+        objectName: "sessionRing"
+        visible: root.donutCharts
+        width: root.ringSize
+        height: width
+        x: root.vertical ? (root.width - width) / 2 : (root.width - 2 * width - root.ringSpacing)
+                           / 2
+        y: root.vertical ? (root.height - 2 * height - root.ringSpacing) / 2 : (root.height
+                                                                                - height) / 2
+        remaining: root.sessionRemaining
+        accentColor: root.accentColor
+        quotaLabel: qsTr("Session quota")
+    }
+
+    QuotaRing {
+        id: weekly
+        objectName: "weeklyRing"
+        visible: root.donutCharts
+        width: root.ringSize
+        height: width
+        x: root.vertical ? session.x : session.x + width + root.ringSpacing
+        y: root.vertical ? session.y + height + root.ringSpacing : session.y
+        remaining: root.weeklyRemaining
+        accentColor: root.accentColor
+        quotaLabel: qsTr("Weekly quota")
     }
 }

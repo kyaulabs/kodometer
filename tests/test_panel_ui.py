@@ -6,6 +6,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PanelUiTests(unittest.TestCase):
+    def test_coverage_installs_the_real_plasma_tooltip_module(self):
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+        coverage = workflow.split("  coverage:\n", 1)[1].split("  security:\n", 1)[0]
+        self.assertIn("libplasma", coverage.split("- name: Check out repository", 1)[0])
+        self.assertIn("run: scripts/coverage.sh", coverage)
+
     def test_native_tooltip_is_bound_to_real_provider_data(self):
         main = (ROOT / "applet/main.qml").read_text()
         self.assertIn("toolTipMainText: panelToolTip.mainText", main)

@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Verified SHA-256 of the supplied website/tokens.json palette, not an API token"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^branding/kodometer-brand-pack/checksums\.json$''']
+regexes = ['''^\s*"website/tokens\.json": "0b4d9d6be897f187a01e138d725169cdf63b77db2ade276edb0c14a8dd651557"\s*$''']

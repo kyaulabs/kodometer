@@ -4,7 +4,10 @@ plasma_add_applet(org.kyaulabs.kodometer
         AccountSwitchDialog.qml
         AccountSelector.qml
         UsageNavigation.qml
+        BrandPalette.qml
         CompactMeter.qml
+        QuotaRing.qml
+        ProviderIcon.qml
         CostHistory.qml
         DetailSection.qml
         OverviewPage.qml
@@ -102,6 +105,23 @@ plasma_add_applet(org.kyaulabs.kodometer
     GENERATE_APPLET_CLASS
 )
 
+# ECM otherwise flattens resource names. Keep source and compiled asset URLs identical.
+ecm_target_qml_sources(org.kyaulabs.kodometer PATH assets SOURCES
+    assets/kodometer-symbolic.svg
+    assets/kodometer-iris-on-dark.svg
+    assets/kodometer-deep-iris-on-light.svg
+)
+ecm_target_qml_sources(org.kyaulabs.kodometer PATH assets/providers SOURCES
+    assets/providers/codex.svg
+    assets/providers/claude.svg
+    assets/providers/deepseek.svg
+    assets/providers/gemini.svg
+    assets/providers/kimi.svg
+    assets/providers/openrouter.svg
+    assets/providers/xai.svg
+    assets/providers/zai.svg
+)
+
 # A metadata-only edit must recompile the generated factory in the same build,
 # not only refresh its moc file and leave the previous metadata in the plugin.
 set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/org.kyaulabs.kodometer.cpp"
@@ -115,3 +135,5 @@ target_compile_definitions(org.kyaulabs.kodometer PRIVATE KODOMETER_VERSION="${P
 target_compile_features(org.kyaulabs.kodometer PRIVATE cxx_std_20)
 kodometer_enable_warnings(org.kyaulabs.kodometer)
 install(FILES kodometer.notifyrc DESTINATION "${KDE_INSTALL_KNOTIFYRCDIR}")
+install(FILES ../branding/kodometer-brand-pack/icons/app-tile-dark.svg
+    DESTINATION "${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps" RENAME kodometer.svg)

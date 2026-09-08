@@ -13,7 +13,7 @@ PlasmoidItem {
 
     switchWidth: Kirigami.Units.gridUnit * 10
     switchHeight: Kirigami.Units.gridUnit * 10
-    Plasmoid.icon: "view-statistics"
+    Plasmoid.icon: "kodometer"
     Plasmoid.status: backend.busy ? PlasmaCore.Types.ActiveStatus : PlasmaCore.Types.PassiveStatus
 
     property int clockTick: 0
@@ -28,10 +28,11 @@ PlasmoidItem {
                     continue
                 }
                 const value = Number(windowData.remainingPercent)
-                remaining = remaining === null ? value : Math.min(remaining, value)
+                if (Number.isFinite(value))
+                    remaining = remaining === null ? value : Math.min(remaining, value)
             }
         }
-        return remaining === null ? 0 : remaining
+        return remaining === null ? NaN : remaining
     }
 
     Private.KWalletCredentialStore {
@@ -84,14 +85,33 @@ PlasmoidItem {
     }
 
     compactRepresentation: Item {
+        id: compactView
+        readonly property bool vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
+        readonly property bool donuts: Plasmoid.configuration.panelDonutCharts
+        Layout.minimumWidth: donuts && !vertical ? height * 2 + 4 : 0
+        Layout.minimumHeight: donuts && vertical ? width * 2 + 4 : 0
+        Layout.preferredWidth: donuts && !vertical ? height * 2 + 4 : -1
+        Layout.preferredHeight: donuts && vertical ? width * 2 + 4 : -1
+        Accessible.role: Accessible.Button
+        Accessible.name: qsTr("Kodometer usage")
+        Accessible.description: compactMeter.quotaDescription
+        Accessible.onPressAction: root.expanded = !root.expanded
+        activeFocusOnTab: true
+        Keys.onSpacePressed: root.expanded = !root.expanded
+        Keys.onReturnPressed: root.expanded = !root.expanded
+
         CompactMeter {
+            id: compactMeter
             anchors.fill: parent
+            donutCharts: compactView.donuts
+            vertical: compactView.vertical
+            systemAccent: Plasmoid.configuration.panelSystemAccent
             sessionRemaining: root.remainingFor("session")
             weeklyRemaining: root.remainingFor("weekly")
         }
 
-        QQC2.ToolTip.visible: compactMouse.containsMouse
-        QQC2.ToolTip.text: qsTr("Kodometer usage")
+        QQC2.ToolTip.visible: compactMouse.containsMouse || activeFocus
+        QQC2.ToolTip.text: qsTr("Kodometer usage\n%1").arg(compactMeter.quotaDescription)
 
         MouseArea {
             id: compactMouse
@@ -116,6 +136,22 @@ PlasmoidItem {
             anchors.fill: parent
             anchors.margins: Kirigami.Units.largeSpacing
             spacing: Kirigami.Units.smallSpacing
+
+            BrandPalette {
+                id: brand
+            }
+
+            Image {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 10
+                Layout.preferredHeight: Kirigami.Units.gridUnit * 2.5
+                source: brand.wordmark
+                fillMode: Image.PreserveAspectFit
+                sourceSize.width: Math.ceil(width * Screen.devicePixelRatio)
+                sourceSize.height: Math.ceil(height * Screen.devicePixelRatio)
+                Accessible.role: Accessible.Graphic
+                Accessible.name: qsTr("Kodometer")
+            }
 
             ProviderTabs {
                 Layout.fillWidth: true
@@ -149,7 +185,9 @@ PlasmoidItem {
                 }
                 Kirigami.Icon {
                     Layout.alignment: Qt.AlignHCenter
-                    source: backend.busy ? "view-refresh" : "view-statistics"
+                    source: backend.busy ? "view-refresh" : Qt.resolvedUrl(
+                                               "assets/kodometer-symbolic.svg")
+                    isMask: !backend.busy
                     implicitWidth: Kirigami.Units.iconSizes.large
                     implicitHeight: width
                 }

@@ -22,6 +22,14 @@
             <label>Show idle quota windows</label>
             <default>false</default>
         </entry>
+        <entry name="panelDonutCharts" type="Bool">
+            <label>Show compact panel quotas as donut charts instead of bars</label>
+            <default>false</default>
+        </entry>
+        <entry name="panelSystemAccent" type="Bool">
+            <label>Use the desktop accent instead of Kodometer Iris for panel meters</label>
+            <default>false</default>
+        </entry>
         <entry name="quotaNotifications" type="Bool">
             <label>Notify when quota is low</label>
             <default>false</default>

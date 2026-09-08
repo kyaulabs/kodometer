@@ -22,6 +22,16 @@ TestCase {
         compare(page.cfg_autoRefresh, true)
         compare(page.cfg_refreshIntervalMinutes, 5)
         compare(page.cfg_showIdleWindows, false)
+        compare(page.cfg_panelDonutCharts, false)
+        compare(page.cfg_panelSystemAccent, false)
+        page.cfg_panelDonutCharts = true
+        compare(findChild(page, "panelDonutCharts").currentIndex, 1)
+        page.cfg_panelSystemAccent = true
+        compare(findChild(page, "panelSystemAccent").currentIndex, 1)
+        page.cfg_panelDonutCharts = false
+        page.cfg_panelSystemAccent = false
+        compare(findChild(page, "panelDonutCharts").currentIndex, 0)
+        compare(findChild(page, "panelSystemAccent").currentIndex, 0)
         compare(page.cfg_quotaNotifications, false)
         compare(page.cfg_quotaNotificationThreshold, 10)
         const threshold = findChild(page, "quotaNotificationThreshold")

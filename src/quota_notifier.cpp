@@ -13,7 +13,7 @@ QuotaNotifier::QuotaNotifier(QObject *parent) : QuotaAlertPolicy(parent)
                 notification->setComponentName(QStringLiteral("kodometer"));
                 notification->setTitle(title);
                 notification->setText(body);
-                notification->setIconName(QStringLiteral("view-statistics"));
+                notification->setIconName(QStringLiteral("kodometer"));
                 notification->setUrgency(KNotification::NormalUrgency);
                 notification->sendEvent();
             });

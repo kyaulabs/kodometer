@@ -110,6 +110,46 @@ class AppletConfigurationTest final : public QObject
         const QJsonObject metadata = loader.metaData().value(QStringLiteral("MetaData")).toObject();
         QCOMPARE(metadata.value(QStringLiteral("X-Plasma-API-Minimum-Version")).toString(),
                  QStringLiteral("6.4"));
+        QCOMPARE(metadata.value(QStringLiteral("KPlugin"))
+                     .toObject()
+                     .value(QStringLiteral("Icon"))
+                     .toString(),
+                 QStringLiteral("kodometer"));
+    }
+
+    void embedsBrandAssets()
+    {
+        QQmlEngine engine;
+        const QUrl root(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/"));
+        QQmlComponent component(&engine, root.resolved(QUrl(QStringLiteral("ProviderIcon.qml"))));
+        for (const QString &id :
+             {QStringLiteral("codex"), QStringLiteral("claude"), QStringLiteral("deepseek"),
+              QStringLiteral("gemini"), QStringLiteral("kimi"), QStringLiteral("openrouter"),
+              QStringLiteral("xai"), QStringLiteral("zai")}) {
+            QScopedPointer<QObject> icon(
+                component.createWithInitialProperties({{QStringLiteral("providerId"), id},
+                                                       {QStringLiteral("width"), 48},
+                                                       {QStringLiteral("height"), 48}}));
+            QVERIFY2(icon, qPrintable(component.errorString()));
+            QTRY_COMPARE(icon->property("status").toInt(), 1); // Image.Ready, from compiled QRC
+        }
+        for (const QString &name : {QStringLiteral("kodometer-symbolic.svg"),
+                                    QStringLiteral("kodometer-iris-on-dark.svg"),
+                                    QStringLiteral("kodometer-deep-iris-on-light.svg")}) {
+            const QString path =
+                QStringLiteral(":/qt/qml/plasma/applet/org/kyaulabs/kodometer/assets/") + name;
+            QVERIFY2(QFile::exists(path), qPrintable(path));
+        }
+        QQmlComponent meterComponent(&engine,
+                                     root.resolved(QUrl(QStringLiteral("CompactMeter.qml"))));
+        QScopedPointer<QObject> meter(meterComponent.createWithInitialProperties(
+            {{QStringLiteral("donutCharts"), true},
+             {QStringLiteral("sessionRemaining"), 12.8},
+             {QStringLiteral("weeklyRemaining"), 55.1}}));
+        QVERIFY2(meter, qPrintable(meterComponent.errorString()));
+        auto *session = meter->findChild<QObject *>(QStringLiteral("sessionRing"));
+        QVERIFY(session);
+        QCOMPARE(session->property("value").toDouble(), 12.8);
     }
 
     void exposesConfigurationAtResourceRoot()
@@ -124,6 +164,10 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(loader.property("autoRefresh").toBool(), true);
         QCOMPARE(loader.property("refreshIntervalMinutes").toInt(), 5);
         QCOMPARE(loader.property("showIdleWindows").toBool(), false);
+        QVERIFY(loader.findItemByName(QStringLiteral("panelDonutCharts")));
+        QVERIFY(loader.findItemByName(QStringLiteral("panelSystemAccent")));
+        QCOMPARE(loader.property("panelDonutCharts").toBool(), false);
+        QCOMPARE(loader.property("panelSystemAccent").toBool(), false);
         QCOMPARE(loader.property("quotaNotifications").toBool(), false);
         QCOMPARE(loader.property("quotaNotificationThreshold").toInt(), 10);
         QCOMPARE(loader.property("oauthProfiles").toString(), QStringLiteral("{}"));
@@ -159,12 +203,14 @@ class AppletConfigurationTest final : public QObject
         {
             KConfig config(path, KConfig::SimpleConfig);
             KConfigLoader loader(KConfigGroup(&config, "Widget"), &schema);
-            QCOMPARE(loader.items().size(), 12);
+            QCOMPARE(loader.items().size(), 14);
             const QVariantMap preferences{
                 {QStringLiteral("autoRefresh"), false},
                 {QStringLiteral("refreshIntervalMinutes"), 15},
                 {QStringLiteral("disabledProviders"), QStringList{QStringLiteral("codex")}},
                 {QStringLiteral("showIdleWindows"), true},
+                {QStringLiteral("panelDonutCharts"), true},
+                {QStringLiteral("panelSystemAccent"), true},
                 {QStringLiteral("quotaNotifications"), true},
                 {QStringLiteral("quotaNotificationThreshold"), 20},
                 {QStringLiteral("deepseekAccountId"),
@@ -195,6 +241,8 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(reloaded.property("disabledProviders").toStringList(),
                  QStringList{QStringLiteral("codex")});
         QCOMPARE(reloaded.property("showIdleWindows").toBool(), true);
+        QCOMPARE(reloaded.property("panelDonutCharts").toBool(), true);
+        QCOMPARE(reloaded.property("panelSystemAccent").toBool(), true);
         QCOMPARE(reloaded.property("quotaNotifications").toBool(), true);
         QCOMPARE(reloaded.property("quotaNotificationThreshold").toInt(), 20);
         QCOMPARE(reloaded.property("deepseekAccountId").toString(),

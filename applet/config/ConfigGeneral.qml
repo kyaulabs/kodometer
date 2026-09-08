@@ -14,8 +14,16 @@ Kirigami.ScrollablePage {
     property var cfg_disabledProviders: []
     property bool cfg_panelDonutCharts: false
     property bool cfg_panelSystemAccent: false
+    property alias cfg_panelSessionColor: sessionColor.colorValue
+    property alias cfg_panelWeeklyColor: weeklyColor.colorValue
     property alias cfg_quotaNotifications: notifications.checked
     property alias cfg_quotaNotificationThreshold: notificationThreshold.value
+
+    // Configuration resources are flattened by ECM; keep the preview on the same
+    // documented Iris colors as BrandPalette without a source-only relative import.
+    readonly property color meterAccent: cfg_panelSystemAccent ? Kirigami.Theme.highlightColor : (
+                                                                     Kirigami.Theme.backgroundColor.hslLightness
+                                                                     < 0.5 ? "#A28BE0" : "#7052B5")
 
     Kirigami.FormLayout {
         QQC2.CheckBox {
@@ -59,6 +67,22 @@ Kirigami.ScrollablePage {
             model: [qsTr("Kodometer Iris"), qsTr("Desktop accent")]
             currentIndex: root.cfg_panelSystemAccent ? 1 : 0
             onActivated: root.cfg_panelSystemAccent = currentIndex === 1
+        }
+
+        ChartColorControl {
+            id: sessionColor
+            objectName: "panelSessionColor"
+            Kirigami.FormData.label: qsTr("Session donut color:")
+            enabled: root.cfg_panelDonutCharts
+            fallbackColor: root.meterAccent
+        }
+
+        ChartColorControl {
+            id: weeklyColor
+            objectName: "panelWeeklyColor"
+            Kirigami.FormData.label: qsTr("Weekly donut color:")
+            enabled: root.cfg_panelDonutCharts
+            fallbackColor: root.meterAccent
         }
 
         QQC2.CheckBox {

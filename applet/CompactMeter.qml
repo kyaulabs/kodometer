@@ -12,6 +12,8 @@ Item {
     property bool vertical: false
     property bool systemAccent: false
     property color accentColor: palette.accentColor
+    property string sessionColor
+    property string weeklyColor
     property var providers: []
     property bool toolTipsEnabled: true
     property int toolTipLocation: PlasmaCore.Types.Floating
@@ -71,7 +73,8 @@ Item {
         y: root.vertical ? (root.height - 2 * height - root.ringSpacing) / 2 : (root.height
                                                                                 - height) / 2
         remaining: root.sessionRemaining
-        accentColor: root.accentColor
+        accentColor: /^#[0-9a-fA-F]{6}$/.test(root.sessionColor) ? root.sessionColor :
+                                                                   root.accentColor
         quotaLabel: qsTr("Session quota")
         PlasmaCore.ToolTipArea {
             objectName: "sessionToolTip"
@@ -99,7 +102,8 @@ Item {
         x: root.vertical ? session.x : session.x + width + root.ringSpacing
         y: root.vertical ? session.y + height + root.ringSpacing : session.y
         remaining: root.weeklyRemaining
-        accentColor: root.accentColor
+        accentColor: /^#[0-9a-fA-F]{6}$/.test(root.weeklyColor) ? root.weeklyColor :
+                                                                  root.accentColor
         quotaLabel: qsTr("Weekly quota")
         PlasmaCore.ToolTipArea {
             objectName: "weeklyToolTip"

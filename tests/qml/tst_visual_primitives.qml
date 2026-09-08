@@ -96,6 +96,33 @@ TestCase {
         compare(session.visible, false)
     }
 
+    function test_independentDonutColors() {
+        const meter = createTemporaryObject(compactMeterComponent, this, {
+                                                donutCharts: true
+                                            })
+        const session = findChild(meter, "sessionRing")
+        const weekly = findChild(meter, "weeklyRing")
+        compare(session.accentColor, meter.accentColor)
+        compare(weekly.accentColor, meter.accentColor)
+        meter.sessionColor = "#112233"
+        compare(session.accentColor, "#112233")
+        compare(weekly.accentColor, meter.accentColor)
+        meter.weeklyColor = "#aabbcc"
+        compare(weekly.accentColor, "#aabbcc")
+        meter.accentColor = "#778899"
+        compare(session.accentColor, "#112233")
+        compare(weekly.accentColor, "#aabbcc")
+        meter.sessionColor = ""
+        compare(session.accentColor, "#778899")
+        meter.weeklyColor = "not-a-color"
+        compare(weekly.accentColor, "#778899")
+        meter.weeklyColor = "#00000000"
+        compare(weekly.accentColor, "#778899")
+        meter.donutCharts = false
+        compare(meter.accentColor, "#778899")
+        // Custom donut colors never change bar accents.
+    }
+
     function test_donutToolTipsHaveSeparateHitAreas() {
         const meter = createTemporaryObject(compactMeterComponent, this, {
                                                 x: 100,

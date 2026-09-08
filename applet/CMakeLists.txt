@@ -20,6 +20,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         WindowRow.qml
         config/ConfigCredentials.qml
         config/ConfigGeneral.qml
+        config/ChartColorControl.qml
         config/ConfigProfiles.qml
         config/ConfigWalletAccounts.qml
         config/WalletAccountEditor.qml

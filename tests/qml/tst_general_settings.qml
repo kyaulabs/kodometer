@@ -37,7 +37,7 @@ TestCase {
         tryVerify(() => last.mapToItem(page, 0, 0).y < page.height)
         last.click()
         verify(page.cfg_disabledProviders.includes("openrouter"))
-        page.height = 1200
+        page.height = flick.contentHeight + 100
         tryVerify(() => flick.contentY <= flick.originY + 1)
     }
 
@@ -77,6 +77,32 @@ TestCase {
         compare(interval.value, 10)
         page.cfg_showIdleWindows = true
         compare(findChild(page, "showIdleWindows").checked, true)
+    }
+
+    function test_independentColorsFollowStagedSettings() {
+        const page = createTemporaryObject(settingsComponent, this)
+        compare(page.cfg_panelSessionColor, "")
+        compare(page.cfg_panelWeeklyColor, "")
+        const session = findChild(page, "panelSessionColor")
+        const weekly = findChild(page, "panelWeeklyColor")
+        verify(session)
+        verify(weekly)
+        compare(session.enabled, false)
+        page.cfg_panelDonutCharts = true
+        compare(session.enabled, true)
+        compare(weekly.enabled, true)
+        session.colorValue = "#112233"
+        weekly.colorValue = "#aabbcc"
+        compare(page.cfg_panelSessionColor, "#112233")
+        compare(page.cfg_panelWeeklyColor, "#aabbcc")
+        // Plasma Cancel reloads persisted values; Defaults restores empty/inherited colors.
+        page.cfg_panelSessionColor = "#445566"
+        compare(session.colorValue, "#445566")
+        compare(weekly.colorValue, "#aabbcc")
+        page.cfg_panelSessionColor = ""
+        page.cfg_panelWeeklyColor = ""
+        compare(session.colorValue, "")
+        compare(weekly.colorValue, "")
     }
 
     function test_providerSwitchesAndReset() {

@@ -30,9 +30,17 @@ TestCase {
         compare(scrollBar.policy, ScrollBar.AlwaysOn)
         verify(scrollBar.size < 1)
         tryCompare(scrollBar, "opacity", 1)
+        tryCompare(scrollBar, "visible", true)
+        verify(scrollBar.width > 0)
+        const barPosition = scrollBar.mapToItem(page, 0, 0)
+        verify(barPosition.x >= 0 && barPosition.x + scrollBar.width <= page.width)
+        verify(barPosition.y >= 0 && barPosition.y + scrollBar.height <= page.height)
         verify(flick.contentY <= flick.originY + 1, "Page must start at the top")
         const first = findChild(page, "refreshInterval")
         verify(first.mapToItem(page, 0, 0).y >= 0)
+        mouseDrag(scrollBar, scrollBar.width / 2, scrollBar.height * scrollBar.size / 2, 0,
+                  scrollBar.height * (1 - scrollBar.size))
+        tryVerify(() => flick.contentY > flick.originY)
         flick.contentY = flick.contentHeight - flick.height + flick.originY
         const last = findChild(page, "provider-openrouter")
         tryVerify(() => last.mapToItem(page, 0, 0).y < page.height)

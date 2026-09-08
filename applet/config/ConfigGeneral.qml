@@ -10,6 +10,12 @@ Kirigami.ScrollablePage {
     verticalScrollBarPolicy: flickable.contentHeight > flickable.height ? QQC2.ScrollBar.AlwaysOn :
                                                                           QQC2.ScrollBar.AlwaysOff
 
+    Binding {
+        target: root.contentItem.QQC2.ScrollBar.vertical
+        property: "visible"
+        value: root.verticalScrollBarPolicy === QQC2.ScrollBar.AlwaysOn
+    }
+
     property alias cfg_autoRefresh: automatic.checked
     property alias cfg_refreshIntervalMinutes: refreshInterval.value
     property alias cfg_showIdleWindows: idleWindows.checked

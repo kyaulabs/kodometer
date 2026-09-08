@@ -168,6 +168,8 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(loader.findItemByName(QStringLiteral("panelSystemAccent")));
         QCOMPARE(loader.property("panelDonutCharts").toBool(), false);
         QCOMPARE(loader.property("panelSystemAccent").toBool(), false);
+        QVERIFY(loader.property("panelSessionColor").toString().isEmpty());
+        QVERIFY(loader.property("panelWeeklyColor").toString().isEmpty());
         QCOMPARE(loader.property("quotaNotifications").toBool(), false);
         QCOMPARE(loader.property("quotaNotificationThreshold").toInt(), 10);
         QCOMPARE(loader.property("oauthProfiles").toString(), QStringLiteral("{}"));
@@ -195,6 +197,23 @@ class AppletConfigurationTest final : public QObject
         }
     }
 
+    void loadsCompiledGeneralAndColorControls()
+    {
+        QQmlEngine engine;
+        QQmlComponent component(
+            &engine, QUrl(QStringLiteral(
+                         "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ConfigGeneral.qml")));
+        QScopedPointer<QObject> page(component.create());
+        QVERIFY2(page, qPrintable(component.errorString()));
+        QVERIFY(page->property("flickable").value<QObject *>());
+        QVERIFY(page->setProperty("cfg_panelDonutCharts", true));
+        QVERIFY(page->setProperty("cfg_panelSessionColor", QStringLiteral("#112233")));
+        auto *session = findVisualItem(qobject_cast<QQuickItem *>(page.data()),
+                                       QStringLiteral("panelSessionColor"));
+        QVERIFY(session);
+        QCOMPARE(session->property("colorValue").toString(), QStringLiteral("#112233"));
+    }
+
     void persistsOnlyNonsecretPreferences()
     {
         QTemporaryDir temporary;
@@ -203,7 +222,7 @@ class AppletConfigurationTest final : public QObject
         {
             KConfig config(path, KConfig::SimpleConfig);
             KConfigLoader loader(KConfigGroup(&config, "Widget"), &schema);
-            QCOMPARE(loader.items().size(), 14);
+            QCOMPARE(loader.items().size(), 16);
             const QVariantMap preferences{
                 {QStringLiteral("autoRefresh"), false},
                 {QStringLiteral("refreshIntervalMinutes"), 15},
@@ -211,6 +230,8 @@ class AppletConfigurationTest final : public QObject
                 {QStringLiteral("showIdleWindows"), true},
                 {QStringLiteral("panelDonutCharts"), true},
                 {QStringLiteral("panelSystemAccent"), true},
+                {QStringLiteral("panelSessionColor"), QStringLiteral("#112233")},
+                {QStringLiteral("panelWeeklyColor"), QStringLiteral("#aabbcc")},
                 {QStringLiteral("quotaNotifications"), true},
                 {QStringLiteral("quotaNotificationThreshold"), 20},
                 {QStringLiteral("deepseekAccountId"),
@@ -243,6 +264,8 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(reloaded.property("showIdleWindows").toBool(), true);
         QCOMPARE(reloaded.property("panelDonutCharts").toBool(), true);
         QCOMPARE(reloaded.property("panelSystemAccent").toBool(), true);
+        QCOMPARE(reloaded.property("panelSessionColor").toString(), QStringLiteral("#112233"));
+        QCOMPARE(reloaded.property("panelWeeklyColor").toString(), QStringLiteral("#aabbcc"));
         QCOMPARE(reloaded.property("quotaNotifications").toBool(), true);
         QCOMPARE(reloaded.property("quotaNotificationThreshold").toInt(), 20);
         QCOMPARE(reloaded.property("deepseekAccountId").toString(),

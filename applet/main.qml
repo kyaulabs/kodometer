@@ -16,6 +16,16 @@ PlasmoidItem {
     Plasmoid.icon: "kodometer"
     Plasmoid.status: backend.busy ? PlasmaCore.Types.ActiveStatus : PlasmaCore.Types.PassiveStatus
 
+    toolTipMainText: panelToolTip.mainText
+    toolTipSubText: panelToolTip.subText
+    toolTipTextFormat: Text.PlainText
+
+    PanelToolTip {
+        id: panelToolTip
+        providers: backend.providers
+        donutCharts: Plasmoid.configuration.panelDonutCharts
+    }
+
     property int clockTick: 0
 
     function remainingFor(kind) {
@@ -106,17 +116,18 @@ PlasmoidItem {
             donutCharts: compactView.donuts
             vertical: compactView.vertical
             systemAccent: Plasmoid.configuration.panelSystemAccent
+            sessionColor: Plasmoid.configuration.panelSessionColor
+            weeklyColor: Plasmoid.configuration.panelWeeklyColor
+            providers: backend.providers
+            toolTipsEnabled: !root.expanded
+            toolTipLocation: Plasmoid.location
             sessionRemaining: root.remainingFor("session")
             weeklyRemaining: root.remainingFor("weekly")
         }
 
-        QQC2.ToolTip.visible: compactMouse.containsMouse || activeFocus
-        QQC2.ToolTip.text: qsTr("Kodometer usage\n%1").arg(compactMeter.quotaDescription)
-
         MouseArea {
             id: compactMouse
             anchors.fill: parent
-            hoverEnabled: true
             onClicked: root.expanded = !root.expanded
         }
     }

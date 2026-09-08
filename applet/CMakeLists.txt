@@ -6,6 +6,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         UsageNavigation.qml
         BrandPalette.qml
         CompactMeter.qml
+        PanelToolTip.qml
         QuotaRing.qml
         ProviderIcon.qml
         CostHistory.qml
@@ -19,6 +20,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         WindowRow.qml
         config/ConfigCredentials.qml
         config/ConfigGeneral.qml
+        config/ChartColorControl.qml
         config/ConfigProfiles.qml
         config/ConfigWalletAccounts.qml
         config/WalletAccountEditor.qml

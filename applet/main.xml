@@ -30,6 +30,14 @@
             <label>Use the desktop accent instead of Kodometer Iris for panel meters</label>
             <default>false</default>
         </entry>
+        <entry name="panelSessionColor" type="String">
+            <label>Session donut RGB color; empty uses the meter accent</label>
+            <default></default>
+        </entry>
+        <entry name="panelWeeklyColor" type="String">
+            <label>Weekly donut RGB color; empty uses the meter accent</label>
+            <default></default>
+        </entry>
         <entry name="quotaNotifications" type="Bool">
             <label>Notify when quota is low</label>
             <default>false</default>

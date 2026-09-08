@@ -1,6 +1,6 @@
 {
   "name": "kodometer-tooling",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Development tooling for Kodometer",
   "license": "AGPL-3.0-only",

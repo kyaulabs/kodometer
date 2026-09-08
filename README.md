@@ -14,7 +14,7 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 
 ## Status
 
-Kodometer targets KDE Plasma 6.4 and newer. Version 0.3.0 adds Soft Iris branding, provider artwork, and optional panel donut meters. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
+Kodometer targets KDE Plasma 6.4 and newer. Version 0.3.1 repairs General settings scrolling and panel tooltips, and adds independent Session/Weekly donut colors. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
 
 - a compiled Plasma 6 applet for Wayland and X11;
 - native Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
@@ -211,14 +211,15 @@ To uninstall a manual build, review its install manifest and remove only the lis
 
 ## Widget settings
 
-Open **Configure Kodometer… → General** to choose which providers run and how often they refresh.
+Open **Configure Kodometer… → General** to choose which providers run and how often they refresh. The page scrolls when the window is too short to show all controls.
 
 - **Refresh automatically** is on by default. Kodometer waits five minutes after each completed cycle, including failed cycles, before starting another. Choose an interval from 1 to 1440 minutes. Polling continues while the popup is closed, but requests never overlap.
 - Turn automatic refresh off for startup and manual refresh only. Credential changes and provider switches still trigger a refresh; changes during an active cycle queue one follow-up cycle.
 - Uncheck a provider to hide its data and errors and skip it on future refreshes. Requests already in progress may finish. KWallet entries and last-good data are retained so the provider can be re-enabled. Disabling all providers stops polling.
 - **Show idle quota windows** is off by default. Enable it to include windows marked idle in the overview, provider details, and account summaries.
-- **Panel meters** offers **Bars** (default) or **Donut charts**. Both show the most constrained session and weekly remaining quotas across providers, in that order. Rings sit side by side on horizontal panels and stack on vertical panels. Percentages appear inside when space permits; hover for named quota values. Missing quota is **Not reported**, not zero. Popup quota rows remain bars.
+- **Panel meters** offers **Bars** (default) or **Donut charts**. Both show the most constrained session and weekly remaining quotas across providers, in that order. Rings sit side by side on horizontal panels and stack on vertical panels. Percentages appear inside when space permits. Each donut has its own native Plasma tooltip listing the matching session or weekly quotas by provider. Bar mode uses one tooltip with provider balances or remaining quotas, preferring weekly over session windows. Missing quota is **Not reported**, not zero. Popup quota rows remain bars.
 - **Meter accent** defaults to **Kodometer Iris**, using Iris on dark surfaces and Deep Iris on light surfaces. Choose **Desktop accent** to follow your Plasma highlight color. Other controls and surfaces keep your desktop theme. See [artwork integration](branding/README.md).
+- In donut mode, **Session donut color** and **Weekly donut color** each have a color picker. **Use meter accent** clears that donut's override. Custom colors are saved per widget through Apply and do not change bar colors; Cancel restores saved choices and Defaults restores inherited accents.
 
 These preferences use Plasma's per-widget configuration and its Apply, Cancel, and Defaults controls. The separate **Credentials** page writes directly to KWallet when you press Save, Replace, or Remove; Cancel does not undo wallet changes. OAuth credentials and API keys are never stored in the general settings file.
 
@@ -333,7 +334,7 @@ Development follows Git Flow and Conventional Commits.
 5. The workflow opens or reuses a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret. Published assets are never replaced on retry.
 6. When explicitly enabled and configured, a separate job updates AUR recipes with a GPG-signed commit after GitHub publication. A failed AUR update can be retried without replacing GitHub assets.
 
-See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.3.0 overview](docs/releases/0.3.0.md) for the latest features, packages, and compatibility limits.
+See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.3.1 overview](docs/releases/0.3.1.md) for the latest features, packages, and compatibility limits.
 
 ## Security and privacy
 

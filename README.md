@@ -1,5 +1,10 @@
 # Kodometer
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="branding/kodometer-brand-pack/logos/kodometer-iris-on-dark.svg">
+  <img alt="Kodometer" src="branding/kodometer-brand-pack/logos/kodometer-deep-iris-on-light.svg" width="360">
+</picture>
+
 [![Conventional Commits](https://img.shields.io/badge/conventional%20commits-1.0.0-fe5196?logo=conventionalcommits)](https://www.conventionalcommits.org/en/v1.0.0/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
@@ -22,6 +27,7 @@ Kodometer targets KDE Plasma 6.4 and newer. Version 0.2.0 adds native x64 packag
 - z.ai and BigModel CN Coding Plan, MCP, model-token, and account-balance data;
 - OpenRouter credit balance, API-key spending cap, and optional 30-day activity totals;
 - 7-day and 30-day daily spend charts for xAI and OpenRouter;
+- Soft Iris branding, native provider icons, and optional panel donut meters;
 - provider tabs, an overview, reset countdowns, and account and plan labels;
 - official dashboard and documentation links from provider details;
 - per-widget automatic refresh, provider switches, and idle-window preferences;
@@ -197,7 +203,7 @@ tar -tzf kodometer-X.Y.Z-linux-x86_64.tar.gz
 sudo tar -xzf kodometer-X.Y.Z-linux-x86_64.tar.gz -C /
 ```
 
-The payload is the compiled plugin, `kodometer.notifyrc`, LICENSE, and README. A checksum detects corruption; it is not an independent publisher signature. Do not install an archive from an untrusted source.
+The payload is the compiled plugin, the Kodometer application icon, `kodometer.notifyrc`, LICENSE, and README. A checksum detects corruption; it is not an independent publisher signature. Do not install an archive from an untrusted source.
 
 For upgrades, build or download first, then log out before replacing a plugin already loaded by Plasma. Install from a TTY or SSH session and log back in. Use the same installation method and prefix; do not overwrite a distribution-managed package with a manual install. Widget preferences, OAuth files, and KWallet entries are not installation payloads and need no migration for this update.
 
@@ -211,6 +217,8 @@ Open **Configure Kodometer… → General** to choose which providers run and ho
 - Turn automatic refresh off for startup and manual refresh only. Credential changes and provider switches still trigger a refresh; changes during an active cycle queue one follow-up cycle.
 - Uncheck a provider to hide its data and errors and skip it on future refreshes. Requests already in progress may finish. KWallet entries and last-good data are retained so the provider can be re-enabled. Disabling all providers stops polling.
 - **Show idle quota windows** is off by default. Enable it to include windows marked idle in the overview, provider details, and account summaries.
+- **Panel meters** offers **Bars** (default) or **Donut charts**. Both show the most constrained session and weekly remaining quotas across providers, in that order. Rings sit side by side on horizontal panels and stack on vertical panels. Percentages appear inside when space permits; hover for named quota values. Missing quota is **Not reported**, not zero. Popup quota rows remain bars.
+- **Meter accent** defaults to **Kodometer Iris**, using Iris on dark surfaces and Deep Iris on light surfaces. Choose **Desktop accent** to follow your Plasma highlight color. Other controls and surfaces keep your desktop theme. See [artwork integration](branding/README.md).
 
 These preferences use Plasma's per-widget configuration and its Apply, Cancel, and Defaults controls. The separate **Credentials** page writes directly to KWallet when you press Save, Replace, or Remove; Cancel does not undo wallet changes. OAuth credentials and API keys are never stored in the general settings file.
 

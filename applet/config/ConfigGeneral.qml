@@ -11,6 +11,8 @@ Kirigami.FormLayout {
     property alias cfg_refreshIntervalMinutes: refreshInterval.value
     property alias cfg_showIdleWindows: idleWindows.checked
     property var cfg_disabledProviders: []
+    property bool cfg_panelDonutCharts: false
+    property bool cfg_panelSystemAccent: false
     property alias cfg_quotaNotifications: notifications.checked
     property alias cfg_quotaNotificationThreshold: notificationThreshold.value
 
@@ -37,6 +39,24 @@ Kirigami.FormLayout {
         objectName: "showIdleWindows"
         Kirigami.FormData.label: qsTr("Display:")
         text: qsTr("Show idle quota windows")
+    }
+
+    QQC2.ComboBox {
+        id: chartStyle
+        objectName: "panelDonutCharts"
+        Kirigami.FormData.label: qsTr("Panel meters:")
+        model: [qsTr("Bars"), qsTr("Donut charts")]
+        currentIndex: root.cfg_panelDonutCharts ? 1 : 0
+        onActivated: root.cfg_panelDonutCharts = currentIndex === 1
+    }
+
+    QQC2.ComboBox {
+        id: meterAccent
+        objectName: "panelSystemAccent"
+        Kirigami.FormData.label: qsTr("Meter accent:")
+        model: [qsTr("Kodometer Iris"), qsTr("Desktop accent")]
+        currentIndex: root.cfg_panelSystemAccent ? 1 : 0
+        onActivated: root.cfg_panelSystemAccent = currentIndex === 1
     }
 
     QQC2.CheckBox {

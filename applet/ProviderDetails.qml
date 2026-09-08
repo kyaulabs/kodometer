@@ -58,6 +58,12 @@ Flickable {
         RowLayout {
             Layout.fillWidth: true
 
+            ProviderIcon {
+                Layout.preferredWidth: Kirigami.Units.iconSizes.medium
+                Layout.preferredHeight: Layout.preferredWidth
+                providerId: String(root.provider.id || "")
+            }
+
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 0
@@ -65,6 +71,7 @@ Flickable {
                 QQC2.Label {
                     Layout.fillWidth: true
                     text: root.provider.name || root.provider.id
+                    textFormat: Text.PlainText
                     font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.35
                     font.bold: true
                     elide: Text.ElideRight

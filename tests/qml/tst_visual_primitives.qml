@@ -5,6 +5,9 @@ import "../../applet" as Applet
 TestCase {
     name: "VisualPrimitives"
     when: windowShown
+    visible: true
+    width: 640
+    height: 480
 
     Component {
         id: usageBarComponent
@@ -54,6 +57,43 @@ TestCase {
         meter.weeklyRemaining = 40
         compare(meter.sessionFillWidth, 15)
         compare(meter.weeklyFillWidth, 8)
+    }
+
+    function test_compactDonutsAndInvalidQuota() {
+        const meter = createTemporaryObject(compactMeterComponent, this, {
+                                                width: 120,
+                                                height: 56
+                                            })
+        compare(meter.donutCharts, false)
+        meter.donutCharts = true
+        meter.sessionRemaining = 12.8
+        meter.weeklyRemaining = 55.1
+        const session = findChild(meter, "sessionRing")
+        const weekly = findChild(meter, "weeklyRing")
+        verify(session)
+        verify(weekly)
+        compare(session.visible, true)
+        compare(session.value, 12.8)
+        compare(weekly.value, 55.1)
+        compare(session.valueText, "12.8%")
+        compare(session.width, session.height)
+        verify(weekly.x > session.x)
+        meter.vertical = true
+        meter.width = 56
+        meter.height = 120
+        verify(weekly.y > session.y)
+        compare(session.width, session.height)
+        meter.sessionRemaining = -10
+        compare(session.value, 0)
+        meter.sessionRemaining = 120
+        compare(session.value, 100)
+        meter.sessionRemaining = NaN
+        compare(session.valueText, "—")
+        compare(meter.sessionFillWidth, 0)
+        meter.weeklyRemaining = Infinity
+        compare(weekly.valueText, "—")
+        meter.donutCharts = false
+        compare(session.visible, false)
     }
 
     function test_providerTabsExposeOverviewAndProviders() {

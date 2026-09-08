@@ -1,0 +1,51 @@
+"""Verify supplied artwork provenance and lossless square provider canvases."""
+import hashlib
+import json
+from pathlib import Path
+import unittest
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parents[1]
+PACK = ROOT / "branding/kodometer-brand-pack"
+
+
+class BrandingTests(unittest.TestCase):
+    def test_original_pack_checksums(self):
+        manifest = json.loads((PACK / "checksums.json").read_text())
+        files = {str(p.relative_to(PACK)) for p in PACK.rglob("*") if p.is_file()}
+        self.assertEqual(files, set(manifest) | {"checksums.json"})
+        for name, expected in manifest.items():
+            with self.subTest(name=name):
+                self.assertEqual(hashlib.sha256((PACK / name).read_bytes()).hexdigest(), expected)
+
+    def test_runtime_brand_masters_are_unchanged(self):
+        for category, name in [("plasma", "kodometer-symbolic.svg"),
+                               ("logos", "kodometer-iris-on-dark.svg"),
+                               ("logos", "kodometer-deep-iris-on-light.svg")]:
+            self.assertEqual((ROOT / "applet/assets" / name).read_bytes(),
+                             (PACK / category / name).read_bytes())
+
+    def test_provider_canvases_are_centered_without_changing_artwork(self):
+        originals = ROOT / "branding/provider-icons"
+        runtime = ROOT / "applet/assets/providers"
+        self.assertEqual({p.stem for p in runtime.glob("*.svg")},
+                         {"codex", "claude", "deepseek", "gemini", "kimi", "openrouter", "xai", "zai"})
+        for source in originals.glob("*.svg"):
+            with self.subTest(name=source.name):
+                original = ET.parse(source).getroot()
+                name = "codex.svg" if source.name == "openai.svg" else source.name
+                normalized = ET.parse(runtime / name).getroot()
+                x, y, w, h = map(float, original.attrib["viewBox"].split())
+                nx, ny, nw, nh = map(float, normalized.attrib["viewBox"].split())
+                self.assertEqual(nw, max(w, h))
+                self.assertEqual(nw, nh)
+                self.assertAlmostEqual(nx + nw / 2, x + w / 2)
+                self.assertAlmostEqual(ny + nh / 2, y + h / 2)
+                self.assertEqual(float(normalized.attrib["width"]), nw)
+                self.assertEqual(float(normalized.attrib["height"]), nh)
+                self.assertEqual([ET.tostring(e) for e in original],
+                                 [ET.tostring(e) for e in normalized])
+
+
+if __name__ == "__main__":
+    unittest.main()

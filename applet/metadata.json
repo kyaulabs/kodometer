@@ -10,7 +10,7 @@
     "BugReportUrl": "https://github.com/kyaulabs/kodometer/issues",
     "Category": "System Information",
     "Description": "AI coding provider limits in the Plasma panel",
-    "Icon": "view-statistics-symbolic",
+    "Icon": "kodometer",
     "Id": "org.kyaulabs.kodometer",
     "License": "AGPL-3.0-only",
     "Name": "Kodometer",

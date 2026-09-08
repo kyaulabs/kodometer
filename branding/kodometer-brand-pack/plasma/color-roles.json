@@ -1,0 +1,11 @@
+{
+  "name": "Kodometer Soft Iris",
+  "scope": "Plasma 6 widget identity; not a global desktop color scheme",
+  "brand": { "iris": "#A28BE0", "irisOnLight": "#7052B5", "irisHighlight": "#C2B0E8" },
+  "inheritFromDesktop": ["background", "alternate background", "text", "secondary text", "disabled text", "selection", "focus", "button", "link", "positive", "neutral", "negative"],
+  "symbolicIcon": "kodometer-symbolic.svg",
+  "meterAccentDefault": "desktop highlight",
+  "optionalBrandedMeter": { "lightSurface": "#7052B5", "darkSurface": "#A28BE0", "requirement": "Check against actual inherited surface; custom themes and translucency need runtime validation." },
+  "providerAccents": "Preserve provider-specific identities",
+  "typography": "Inherit desktop font; custom letterforms are logo-only"
+}

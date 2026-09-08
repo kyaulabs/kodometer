@@ -1,0 +1,4 @@
+# Preserve the supplied archive bytes: its checksum manifest covers CRLF files too.
+branding/kodometer-brand-pack/** -text whitespace=cr-at-eol
+branding/kodometer-brand-pack/**/*.pdf binary
+branding/provider-icons/** -text

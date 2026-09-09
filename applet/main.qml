@@ -32,6 +32,7 @@ PlasmoidItem {
         showSpark: Plasmoid.configuration.showCodexSpark
         showIdleWindows: Plasmoid.configuration.showIdleWindows
         hiddenWindows: Plasmoid.configuration.hiddenQuotaWindows
+        providerColors: Plasmoid.configuration.providerColors
         onCatalogChanged: {
             const encoded = JSON.stringify(catalog)
             if (catalog.length > 0 && Plasmoid.configuration.quotaWindowCatalog !== encoded) {
@@ -141,6 +142,8 @@ PlasmoidItem {
     }
 
     fullRepresentation: UsagePopup {
+        availableHeight: root.availableScreenRect.height > 0 ? root.availableScreenRect.height :
+                                                               Screen.height
         navigation: usageNavigation
         switching: accountSwitching
         quotaHistory: backend.history

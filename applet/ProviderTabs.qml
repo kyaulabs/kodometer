@@ -23,6 +23,8 @@ Item {
             result.push({
                             id: provider.id,
                             name: provider.name || provider.id,
+                            accent: provider.display && provider.display.accentColor
+                                    ? provider.display.accentColor : Kirigami.Theme.highlightColor,
                             overview: false
                         })
         }
@@ -68,6 +70,18 @@ Item {
             height: tabList.height
             checked: index === root.selectedIndex
             onClicked: root.activateTab(index)
+
+            Rectangle {
+                objectName: "provider-tab-accent-" + button.index
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: 1
+                height: Kirigami.Units.smallSpacing
+                radius: height / 2
+                visible: !button.modelData.overview
+                color: button.modelData.accent || Kirigami.Theme.highlightColor
+            }
 
             contentItem: Item {
                 Column {

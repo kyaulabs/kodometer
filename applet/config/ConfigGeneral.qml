@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls as QQC2
+import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
 Kirigami.ScrollablePage {
@@ -39,6 +40,41 @@ Kirigami.ScrollablePage {
         }
     }
     property var cfg_disabledProviders: []
+    property string cfg_providerColors: "{}"
+    readonly property var providerColors: {
+        try {
+            const colors = JSON.parse(cfg_providerColors)
+            const result = {}
+            if (colors && typeof colors === "object" && !Array.isArray(colors)) {
+                for (const id of Object.keys(defaultColors)) {
+                    if (typeof colors[id] === "string" && /^#[0-9a-fA-F]{6}$/.test(colors[id]))
+                        result[id] = colors[id]
+                }
+            }
+            return result
+        } catch (error) {
+            return ({})
+        }
+    }
+    readonly property var defaultColors: ({
+                                              codex: "#49A3B0",
+                                              claude: "#D97757",
+                                              gemini: "#4285F4",
+                                              xai: "#8E8E93",
+                                              kimi: "#FE603C",
+                                              deepseek: "#4D6BFE",
+                                              zai: "#E85A6A",
+                                              openrouter: "#6467F2"
+                                          })
+
+    function setProviderColor(id, value) {
+        const colors = Object.assign({}, providerColors)
+        if (/^#[0-9a-fA-F]{6}$/.test(value))
+            colors[id] = value
+        else
+            delete colors[id]
+        cfg_providerColors = JSON.stringify(colors)
+    }
     property bool cfg_panelDonutCharts: false
     property bool cfg_panelSystemAccent: false
     property alias cfg_panelSessionColor: sessionColor.colorValue
@@ -211,20 +247,39 @@ Kirigami.ScrollablePage {
                 }
             ]
 
-            delegate: QQC2.CheckBox {
-                id: providerSwitch
+            delegate: ColumnLayout {
+                id: providerSettings
                 required property var modelData
                 required property int index
-                objectName: "provider-" + modelData.id
-                Kirigami.FormData.label: index === 0 ? qsTr("Enabled providers:") : ""
-                text: modelData.name
-                checked: !root.cfg_disabledProviders.includes(modelData.id)
-                onClicked: {
-                    const disabled = root.cfg_disabledProviders.filter(id => id !== modelData.id)
-                    if (!checked) {
-                        disabled.push(modelData.id)
+                Kirigami.FormData.label: index === 0 ? qsTr("Providers:") : ""
+
+                QQC2.CheckBox {
+                    objectName: "provider-" + providerSettings.modelData.id
+                    text: providerSettings.modelData.name
+                    checked: !root.cfg_disabledProviders.includes(providerSettings.modelData.id)
+                    onClicked: {
+                        const disabled = root.cfg_disabledProviders.filter(id => id
+                                                                                 !== providerSettings.modelData.id)
+                        if (!checked)
+                            disabled.push(providerSettings.modelData.id)
+                        root.cfg_disabledProviders = disabled
                     }
-                    root.cfg_disabledProviders = disabled
+                }
+                ChartColorControl {
+                    id: providerColor
+                    objectName: "provider-color-" + providerSettings.modelData.id
+                    fallbackColor: root.defaultColors[providerSettings.modelData.id]
+                    resetText: qsTr("Use default color")
+                    onColorValueChanged: {
+                        const saved = root.providerColors[providerSettings.modelData.id] || ""
+                        if (colorValue !== saved)
+                            root.setProviderColor(providerSettings.modelData.id, colorValue)
+                    }
+                    Binding {
+                        target: providerColor
+                        property: "colorValue"
+                        value: root.providerColors[providerSettings.modelData.id] || ""
+                    }
                 }
             }
         }

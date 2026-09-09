@@ -41,6 +41,21 @@ Item {
                     "No quota reported")
     }
 
+    function barColor(kind) {
+        let selected = null
+        let remaining = Infinity
+        for (const provider of quotaPresentation.quotaProviders) {
+            for (const windowData of provider.windows) {
+                if (windowData.kind === kind && windowData.remainingPercent < remaining) {
+                    selected = provider
+                    remaining = windowData.remainingPercent
+                }
+            }
+        }
+        return selected && selected.display && selected.display.accentColor
+                ? selected.display.accentColor : accentColor
+    }
+
     function remainingText(value) {
         return Number.isFinite(value) ? qsTr("%1% remaining").arg(normalized(value).toFixed(1)) :
                                         qsTr("Not reported")
@@ -74,18 +89,20 @@ Item {
             model: [root.sessionFillWidth, root.weeklyFillWidth]
             Item {
                 required property real modelData
+                required property int index
+                readonly property color barAccent: root.barColor(index === 0 ? "session" : "weekly")
                 width: root.width
                 height: Math.max(0, (root.height - 2) / 2)
                 Rectangle {
                     anchors.fill: parent
                     radius: height / 2
-                    color: Qt.alpha(root.accentColor, 0.22)
+                    color: Qt.alpha(parent.barAccent, 0.22)
                 }
                 Rectangle {
                     width: parent.modelData
                     height: parent.height
                     radius: height / 2
-                    color: root.accentColor
+                    color: parent.barAccent
                 }
             }
         }

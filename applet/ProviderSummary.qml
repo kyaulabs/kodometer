@@ -33,7 +33,9 @@ QQC2.ItemDelegate {
         return windowLimit > 0 ? allWindows.slice(0, windowLimit) : allWindows
     }
 
-    implicitHeight: content.implicitHeight + Kirigami.Units.largeSpacing
+    padding: Kirigami.Units.largeSpacing
+    implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
+                             content.implicitHeight + topPadding + bottomPadding)
 
     contentItem: RowLayout {
         id: content

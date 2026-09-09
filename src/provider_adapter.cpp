@@ -16,12 +16,14 @@ QByteArray ProviderAdapter::defaultCredentialContext() const
 }
 
 QByteArray ProviderAdapter::credentialContext(const QMap<QString, QString> &environment,
-                                              const QStringList &keys) const
+                                              std::initializer_list<QStringView> keys) const
 {
     const auto effective = environmentWithCredentialOverrides(environment);
     QJsonObject selected;
-    for (const QString &key : keys)
+    for (const QStringView keyView : keys) {
+        const QString key = keyView.toString();
         selected.insert(key, effective.value(key));
+    }
     const QJsonDocument document(selected);
     const QByteArray bytes = document.toJson(QJsonDocument::Compact);
     return QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);

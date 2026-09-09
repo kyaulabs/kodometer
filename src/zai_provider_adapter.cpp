@@ -76,14 +76,11 @@ QVariantMap ZaiProviderAdapter::provider() const
 
 QByteArray ZaiProviderAdapter::defaultCredentialContext() const
 {
-    const QStringList keys{
-        QStringLiteral("Z_AI_API_KEY"),          QStringLiteral("BIGMODEL_API_KEY"),
-        QStringLiteral("ZHIPU_API_KEY"),         QStringLiteral("ZHIPUAI_API_KEY"),
-        QStringLiteral("GLM_API_KEY"),           QStringLiteral("Z_AI_REGION"),
-        QStringLiteral("Z_AI_USAGE_SCOPE"),      QStringLiteral("Z_AI_BIGMODEL_ORGANIZATION"),
-        QStringLiteral("Z_AI_BIGMODEL_PROJECT"), QStringLiteral("Z_AI_ORGANIZATION"),
-        QStringLiteral("Z_AI_PROJECT")};
-    return credentialContext(m_environment, keys);
+    return credentialContext(m_environment,
+                             {u"Z_AI_API_KEY", u"BIGMODEL_API_KEY", u"ZHIPU_API_KEY",
+                              u"ZHIPUAI_API_KEY", u"GLM_API_KEY", u"Z_AI_REGION",
+                              u"Z_AI_USAGE_SCOPE", u"Z_AI_BIGMODEL_ORGANIZATION",
+                              u"Z_AI_BIGMODEL_PROJECT", u"Z_AI_ORGANIZATION", u"Z_AI_PROJECT"});
 }
 
 void ZaiProviderAdapter::setEnvironment(const QMap<QString, QString> &environment)

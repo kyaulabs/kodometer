@@ -89,8 +89,7 @@ void XaiProviderAdapter::setBaseEndpoint(const QUrl &endpoint)
 
 QByteArray XaiProviderAdapter::defaultCredentialContext() const
 {
-    const QStringList keys{QStringLiteral("XAI_MANAGEMENT_API_KEY"), QStringLiteral("XAI_TEAM_ID")};
-    return credentialContext(m_environment, keys);
+    return credentialContext(m_environment, {u"XAI_MANAGEMENT_API_KEY", u"XAI_TEAM_ID"});
 }
 
 void XaiProviderAdapter::setEnvironment(const QMap<QString, QString> &environment)

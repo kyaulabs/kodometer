@@ -3,7 +3,9 @@
 #include <QMap>
 #include <QObject>
 #include <QString>
+#include <QStringView>
 #include <QVariantMap>
+#include <initializer_list>
 #include <optional>
 
 namespace Kodometer {
@@ -37,7 +39,7 @@ class ProviderAdapter : public QObject
     // provider-owned OAuth rotation may link the previous and new identities.
     void setHistoryIdentity(const QByteArray &identity, bool rotation = false);
     [[nodiscard]] QByteArray credentialContext(const QMap<QString, QString> &environment,
-                                               const QStringList &keys) const;
+                                               std::initializer_list<QStringView> keys) const;
     [[nodiscard]] std::optional<QString> selectedAccountCredential() const;
     [[nodiscard]] QString selectedAccountManagementCredential() const;
     [[nodiscard]] QString selectedAccountTeamId() const;

@@ -111,8 +111,7 @@ void KimiProviderAdapter::setBaseEndpoint(const QUrl &endpoint)
 
 QByteArray KimiProviderAdapter::defaultCredentialContext() const
 {
-    const QStringList keys{QStringLiteral("KIMI_CODE_API_KEY")};
-    return credentialContext(m_environment, keys);
+    return credentialContext(m_environment, {u"KIMI_CODE_API_KEY"});
 }
 
 void KimiProviderAdapter::setEnvironment(const QMap<QString, QString> &environment)

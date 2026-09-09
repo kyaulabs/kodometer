@@ -6,15 +6,16 @@ import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import plasma.applet.org.kyaulabs.kodometer as Private
 
-Flickable {
+PaginatedPage {
     id: root
 
     required property var provider
+    readonly property string providerId: String(provider.id || "")
+    onProviderIdChanged: currentPage = 0
     property int clockTick: 0
     property bool showIdleWindows: false
     property bool fillRemaining: true
     property var quotaHistory: null
-    signal clearHistoryRequested
     readonly property var historySeries: {
         if (!quotaHistory)
             return []
@@ -51,17 +52,12 @@ Flickable {
                                     || cost.last30DaysUSD !== undefined || cost.usedUSD
                                     !== undefined
 
-    contentWidth: width
-    contentHeight: details.implicitHeight + Kirigami.Units.largeSpacing
-    clip: true
-    boundsBehavior: Flickable.StopAtBounds
-
-    ColumnLayout {
+    contentItem: ColumnLayout {
         id: details
         objectName: "pageContent"
 
-        width: Math.max(0, root.width - pageScrollBar.width - Kirigami.Units.smallSpacing)
-        x: pageScrollBar.mirrored ? root.width - width : 0
+        parent: root.contentHost
+        width: root.width
         spacing: Kirigami.Units.largeSpacing
 
         RowLayout {
@@ -112,13 +108,6 @@ Flickable {
             }
         }
 
-        AccountSelector {
-            objectName: "detailAccountSelector"
-            Layout.fillWidth: true
-            switching: root.switching
-            providerId: String(root.provider.id || "")
-        }
-
         QQC2.Label {
             objectName: "pendingAccountUsage"
             Layout.fillWidth: true
@@ -131,7 +120,7 @@ Flickable {
         QQC2.Label {
             objectName: "selectedOAuthProfile"
             Layout.fillWidth: true
-            visible: !root.switching && Boolean(root.provider.profileName)
+            visible: Boolean(root.provider.profileName)
             text: qsTr("Profile: %1").arg(root.provider.profileName || "")
             textFormat: Text.PlainText
             wrapMode: Text.WordWrap
@@ -140,17 +129,10 @@ Flickable {
         QQC2.Label {
             objectName: "selectedWalletAccount"
             Layout.fillWidth: true
-            visible: !root.switching && Boolean(root.provider.accountName)
+            visible: Boolean(root.provider.accountName)
             text: qsTr("Account: %1").arg(root.provider.accountName || "")
             textFormat: Text.PlainText
             wrapMode: Text.WordWrap
-        }
-
-        ProviderActionRow {
-            objectName: "providerActionRow"
-            Layout.fillWidth: true
-            providerId: String(root.provider.id || "")
-            region: String(root.provider.region || "")
         }
 
         Kirigami.Separator {
@@ -328,7 +310,6 @@ Flickable {
                 root.historySeries
                 return Date.now() / 1000
             }
-            onClearRequested: root.clearHistoryRequested()
         }
 
         CostHistory {
@@ -336,6 +317,13 @@ Flickable {
             Layout.fillWidth: true
             cost: root.cost
             accentColor: root.accentColor
+        }
+
+        ProviderActionRow {
+            objectName: "providerActionRow"
+            Layout.fillWidth: true
+            providerId: String(root.provider.id || "")
+            region: String(root.provider.region || "")
         }
 
         Kirigami.InlineMessage {
@@ -353,10 +341,5 @@ Flickable {
             color: Kirigami.Theme.disabledTextColor
             font: Kirigami.Theme.smallFont
         }
-    }
-
-    QQC2.ScrollBar.vertical: QQC2.ScrollBar {
-        id: pageScrollBar
-        objectName: "pageScrollBar"
     }
 }

@@ -5,6 +5,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         AccountSelector.qml
         UsageNavigation.qml
         UsagePopup.qml
+        PaginatedPage.qml
         BrandPalette.qml
         CompactMeter.qml
         PanelToolTip.qml

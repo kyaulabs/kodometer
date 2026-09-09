@@ -4,6 +4,15 @@ QtObject {
     id: root
     property var providers: []
     property var hiddenWindows: []
+    property string providerColors: "{}"
+    readonly property var colors: {
+        try {
+            const value = JSON.parse(providerColors)
+            return value && typeof value === "object" && !Array.isArray(value) ? value : ({})
+        } catch (error) {
+            return ({})
+        }
+    }
     property bool showSpark: false
     property bool showIdleWindows: false
 
@@ -19,10 +28,18 @@ QtObject {
 
     function filtered(provider) {
         const result = Object.assign({}, provider)
+        const custom = colors[provider.id]
+        if (typeof custom === "string" && /^#[0-9a-fA-F]{6}$/.test(custom))
+            result.display = Object.assign({}, provider.display || {}, {
+                                               accentColor: custom,
+                                               customAccent: true
+                                           })
         result.windows = (provider.windows || []).filter(windowData => enabled(provider.id,
                                                                                windowData))
         result.accounts = (provider.accounts || []).map(account => {
             const copy = Object.assign({}, account)
+            if (result.display)
+                copy.display = Object.assign({}, account.display || {}, result.display)
             copy.windows = (account.windows || []).filter(windowData => enabled(provider.id,
                                                                                 windowData))
             return copy

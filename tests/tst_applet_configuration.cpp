@@ -212,10 +212,33 @@ class AppletConfigurationTest final : public QObject
         const qreal below = tabs->mapToItem(item, QPointF{}).y() - above - wordmark->height();
         QVERIFY(qAbs(above - below) <= 2);
 
+        connect(item, &QQuickItem::implicitHeightChanged, &window, [&] {
+            item->setHeight(item->implicitHeight());
+            window.resize(400, qCeil(item->height()));
+        });
         const auto capture = [&](const QString &name) {
             item->setHeight(item->implicitHeight());
             window.resize(400, qCeil(item->height()));
             QTest::qWait(100);
+            auto *footer = findVisualItem(item, "popupFooter");
+            QVERIFY(footer);
+            const qreal footerBottom = footer->mapToItem(item, QPointF(0, footer->height())).y();
+            QVERIFY2(footerBottom <= item->height(),
+                     qPrintable(QStringLiteral("%1: footer %2, popup %3, preferred %4")
+                                    .arg(name)
+                                    .arg(footerBottom)
+                                    .arg(item->height())
+                                    .arg(item->implicitHeight())));
+            auto *viewport = findVisualItem(item, "sectionPageViewport");
+            QVERIFY(viewport);
+            const qreal contentBottom =
+                viewport->mapToItem(item, QPointF(0, viewport->height())).y();
+            const qreal footerTop = footer->mapToItem(item, QPointF()).y();
+            QVERIFY2(contentBottom <= footerTop,
+                     qPrintable(QStringLiteral("%1: content %2, footer %3")
+                                    .arg(name)
+                                    .arg(contentBottom)
+                                    .arg(footerTop)));
             const QString directory = qEnvironmentVariable("KODOMETER_UI_CAPTURE_DIR");
             if (!directory.isEmpty()) {
                 QVERIFY(QDir().mkpath(directory));
@@ -237,6 +260,19 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(chart->setProperty(
             "series", QVariantList{QVariantMap{{"kind", "session"}, {"points", observed}}}));
         capture("codex");
+        QVERIFY(popup->setProperty("availableHeight", 500));
+        auto *pagedLoader = findVisualItem(item, "popupPageLoader");
+        QVERIFY(pagedLoader);
+        auto *paged = pagedLoader->property("item").value<QObject *>();
+        QVERIFY(paged);
+        QTRY_VERIFY(paged->property("pageCount").toInt() > 1);
+        for (int index = 0; index < paged->property("pageCount").toInt(); ++index) {
+            QVERIFY(paged->setProperty("currentPage", index));
+            QTRY_VERIFY(item->implicitHeight() <= 425);
+            capture(QStringLiteral("codex-page-%1").arg(index + 1));
+        }
+        QVERIFY(popup->setProperty("availableHeight", 1400));
+        QTRY_COMPARE(paged->property("pageCount").toInt(), 1);
         QVERIFY(QMetaObject::invokeMethod(navigation.data(), "selectProvider",
                                           Q_ARG(QVariant, QStringLiteral("deepseek"))));
         QTRY_VERIFY(item->implicitHeight() < codexHeight);
@@ -318,6 +354,112 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(object->setProperty("provider", provider));
         QVERIFY(chart->isVisible());
         QCOMPARE(chart->property("windows").value<QJSValue>().property("length").toInt(), 1);
+    }
+
+    void appliesProviderAccentsToTabsBarsAndCharts()
+    {
+        QQmlEngine engine;
+        const QUrl root(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/"));
+        const QVariantMap provider{
+            {"id", "codex"},
+            {"name", "Codex"},
+            {"display", QVariantMap{{"accentColor", "#123456"}, {"customAccent", true}}},
+            {"windows",
+             QVariantList{QVariantMap{{"kind", "session"}, {"remainingPercent", 45.0}}}}};
+        QQmlComponent tabsComponent(&engine, root.resolved(QUrl("ProviderTabs.qml")));
+        QScopedPointer<QObject> tabs(tabsComponent.createWithInitialProperties(
+            {{"width", 400}, {"providers", QVariantList{provider}}}));
+        QVERIFY2(tabs, qPrintable(tabsComponent.errorString()));
+        auto *tabsItem = qobject_cast<QQuickItem *>(tabs.data());
+        QQuickWindow window;
+        tabsItem->setParentItem(window.contentItem());
+        window.show();
+        QQuickItem *accent = nullptr;
+        QTRY_VERIFY((accent = findVisualItem(tabsItem, "provider-tab-accent-0")));
+        QCOMPARE(accent->property("color").value<QColor>(), QColor("#123456"));
+
+        QQmlComponent meterComponent(&engine, root.resolved(QUrl("CompactMeter.qml")));
+        QScopedPointer<QObject> meter(
+            meterComponent.createWithInitialProperties({{"providers", QVariantList{provider}},
+                                                        {"donutCharts", true},
+                                                        {"sessionColor", "#abcdef"}}));
+        QVERIFY2(meter, qPrintable(meterComponent.errorString()));
+        auto *ring =
+            findVisualItem(qobject_cast<QQuickItem *>(meter.data()), "quota-ring-codex-session");
+        QVERIFY(ring);
+        QCOMPARE(ring->property("accentColor").value<QColor>(), QColor("#123456"));
+        QVariant barColor;
+        QVERIFY(QMetaObject::invokeMethod(meter.data(), "barColor",
+                                          Q_RETURN_ARG(QVariant, barColor),
+                                          Q_ARG(QVariant, "session")));
+        QCOMPARE(barColor.toString(), QStringLiteral("#123456"));
+
+        QQmlComponent detailsComponent(&engine, root.resolved(QUrl("ProviderDetails.qml")));
+        QScopedPointer<QObject> details(
+            detailsComponent.createWithInitialProperties({{"provider", provider}, {"width", 400}}));
+        QVERIFY2(details, qPrintable(detailsComponent.errorString()));
+        for (const auto &name : {"detailQuotaBar", "quotaHistoryChart", "costHistory"}) {
+            auto *part = findVisualItem(qobject_cast<QQuickItem *>(details.data()), name);
+            QVERIFY(part);
+            QCOMPARE(part->property("accentColor").value<QColor>(), QColor("#123456"));
+        }
+    }
+
+    void keepsProviderControlsBelowContentAndSelectionInSettings()
+    {
+        QQmlEngine engine;
+        QQmlComponent component(
+            &engine, QUrl(QStringLiteral(
+                         "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ProviderDetails.qml")));
+        const QVariantMap provider{
+            {"id", "kimi"},
+            {"name", "Kimi Code"},
+            {"windows",
+             QVariantList{QVariantMap{{"kind", "session"}, {"remainingPercent", 100.0}}}}};
+        QScopedPointer<QObject> object(
+            component.createWithInitialProperties({{"width", 400}, {"provider", provider}}));
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *item = qobject_cast<QQuickItem *>(object.data());
+        QQuickWindow window;
+        item->setParentItem(window.contentItem());
+        window.show();
+        QVERIFY(!findVisualItem(item, "detailAccountSelector"));
+        QVERIFY(!findVisualItem(item, "clearQuotaHistory"));
+        auto *chart = findVisualItem(item, "quotaHistoryChart");
+        auto *actions = findVisualItem(item, "providerActionRow");
+        QVERIFY(chart);
+        QVERIFY(actions);
+        QTRY_VERIFY(actions->y() >= chart->y() + chart->height());
+    }
+
+    void containsSummaryContentWithPadding()
+    {
+        QQmlEngine engine;
+        QQmlComponent component(
+            &engine, QUrl(QStringLiteral(
+                         "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ProviderSummary.qml")));
+        const QVariantMap provider{
+            {"id", "codex"},
+            {"name", "Codex"},
+            {"bankedResets", 2},
+            {"windows",
+             QVariantList{QVariantMap{{"kind", "session"}, {"remainingPercent", 45.0}}}}};
+        QScopedPointer<QObject> object(
+            component.createWithInitialProperties({{"width", 380}, {"provider", provider}}));
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *item = qobject_cast<QQuickItem *>(object.data());
+        QQuickWindow window;
+        item->setParentItem(window.contentItem());
+        item->setHeight(item->implicitHeight());
+        window.show();
+        auto *bar = findVisualItem(item, "summaryQuotaBar");
+        QVERIFY(bar);
+        QTRY_VERIFY(bar->height() > 0);
+        QTest::qWait(100);
+        const auto bottom = bar->mapToItem(item, QPointF(0, bar->height())).y();
+        QVERIFY2(item->height() - bottom >= 6,
+                 qPrintable(QString::number(item->height() - bottom)));
+        QVERIFY(bar->mapToItem(item, QPointF(bar->width(), 0)).x() <= item->width() - 6);
     }
 
     void fillsBarsWithRemainingOrUsedQuota()
@@ -416,7 +558,7 @@ class AppletConfigurationTest final : public QObject
         {
             KConfig config(path, KConfig::SimpleConfig);
             KConfigLoader loader(KConfigGroup(&config, "Widget"), &schema);
-            QCOMPARE(loader.items().size(), 20);
+            QCOMPARE(loader.items().size(), 21);
             const QVariantMap preferences{
                 {QStringLiteral("autoRefresh"), false},
                 {QStringLiteral("refreshIntervalMinutes"), 15},
@@ -430,6 +572,7 @@ class AppletConfigurationTest final : public QObject
                 {QStringLiteral("panelSystemAccent"), true},
                 {QStringLiteral("panelSessionColor"), QStringLiteral("#112233")},
                 {QStringLiteral("panelWeeklyColor"), QStringLiteral("#aabbcc")},
+                {QStringLiteral("providerColors"), QStringLiteral("{\"codex\":\"#123456\"}")},
                 {QStringLiteral("quotaNotifications"), true},
                 {QStringLiteral("quotaNotificationThreshold"), 20},
                 {QStringLiteral("deepseekAccountId"),
@@ -468,6 +611,8 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(reloaded.property("panelSystemAccent").toBool(), true);
         QCOMPARE(reloaded.property("panelSessionColor").toString(), QStringLiteral("#112233"));
         QCOMPARE(reloaded.property("panelWeeklyColor").toString(), QStringLiteral("#aabbcc"));
+        QCOMPARE(reloaded.property("providerColors").toString(),
+                 QStringLiteral("{\"codex\":\"#123456\"}"));
         QCOMPARE(reloaded.property("quotaNotifications").toBool(), true);
         QCOMPARE(reloaded.property("quotaNotificationThreshold").toInt(), 20);
         QCOMPARE(reloaded.property("deepseekAccountId").toString(),
@@ -1114,7 +1259,7 @@ class AppletConfigurationTest final : public QObject
         }
     }
 
-    void reservesScrollbarGutters()
+    void usesFullWidthWithoutVerticalScrollbars()
     {
         QQmlEngine engine;
         for (const QString &file :
@@ -1130,12 +1275,10 @@ class AppletConfigurationTest final : public QObject
             auto *content = object->findChild<QQuickItem *>(QStringLiteral("pageContent"));
             auto *scrollbar = object->findChild<QQuickItem *>(QStringLiteral("pageScrollBar"));
             QVERIFY(content);
-            QVERIFY(scrollbar);
-            QTRY_VERIFY(scrollbar->width() > 0);
-            QTRY_VERIFY(content->width() + scrollbar->width() < 240);
+            QVERIFY(!scrollbar);
+            QTRY_COMPARE(content->width(), 240);
             QVERIFY(object->setProperty("width", 480));
-            QTRY_VERIFY(content->width() > 240);
-            QTRY_VERIFY(content->width() + scrollbar->width() < 480);
+            QTRY_COMPARE(content->width(), 480);
         }
     }
 

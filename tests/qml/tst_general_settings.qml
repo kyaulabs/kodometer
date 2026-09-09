@@ -149,6 +149,28 @@ TestCase {
         compare(weekly.colorValue, "")
     }
 
+    function test_providerColorsFollowApplyCancelAndDefaults() {
+        const page = createTemporaryObject(settingsComponent, this)
+        const codex = findChild(page, "provider-color-codex")
+        const kimi = findChild(page, "provider-color-kimi")
+        verify(codex)
+        verify(kimi)
+        compare(page.cfg_providerColors, "{}")
+        codex.colorValue = "#123456"
+        compare(JSON.parse(page.cfg_providerColors).codex, "#123456")
+        kimi.colorValue = "#abcdef"
+        compare(JSON.parse(page.cfg_providerColors).codex, "#123456")
+        compare(JSON.parse(page.cfg_providerColors).kimi, "#abcdef")
+        page.cfg_providerColors = '{"codex":"#654321"}'
+        compare(codex.colorValue, "#654321")
+        compare(kimi.colorValue, "")
+        page.cfg_providerColors = "{}"
+        compare(codex.colorValue, "")
+        codex.colorValue = "#112233"
+        findChild(codex, "resetColor").click()
+        compare(page.cfg_providerColors, "{}")
+    }
+
     function test_providerSwitchesAndReset() {
         const page = createTemporaryObject(settingsComponent, this)
         const codex = findChild(page, "provider-codex")

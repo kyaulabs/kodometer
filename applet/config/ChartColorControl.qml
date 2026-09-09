@@ -10,6 +10,7 @@ RowLayout {
     id: root
 
     property string colorValue
+    property string resetText: qsTr("Use provider color")
     property color fallbackColor: Kirigami.Theme.highlightColor
     readonly property bool customColor: /^#[0-9a-fA-F]{6}$/.test(colorValue)
 
@@ -33,7 +34,7 @@ RowLayout {
 
     QQC2.Button {
         objectName: "resetColor"
-        text: qsTr("Use provider color")
+        text: root.resetText
         enabled: root.colorValue !== ""
         onClicked: root.colorValue = ""
     }
@@ -41,7 +42,7 @@ RowLayout {
     ColorDialog {
         id: picker
         objectName: "colorPicker"
-        title: qsTr("Donut color")
+        title: qsTr("Accent color")
         onAccepted: root.colorValue = selectedColor.toString()
     }
 }

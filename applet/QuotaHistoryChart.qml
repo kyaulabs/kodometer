@@ -21,7 +21,6 @@ ColumnLayout {
                                                                                          && point[0]
                                                                                          <= endTime) :
                                                    []
-    signal clearRequested
 
     function connects(previous, point) {
         return previous !== null && point[0] - previous[0] <= 900 && point[2] === previous[2]
@@ -169,10 +168,5 @@ ColumnLayout {
         wrapMode: Text.WordWrap
         font: Kirigami.Theme.smallFont
         color: Kirigami.Theme.disabledTextColor
-    }
-    QQC2.Button {
-        objectName: "clearQuotaHistory"
-        text: qsTr("Clear saved quota history…")
-        onClicked: root.clearRequested()
     }
 }

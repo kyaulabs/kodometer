@@ -71,6 +71,35 @@ TestCase {
         compare(chart.points.length, 0)
     }
 
+    function test_providerColorsAreValidatedAndDoNotMutateSnapshots() {
+        const source = [
+                  {
+                      id: "codex",
+                      display: {
+                          accentColor: "#49a3b0"
+                      },
+                      accounts: [
+                          {
+                              windows: []
+                          }
+                      ],
+                      windows: []
+                  }
+              ]
+        const model = createTemporaryObject(presentationComponent, this, {
+                                                providers: source
+                                            })
+        verify(model)
+        model.providerColors = '{"codex":"#123456"}'
+        compare(model.displayedProviders[0].display.accentColor, "#123456")
+        compare(model.displayedProviders[0].accounts[0].display.accentColor, "#123456")
+        compare(source[0].display.accentColor, "#49a3b0")
+        for (const invalid of ['{}', 'null', '[]', 'broken', '{"codex":"red"}', '{"codex":123}']) {
+            model.providerColors = invalid
+            compare(model.displayedProviders[0].display.accentColor, "#49a3b0")
+        }
+    }
+
     function test_filtersWithoutMutatingSnapshots() {
         const source = [
                   {

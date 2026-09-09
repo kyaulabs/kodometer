@@ -43,7 +43,7 @@ UsageController::UsageController(QObject *parent)
 // GCOVR_EXCL_STOP
 
 UsageController::UsageController(const QList<ProviderAdapter *> &adapters, QObject *parent)
-    : QObject(parent), m_profiles(this), m_refreshTimer(this)
+    : QObject(parent), m_profiles(this), m_history(this), m_refreshTimer(this)
 {
     m_refreshTimer.setObjectName(QStringLiteral("refreshTimer"));
     m_refreshTimer.setSingleShot(true);
@@ -53,6 +53,11 @@ UsageController::UsageController(const QList<ProviderAdapter *> &adapters, QObje
     for (ProviderAdapter *adapter : adapters) {
         registerAdapter(adapter);
     }
+}
+
+QuotaHistory *UsageController::history() noexcept
+{
+    return &m_history;
 }
 
 OAuthProfiles *UsageController::profiles() noexcept
@@ -145,11 +150,15 @@ std::optional<QString> UsageController::selectedAccountKey(const QString &provid
     return m_credentialStore->accounts()->key(provider, m_accountSelections.value(provider));
 }
 
-QString UsageController::contextKey(const QString &provider) const
+QString UsageController::contextKey(const ProviderAdapter *adapter) const
 {
+    const QString provider = adapter->providerId();
     const QString id = m_accountSelections.value(provider);
-    if (id.isEmpty())
-        return m_profiles.contextKey(provider);
+    if (id.isEmpty()) {
+        const QByteArray digest = adapter->defaultCredentialContext();
+        const QByteArray encoded = digest.toHex();
+        return m_profiles.contextKey(provider) + QLatin1Char('\n') + QString::fromLatin1(encoded);
+    }
     const auto key = selectedAccountKey(provider);
     QString fingerprint = QStringLiteral("unavailable");
     if (key) {
@@ -170,15 +179,21 @@ QString UsageController::contextKey(const QString &provider) const
 
 void UsageController::profileSettingsChanged()
 {
+    updateContexts(true);
+}
+
+bool UsageController::updateContexts(bool queueRefresh)
+{
     QStringList changed;
     for (ProviderAdapter *adapter : std::as_const(m_adapters)) {
         const QString id = adapter->providerId();
-        const QString context = contextKey(id);
+        const QString context = contextKey(adapter);
         if (m_profileContexts.value(id) != context) {
             m_profileContexts.insert(id, context);
             ++m_profileRevisions[id];
             m_providerSnapshots.remove(id);
             m_refreshErrors.remove(id);
+            m_history.forgetProvider(id);
             changed.append(id);
         }
     }
@@ -188,9 +203,10 @@ void UsageController::profileSettingsChanged()
     for (const QString &id : changed) {
         emit providerContextChanged(id);
     }
-    if (m_started && !changed.isEmpty()) {
+    if (queueRefresh && m_started && !changed.isEmpty()) {
         queueProfileRefresh();
     }
+    return !changed.isEmpty();
 }
 
 void UsageController::queueProfileRefresh()
@@ -395,7 +411,7 @@ void UsageController::registerAdapter(ProviderAdapter *adapter)
         adapter->setParent(this);
     }
     m_adapters.append(adapter);
-    m_profileContexts.insert(adapter->providerId(), contextKey(adapter->providerId()));
+    m_profileContexts.insert(adapter->providerId(), contextKey(adapter));
     connect(adapter, &ProviderAdapter::refreshSucceeded, this,
             [this, adapter](const QVariantMap &provider) { adapterSucceeded(adapter, provider); });
     connect(adapter, &ProviderAdapter::refreshFailed, this,
@@ -410,13 +426,21 @@ void UsageController::adapterSucceeded(ProviderAdapter *adapter, const QVariantM
     const QString id = adapter->providerId();
     const quint64 revision = m_pendingProfileRevisions.take(adapter);
     const bool current = revision == m_profileRevisions.value(id);
+    const auto historyIdentities = adapter->historyIdentities();
+    const QVariant windowValue = provider.value(QStringLiteral("windows"));
+    const QVariantList historyWindows = windowValue.toList();
+    const auto historyScope =
+        m_profiles.contextKey(id).toUtf8() + '\0' + m_accountSelections.value(id).toUtf8();
     if (!m_disabledProviders.contains(id) && current) {
+        m_history.prepareContext(id, historyScope, historyIdentities);
         m_providerSnapshots.insert(id, provider);
         m_anySuccess = true;
         rebuildProviders();
         // Presentation signals can synchronously change selection or disable the provider.
         if (revision == m_profileRevisions.value(id) && !m_disabledProviders.contains(id)) {
-            emit providerRefreshed(provider);
+            m_history.observe(id, historyScope, historyIdentities, historyWindows);
+            if (revision == m_profileRevisions.value(id) && !m_disabledProviders.contains(id))
+                emit providerRefreshed(provider);
         }
     }
     finishAdapter();
@@ -525,6 +549,8 @@ void UsageController::applyCredentialOverrides()
 void UsageController::credentialsChanged()
 {
     applyCredentialOverrides();
+    if (!updateContexts(false))
+        return;
     if (m_busy) {
         m_refreshAfterCurrent = true;
     }

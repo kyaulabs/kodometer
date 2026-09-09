@@ -10,7 +10,8 @@ QQC2.ItemDelegate {
     id: root
 
     required property var provider
-    property int windowLimit: 2
+    property int windowLimit: 0
+    property bool fillRemaining: true
     property bool showIdleWindows: false
     property string badgeText
     readonly property color accentColor: provider.display && provider.display.accentColor
@@ -85,6 +86,9 @@ QQC2.ItemDelegate {
                     id: usageSummary
 
                     required property var modelData
+                    readonly property real usedPercent: Number(modelData.usedPercent ?? (100
+                                                                                         - Number(modelData.remainingPercent
+                                                                                                  ?? NaN)))
 
                     Layout.fillWidth: true
                     spacing: 2
@@ -102,8 +106,13 @@ QQC2.ItemDelegate {
                             font: Kirigami.Theme.smallFont
                         }
                         QQC2.Label {
-                            text: Private.PresentationFormatter.remainingLabel(
-                                      usageSummary.modelData.remainingPercent)
+                            text: root.fillRemaining ? Private.PresentationFormatter.remainingLabel(
+                                                           usageSummary.modelData.remainingPercent) :
+                                                       (Number.isFinite(usageSummary.usedPercent)
+                                                        ? qsTr("%1% used").arg(Math.max(0, Math.min(
+                                                                                            100, usageSummary.usedPercent)).toFixed(
+                                                                                   1)) : qsTr(
+                                                              "Not reported"))
                             font: Kirigami.Theme.smallFont
                             color: Kirigami.Theme.disabledTextColor
                         }
@@ -111,10 +120,11 @@ QQC2.ItemDelegate {
 
                     UsageBar {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: Kirigami.Units.smallSpacing
-                        percent: Number(usageSummary.modelData.usedPercent ?? (100 - Number(
-                                                                                   usageSummary.modelData.remainingPercent
-                                                                                   ?? 100)))
+                        Layout.preferredHeight: Kirigami.Units.smallSpacing * 2.5
+                        objectName: "summaryQuotaBar"
+                        percent: root.fillRemaining ? Number(
+                                                          usageSummary.modelData.remainingPercent
+                                                          ?? NaN) : usageSummary.usedPercent
                         accentColor: root.accentColor
                     }
                 }

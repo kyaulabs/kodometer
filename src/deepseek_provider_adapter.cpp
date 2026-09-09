@@ -69,6 +69,12 @@ void DeepSeekProviderAdapter::setBaseEndpoint(const QUrl &endpoint)
     m_baseEndpoint = endpoint;
 }
 
+QByteArray DeepSeekProviderAdapter::defaultCredentialContext() const
+{
+    const QStringList keys{QStringLiteral("DEEPSEEK_API_KEY"), QStringLiteral("DEEPSEEK_KEY")};
+    return credentialContext(m_environment, keys);
+}
+
 void DeepSeekProviderAdapter::setEnvironment(const QMap<QString, QString> &environment)
 {
     m_environment = environment;

@@ -2,6 +2,7 @@
 #include <kodometer/provider_adapter.hpp>
 #include <kodometer/usage_controller.hpp>
 
+#include <QCryptographicHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -44,6 +45,18 @@ class FakeProviderAdapter final : public ProviderAdapter
     {
         profileDirectory = directory;
         ++profileChanges;
+    }
+
+    QByteArray defaultCredentialContext() const override
+    {
+        return defaultKey.isEmpty() ? ProviderAdapter::defaultCredentialContext()
+                                    : credentialContext({}, {defaultKey});
+    }
+    QString defaultKey;
+
+    void historyIdentity(const QByteArray &identity, bool rotation = false)
+    {
+        setHistoryIdentity(identity, rotation);
     }
 
     int refreshCount = 0;
@@ -118,6 +131,11 @@ class CredentialAwareAdapter final : public ProviderAdapter
         emit refreshSucceeded({{QStringLiteral("id"), QStringLiteral("deepseek")}});
     }
 
+    QByteArray defaultCredentialContext() const override
+    {
+        return credentialContext(baseEnvironment, {QStringLiteral("DEEPSEEK_API_KEY")});
+    }
+
     QMap<QString, QString> baseEnvironment;
     QMap<QString, QString> lastEnvironment;
     int refreshCount = 0;
@@ -128,6 +146,10 @@ class UsageControllerTest final : public QObject
     Q_OBJECT
 
   private slots:
+    void recordsOnlyCurrentAuthenticatedQuota();
+    void rejectsReplacedDefaultCredentials();
+    void keepsRotatedIdentityCurrent();
+    void forgetsExternalReplacementBeforePublication();
     void aggregatesProvidersInRegistrationOrder();
     void retainsLastGoodProviderOnFailure();
     void handlesNoProviders();
@@ -155,6 +177,155 @@ class UsageControllerTest final : public QObject
     void rejectsReentrantContextChanges_data();
     void rejectsReentrantContextChanges();
 };
+
+void UsageControllerTest::forgetsExternalReplacementBeforePublication()
+{
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("codex"));
+    adapter->historyIdentity("old-key");
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setAutoRefresh(false);
+    QVariantMap provider{
+        {"id", "codex"},
+        {"windows", QVariantList{QVariantMap{{"kind", "session"}, {"remainingPercent", 50.0}}}}};
+    controller.refresh();
+    adapter->succeed(provider);
+    QCOMPARE(controller.history()->view("codex").size(), 1);
+    bool observed = false;
+    connect(&controller, &UsageController::providersChanged, &controller, [&] {
+        observed = true;
+        QVERIFY(controller.history()->view("codex").isEmpty());
+    });
+    adapter->historyIdentity("new-key");
+    provider["windows"] =
+        QVariantList{QVariantMap{{"kind", "session"}, {"remainingPercent", 55.0}}};
+    controller.refresh();
+    adapter->succeed(provider);
+    QVERIFY(observed);
+    const auto points =
+        controller.history()->view("codex").first().toMap().value("points").toList();
+    QCOMPARE(points.size(), 1);
+    QCOMPARE(points.first().toList().at(1).toDouble(), 55.0);
+}
+
+void UsageControllerTest::keepsRotatedIdentityCurrent()
+{
+    FakeProviderAdapter adapter(QStringLiteral("claude"));
+    adapter.historyIdentity("identity-a");
+    adapter.historyIdentity("identity-b", true);
+    const auto pinned = adapter.historyIdentities();
+    adapter.historyIdentity("identity-a", true);
+    const auto current = adapter.historyIdentities();
+    QCOMPARE(current.size(), 2);
+    QCOMPARE(current.last(), QCryptographicHash::hash("identity-a", QCryptographicHash::Sha256));
+    QCOMPARE(pinned.last(), QCryptographicHash::hash("identity-b", QCryptographicHash::Sha256));
+    adapter.historyIdentity("identity-a");
+    QCOMPARE(adapter.historyIdentities(), current);
+}
+
+void UsageControllerTest::rejectsReplacedDefaultCredentials()
+{
+    auto *backend = new ControllerCredentialBackend;
+    backend->values = {{QStringLiteral("KIMI_CODE_API_KEY"), QStringLiteral("synthetic-old-key")}};
+    CredentialStore store(backend);
+    store.open();
+    backend->load();
+    QCOMPARE(store.secrets().value(QStringLiteral("KIMI_CODE_API_KEY")),
+             QStringLiteral("synthetic-old-key"));
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("kimi"));
+    adapter->defaultKey = QStringLiteral("KIMI_CODE_API_KEY");
+    adapter->historyIdentity("synthetic-old-key");
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setAutoRefresh(false);
+    controller.setCredentialStore(&store);
+    const QVariantMap window{{QStringLiteral("kind"), QStringLiteral("session")},
+                             {QStringLiteral("remainingPercent"), 65.0}};
+    const QVariantMap provider{{QStringLiteral("id"), QStringLiteral("kimi")},
+                               {QStringLiteral("windows"), QVariantList{window}}};
+    controller.refresh();
+    adapter->succeed(provider);
+    QCOMPARE(controller.history()->view("kimi").size(), 1);
+    controller.refresh();
+    bool clearedBeforePublication = false;
+    const auto connection =
+        connect(&controller, &UsageController::providersChanged, &controller, [&] {
+            if (controller.providers().isEmpty())
+                clearedBeforePublication = controller.history()->view("kimi").isEmpty();
+        });
+    backend->values[QStringLiteral("KIMI_CODE_API_KEY")] = QStringLiteral("synthetic-new-key");
+    backend->update();
+    QVERIFY(clearedBeforePublication);
+    QVERIFY(controller.history()->view("kimi").isEmpty());
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    adapter->succeed(provider);
+    QCOMPARE(fresh.count(), 0);
+    QVERIFY(controller.history()->view("kimi").isEmpty());
+    QTRY_COMPARE(adapter->refreshCount, 3);
+    adapter->historyIdentity("synthetic-new-key");
+    adapter->succeed(provider);
+    QCOMPARE(fresh.count(), 1);
+    QCOMPARE(controller.history()->view("kimi").size(), 1);
+    backend->values.insert(QStringLiteral("OPENROUTER_API_KEY"), QStringLiteral("unrelated-key"));
+    backend->update();
+    QCOMPARE(adapter->refreshCount, 3);
+    QCOMPARE(controller.history()->view("kimi").size(), 1);
+    disconnect(connection);
+}
+
+void UsageControllerTest::recordsOnlyCurrentAuthenticatedQuota()
+{
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("codex"));
+    UsageController controller(QList<ProviderAdapter *>{adapter});
+    controller.setAutoRefresh(false);
+    const QVariantMap window{{QStringLiteral("kind"), QStringLiteral("session")},
+                             {QStringLiteral("remainingPercent"), 65.0}};
+    const QVariantMap provider{{QStringLiteral("id"), QStringLiteral("codex")},
+                               {QStringLiteral("windows"), QVariantList{window}}};
+    auto *history = controller.history();
+    QVERIFY(history);
+    QVERIFY(adapter->historyIdentities().isEmpty());
+    adapter->historyIdentity({});
+    adapter->historyIdentity("synthetic-identity");
+    adapter->historyIdentity("synthetic-identity", true);
+    QCOMPARE(adapter->historyIdentities().size(), 1);
+    QVERIFY(!adapter->historyIdentities().first().contains("synthetic-identity"));
+    adapter->historyIdentity("rotated-1", true);
+    adapter->historyIdentity("rotated-1");
+    QCOMPARE(adapter->historyIdentities().size(), 2);
+    adapter->historyIdentity("rotated-2", true);
+    adapter->historyIdentity("rotated-3", true);
+    QCOMPARE(adapter->historyIdentities().size(), 3);
+    adapter->historyIdentity("synthetic-identity");
+    QCOMPARE(adapter->historyIdentities().size(), 1);
+    controller.refresh();
+    adapter->succeed(provider);
+    QCOMPARE(history->view("codex").size(), 1);
+    const int revision = history->revision();
+    adapter->succeed(provider); // Unsolicited duplicate cannot append history.
+    QCOMPARE(history->revision(), revision);
+    controller.refresh();
+    adapter->fail("synthetic failure");
+    QCOMPARE(history->revision(), revision);
+
+    controller.refresh();
+    const auto connection = connect(&controller, &UsageController::providersChanged, &controller, [&] {
+        controller.profiles()->setConfiguration(QStringLiteral(
+            R"({"version":1,"codex":[{"id":"11111111-1111-4111-8111-111111111111","name":"Other","directory":"/synthetic/other"}],"selectedCodex":"11111111-1111-4111-8111-111111111111"})"));
+    });
+    QVariantMap changed = provider;
+    changed.insert("updatedAt", "changed");
+    adapter->succeed(changed);
+    disconnect(connection);
+    QVERIFY(history->view("codex").isEmpty());
+    controller.refresh();
+    adapter->historyIdentity("other-account");
+    const auto reentrant = connect(history, &Kodometer::QuotaHistory::changed, &controller, [&] {
+        controller.setDisabledProviders({QStringLiteral("codex")});
+    });
+    QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
+    adapter->succeed(provider);
+    disconnect(reentrant);
+    QCOMPARE(fresh.count(), 0);
+}
 
 void UsageControllerTest::aggregatesProvidersInRegistrationOrder()
 {

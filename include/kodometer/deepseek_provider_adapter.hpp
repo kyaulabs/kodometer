@@ -30,6 +30,7 @@ class DeepSeekProviderAdapter final : public ProviderAdapter
 
     void setBaseEndpoint(const QUrl &endpoint);
     void setEnvironment(const QMap<QString, QString> &environment);
+    [[nodiscard]] QByteArray defaultCredentialContext() const override;
     void setCurrentDateTime(const QDateTime &dateTime);
     void setTimeoutMilliseconds(int milliseconds);
 

@@ -21,6 +21,23 @@ Kirigami.ScrollablePage {
     property alias cfg_autoRefresh: automatic.checked
     property alias cfg_refreshIntervalMinutes: refreshInterval.value
     property alias cfg_showIdleWindows: idleWindows.checked
+    property alias cfg_showCodexSpark: spark.checked
+    property alias cfg_quotaBarsRemaining: remainingBars.checked
+    property var cfg_hiddenQuotaWindows: []
+    property string cfg_quotaWindowCatalog: "[]"
+    readonly property var quotaWindows: {
+        try {
+            const entries = JSON.parse(cfg_quotaWindowCatalog)
+            return Array.isArray(entries) ? entries.filter(entry => entry && typeof entry.key
+                                                                    === "string"
+                                                                    && typeof entry.provider
+                                                                    === "string"
+                                                                    && typeof entry.label
+                                                                    === "string").slice(0, 128) : []
+        } catch (error) {
+            return []
+        }
+    }
     property var cfg_disabledProviders: []
     property bool cfg_panelDonutCharts: false
     property bool cfg_panelSystemAccent: false
@@ -61,6 +78,52 @@ Kirigami.ScrollablePage {
             text: qsTr("Show idle quota windows")
         }
 
+        QQC2.CheckBox {
+            id: spark
+            objectName: "showCodexSpark"
+            text: qsTr("Show Codex Spark quota")
+        }
+
+        QQC2.CheckBox {
+            id: remainingBars
+            objectName: "quotaBarsRemaining"
+            text: qsTr("Fill bars with remaining quota (instead of used)")
+            checked: true
+        }
+
+        Repeater {
+            model: root.quotaWindows
+            delegate: QQC2.CheckBox {
+                id: windowSwitch
+                required property var modelData
+                contentItem: QQC2.Label {
+                    text: windowSwitch.text
+                    textFormat: Text.PlainText
+                    leftPadding: windowSwitch.mirrored ? 0 : windowSwitch.indicator.width
+                                                         + windowSwitch.spacing
+                    rightPadding: windowSwitch.mirrored ? windowSwitch.indicator.width
+                                                          + windowSwitch.spacing : 0
+                    verticalAlignment: Text.AlignVCenter
+                }
+                objectName: "quota-window-" + modelData.key
+                text: modelData.provider + " — " + modelData.label
+                checked: !root.cfg_hiddenQuotaWindows.includes(modelData.key)
+                onClicked: {
+                    const hidden = root.cfg_hiddenQuotaWindows.filter(key => key !== modelData.key)
+                    if (!checked)
+                        hidden.push(modelData.key)
+                    root.cfg_hiddenQuotaWindows = hidden
+                }
+            }
+        }
+
+        QQC2.Label {
+            text: qsTr(
+                      "Window switches apply to all quota displays, not notifications. Available windows appear after a successful refresh. Spark and idle windows also require their display switches above.")
+            wrapMode: Text.WordWrap
+            Kirigami.FormData.isSection: true
+        }
+
         QQC2.ComboBox {
             id: chartStyle
             objectName: "panelDonutCharts"
@@ -73,7 +136,7 @@ Kirigami.ScrollablePage {
         QQC2.ComboBox {
             id: meterAccent
             objectName: "panelSystemAccent"
-            Kirigami.FormData.label: qsTr("Meter accent:")
+            Kirigami.FormData.label: qsTr("Bar meter accent:")
             model: [qsTr("Kodometer Iris"), qsTr("Desktop accent")]
             currentIndex: root.cfg_panelSystemAccent ? 1 : 0
             onActivated: root.cfg_panelSystemAccent = currentIndex === 1

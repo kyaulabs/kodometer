@@ -1,6 +1,46 @@
+#include <QCryptographicHash>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <kodometer/provider_adapter.hpp>
 
 namespace Kodometer {
+
+QList<QByteArray> ProviderAdapter::historyIdentities() const
+{
+    return m_historyIdentities;
+}
+
+QByteArray ProviderAdapter::defaultCredentialContext() const
+{
+    return {};
+}
+
+QByteArray ProviderAdapter::credentialContext(const QMap<QString, QString> &environment,
+                                              const QStringList &keys) const
+{
+    const auto effective = environmentWithCredentialOverrides(environment);
+    QJsonObject selected;
+    for (const QString &key : keys)
+        selected.insert(key, effective.value(key));
+    const QJsonDocument document(selected);
+    const QByteArray bytes = document.toJson(QJsonDocument::Compact);
+    return QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
+}
+
+void ProviderAdapter::setHistoryIdentity(const QByteArray &identity, bool rotation)
+{
+    if (identity.isEmpty()) {
+        m_historyIdentities.clear();
+        return;
+    }
+    const auto digest = QCryptographicHash::hash(identity, QCryptographicHash::Sha256);
+    if (!rotation && (m_historyIdentities.isEmpty() || m_historyIdentities.last() != digest))
+        m_historyIdentities.clear();
+    m_historyIdentities.removeAll(digest);
+    m_historyIdentities.append(digest);
+    if (m_historyIdentities.size() > 3)
+        m_historyIdentities.removeFirst();
+}
 
 void ProviderAdapter::setAccountCredential(const std::optional<QString> &credential,
                                            const QString &managementCredential,

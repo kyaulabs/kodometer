@@ -74,6 +74,18 @@ QVariantMap ZaiProviderAdapter::provider() const
     return m_provider;
 }
 
+QByteArray ZaiProviderAdapter::defaultCredentialContext() const
+{
+    const QStringList keys{
+        QStringLiteral("Z_AI_API_KEY"),          QStringLiteral("BIGMODEL_API_KEY"),
+        QStringLiteral("ZHIPU_API_KEY"),         QStringLiteral("ZHIPUAI_API_KEY"),
+        QStringLiteral("GLM_API_KEY"),           QStringLiteral("Z_AI_REGION"),
+        QStringLiteral("Z_AI_USAGE_SCOPE"),      QStringLiteral("Z_AI_BIGMODEL_ORGANIZATION"),
+        QStringLiteral("Z_AI_BIGMODEL_PROJECT"), QStringLiteral("Z_AI_ORGANIZATION"),
+        QStringLiteral("Z_AI_PROJECT")};
+    return credentialContext(m_environment, keys);
+}
+
 void ZaiProviderAdapter::setEnvironment(const QMap<QString, QString> &environment)
 {
     m_environment = environment;
@@ -130,6 +142,11 @@ void ZaiProviderAdapter::refresh()
         return;
     }
     m_credentials = *credentials;
+    setHistoryIdentity(m_credentials.apiKey.toUtf8() + '\0' +
+                       QByteArray::number(static_cast<int>(m_credentials.region)) + '\0' +
+                       QByteArray::number(static_cast<int>(m_credentials.scope)) + '\0' +
+                       m_credentials.organizationId.toUtf8() + '\0' +
+                       m_credentials.projectId.toUtf8());
     requestQuota();
 }
 

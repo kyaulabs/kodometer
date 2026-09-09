@@ -66,16 +66,34 @@ TestCase {
                                             })
         compare(meter.donutCharts, false)
         meter.donutCharts = true
-        meter.sessionRemaining = 12.8
-        meter.weeklyRemaining = 55.1
-        const session = findChild(meter, "sessionRing")
-        const weekly = findChild(meter, "weeklyRing")
+        meter.providers = [
+                    {
+                        id: "codex",
+                        windows: [
+                            {
+                                kind: "session",
+                                remainingPercent: 12.8
+                            }
+                        ]
+                    },
+                    {
+                        id: "kimi",
+                        windows: [
+                            {
+                                kind: "weekly",
+                                remainingPercent: 55.1
+                            }
+                        ]
+                    }
+                ]
+        const session = findChild(meter, "provider-meter-codex")
+        const weekly = findChild(meter, "provider-meter-kimi")
         verify(session)
         verify(weekly)
         compare(session.visible, true)
-        compare(session.value, 12.8)
-        compare(weekly.value, 55.1)
-        compare(session.valueText, "12.8%")
+        compare(session.windows[0].remainingPercent, 12.8)
+        compare(weekly.windows[0].remainingPercent, 55.1)
+        verify(session.quotaDescription.includes("12.8% remaining"))
         compare(session.width, session.height)
         verify(weekly.x > session.x)
         meter.vertical = true
@@ -84,29 +102,47 @@ TestCase {
         verify(weekly.y > session.y)
         compare(session.width, session.height)
         meter.sessionRemaining = -10
-        compare(session.value, 0)
+        compare(meter.sessionFillWidth, 0)
         meter.sessionRemaining = 120
-        compare(session.value, 100)
+        compare(meter.sessionFillWidth, meter.width)
         meter.sessionRemaining = NaN
-        compare(session.valueText, "—")
         compare(meter.sessionFillWidth, 0)
         meter.weeklyRemaining = Infinity
-        compare(weekly.valueText, "—")
+        compare(meter.weeklyFillWidth, 0)
         meter.donutCharts = false
-        compare(session.visible, false)
+        compare(findChild(meter, "provider-meter-codex"), null)
     }
 
     function test_independentDonutColors() {
         const meter = createTemporaryObject(compactMeterComponent, this, {
-                                                donutCharts: true
+                                                donutCharts: true,
+                                                providers: [
+                                                    {
+                                                        id: "codex",
+                                                        display: {
+                                                            accentColor: "#778899"
+                                                        },
+                                                        windows: [
+                                                            {
+                                                                kind: "session",
+                                                                remainingPercent: 65
+                                                            },
+                                                            {
+                                                                kind: "weekly",
+                                                                remainingPercent: 20
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
                                             })
-        const session = findChild(meter, "sessionRing")
-        const weekly = findChild(meter, "weeklyRing")
-        compare(session.accentColor, meter.accentColor)
-        compare(weekly.accentColor, meter.accentColor)
+        const provider = findChild(meter, "provider-meter-codex")
+        const session = findChild(meter, "quota-ring-codex-session")
+        const weekly = findChild(meter, "quota-ring-codex-weekly")
+        compare(session.accentColor, provider.accentColor)
+        verify(weekly.accentColor.toString() !== session.accentColor.toString())
         meter.sessionColor = "#112233"
         compare(session.accentColor, "#112233")
-        compare(weekly.accentColor, meter.accentColor)
+        compare(weekly.accentColor, provider.windowColor(1))
         meter.weeklyColor = "#aabbcc"
         compare(weekly.accentColor, "#aabbcc")
         meter.accentColor = "#778899"
@@ -115,9 +151,9 @@ TestCase {
         meter.sessionColor = ""
         compare(session.accentColor, "#778899")
         meter.weeklyColor = "not-a-color"
-        compare(weekly.accentColor, "#778899")
+        compare(weekly.accentColor, provider.windowColor(1))
         meter.weeklyColor = "#00000000"
-        compare(weekly.accentColor, "#778899")
+        compare(weekly.accentColor, provider.windowColor(1))
         meter.donutCharts = false
         compare(meter.accentColor, "#778899")
         // Custom donut colors never change bar accents.
@@ -143,16 +179,29 @@ TestCase {
                                                                 remainingPercent: 75
                                                             }
                                                         ]
+                                                    },
+                                                    {
+                                                        id: "kimi",
+                                                        name: "Kimi Code",
+                                                        windows: [
+                                                            {
+                                                                kind: "weekly",
+                                                                remainingPercent: 30
+                                                            }
+                                                        ]
                                                     }
                                                 ]
                                             })
         // The click target overlays the meter in the applet, but must not eat hover events.
         const overlay = Qt.createQmlObject('import QtQuick; MouseArea { anchors.fill: parent }',
                                            meter)
-        const session = findChild(meter, "sessionToolTip")
-        const weekly = findChild(meter, "weeklyToolTip")
-        compare(session.subText, "Codex: 90% session remaining")
-        compare(weekly.subText, "Codex: 75% weekly remaining")
+        const session = findChild(meter, "provider-tooltip-codex")
+        const weekly = findChild(meter, "provider-tooltip-kimi")
+        verify(session.subText.includes("90.0% remaining"))
+        verify(session.subText.includes("75.0% remaining"))
+        verify(!session.subText.includes("30.0%"))
+        compare(weekly.mainText, "Kodometer — Kimi Code")
+        verify(weekly.subText.includes("30.0% remaining"))
         compare(session.textFormat, Text.PlainText)
         compare(weekly.textFormat, Text.PlainText)
         mouseMove(session, session.width / 2, session.height / 2)
@@ -172,10 +221,37 @@ TestCase {
         compare(weekly.active, false)
         meter.toolTipsEnabled = true
         meter.donutCharts = false
-        compare(session.active, false)
-        compare(weekly.active, false)
+        compare(findChild(meter, "provider-tooltip-codex"), null)
+        compare(findChild(meter, "provider-tooltip-kimi"), null)
         mouseMove(this, 1, 1)
         overlay.destroy()
+    }
+
+    function test_emptyMeterAndManyNestedWindows() {
+        const meter = createTemporaryObject(compactMeterComponent, this, {
+                                                donutCharts: true,
+                                                width: 24,
+                                                height: 24
+                                            })
+        compare(findChild(meter, "emptyQuotaMeter").visible, true)
+        const windows = []
+        for (let i = 0; i < 20; ++i)
+            windows.push({
+                             kind: "model-" + i,
+                             remainingPercent: 50
+                         })
+        meter.providers = [
+                    {
+                        id: "codex",
+                        windows: windows
+                    }
+                ]
+        compare(meter.providerCount, 1)
+        compare(findChild(meter, "emptyQuotaMeter").visible, false)
+        const inner = findChild(meter, "quota-ring-codex-model-19")
+        verify(inner)
+        verify(inner.width > 0)
+        verify(inner.strokeWidth > 0)
     }
 
     function test_providerTabsExposeOverviewAndProviders() {

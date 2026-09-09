@@ -13,6 +13,19 @@ target_link_libraries(oauth-profiles-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(oauth-profiles-test)
 add_test(NAME oauth-profiles COMMAND oauth-profiles-test)
 
+add_executable(default-credential-context-test tst_default_credential_context.cpp)
+target_link_libraries(default-credential-context-test PRIVATE kodometer-core Qt6::Test)
+kodometer_enable_warnings(default-credential-context-test)
+add_test(NAME default-credential-context COMMAND default-credential-context-test)
+
+add_executable(quota-history-test tst_quota_history.cpp)
+target_link_libraries(quota-history-test PRIVATE kodometer-core Qt6::Test)
+# Fault injection stays in the test linker, not in the production store.
+target_link_options(quota-history-test PRIVATE
+    "LINKER:--wrap=fstat" "LINKER:--wrap=fsync" "LINKER:--wrap=renameat")
+kodometer_enable_warnings(quota-history-test)
+add_test(NAME quota-history COMMAND quota-history-test)
+
 add_executable(cost-history-model-test tst_cost_history_model.cpp)
 target_link_libraries(cost-history-model-test PRIVATE kodometer-core Qt6::Test)
 kodometer_enable_warnings(cost-history-model-test)

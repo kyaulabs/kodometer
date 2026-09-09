@@ -22,20 +22,36 @@
             <label>Show idle quota windows</label>
             <default>false</default>
         </entry>
+        <entry name="showCodexSpark" type="Bool">
+            <label>Show Codex Spark quota</label>
+            <default>false</default>
+        </entry>
+        <entry name="quotaBarsRemaining" type="Bool">
+            <label>Fill quota bars with remaining quota</label>
+            <default>true</default>
+        </entry>
+        <entry name="hiddenQuotaWindows" type="StringList">
+            <label>Quota windows hidden from all quota displays</label>
+            <default></default>
+        </entry>
+        <entry name="quotaWindowCatalog" type="String">
+            <label>Last reported public quota-window metadata for settings</label>
+            <default>[]</default>
+        </entry>
         <entry name="panelDonutCharts" type="Bool">
             <label>Show compact panel quotas as donut charts instead of bars</label>
             <default>false</default>
         </entry>
         <entry name="panelSystemAccent" type="Bool">
-            <label>Use the desktop accent instead of Kodometer Iris for panel meters</label>
+            <label>Use the desktop accent instead of Kodometer Iris for panel bar meters</label>
             <default>false</default>
         </entry>
         <entry name="panelSessionColor" type="String">
-            <label>Session donut RGB color; empty uses the meter accent</label>
+            <label>Session donut RGB color; empty uses the provider color</label>
             <default></default>
         </entry>
         <entry name="panelWeeklyColor" type="String">
-            <label>Weekly donut RGB color; empty uses the meter accent</label>
+            <label>Weekly donut RGB color; empty uses a provider-based window color</label>
             <default></default>
         </entry>
         <entry name="quotaNotifications" type="Bool">

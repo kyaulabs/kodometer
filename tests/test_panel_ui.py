@@ -27,12 +27,12 @@ class PanelUiTests(unittest.TestCase):
         self.assertIn("toolTipSubText: panelToolTip.subText", main)
         self.assertIn("toolTipTextFormat: Text.PlainText", main)
         summary = main.split("PanelToolTip {", 1)[1].split("\n    }", 1)[0]
-        self.assertIn("providers: backend.providers", summary)
-        self.assertIn("donutCharts: Plasmoid.configuration.panelDonutCharts", summary)
+        self.assertIn("providers: presentation.displayedProviders", summary)
+        self.assertIn("donutCharts: false", summary)
         compact = main.split("compactRepresentation:", 1)[1].split("fullRepresentation:", 1)[0]
         self.assertNotIn("QQC2.ToolTip", compact)
         self.assertNotIn("hoverEnabled: true", compact)
-        self.assertIn("providers: backend.providers", compact)
+        self.assertIn("providers: presentation.displayedProviders", compact)
         self.assertIn("toolTipsEnabled: !root.expanded", compact)
 
 

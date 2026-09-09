@@ -38,6 +38,10 @@
             <label>Last reported public quota-window metadata for settings</label>
             <default>[]</default>
         </entry>
+        <entry name="providerColors" type="String">
+            <label>Per-provider RGB accent overrides</label>
+            <default>{}</default>
+        </entry>
         <entry name="panelDonutCharts" type="Bool">
             <label>Show compact panel quotas as donut charts instead of bars</label>
             <default>false</default>

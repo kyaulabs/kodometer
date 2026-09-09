@@ -33,7 +33,8 @@ Item {
     function windowColor(index) {
         const kind = windows[index].kind
         const custom = kind === "session" ? sessionColor : kind === "weekly" ? weeklyColor : ""
-        if (/^#[0-9a-fA-F]{6}$/.test(custom))
+        if (!(provider.display && provider.display.customAccent) && /^#[0-9a-fA-F]{6}$/.test(
+                    custom))
             return custom
         let hueOffset = kind === "session" ? 0 : kind === "weekly" ? 0.17 : 0.34
         if (kind !== "session" && kind !== "weekly") {

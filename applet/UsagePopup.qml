@@ -22,12 +22,26 @@ Item {
     signal configureRequested
     signal walletRequested
 
+    readonly property real chromeHeight: {
+        let total = Kirigami.Units.largeSpacing * 2
+        let count = 0
+        for (const child of contentLayout.children) {
+            if (child === pageLoader || !child.visible)
+                continue
+            total += child.implicitHeight + child.Layout.topMargin + child.Layout.bottomMargin
+            count++
+        }
+        return total + Math.max(0, count) * contentLayout.spacing
+    }
+    readonly property real pageHeightLimit: Math.max(1, availableHeight * 0.85 - chromeHeight)
+
     implicitWidth: Kirigami.Units.gridUnit * 22
     implicitHeight: Math.min(contentLayout.implicitHeight + Kirigami.Units.largeSpacing * 2,
                              availableHeight * 0.85)
     Layout.preferredHeight: implicitHeight
     Layout.minimumWidth: Kirigami.Units.gridUnit * 18
-    Layout.minimumHeight: Math.min(Kirigami.Units.gridUnit * 12, implicitHeight)
+    Layout.minimumHeight: implicitHeight
+    Layout.maximumHeight: implicitHeight
     focus: true
     Keys.onLeftPressed: navigation.selectPrevious()
     Keys.onRightPressed: navigation.selectNext()
@@ -141,14 +155,14 @@ Item {
         }
 
         RowLayout {
+            objectName: "popupFooter"
             Layout.fillWidth: true
             QQC2.ToolButton {
-                objectName: "openAccountSwitcher"
-                icon.name: "user-identity"
-                text: qsTr("Switch account…")
+                objectName: "configureAccounts"
+                icon.name: "configure"
+                text: qsTr("Configure providers and accounts…")
                 display: QQC2.AbstractButton.IconOnly
-                enabled: root.switching && root.switching.providers.length > 0
-                onClicked: accountDialog.open()
+                onClicked: root.configureRequested()
                 QQC2.ToolTip.text: text
                 QQC2.ToolTip.visible: hovered
             }
@@ -208,17 +222,10 @@ Item {
         }
     }
 
-    AccountSwitchDialog {
-        id: accountDialog
-        parent: root
-        switching: root.switching
-        initialProviderId: root.navigation.selectedProviderId
-        onWalletRequested: root.walletRequested()
-        onConfigureRequested: root.configureRequested()
-    }
     Component {
         id: overviewComponent
         OverviewPage {
+            maximumContentHeight: root.pageHeightLimit
             providers: root.navigation.displayedProviders
             showIdleWindows: root.showIdleWindows
             fillRemaining: root.fillRemaining
@@ -228,10 +235,10 @@ Item {
     Component {
         id: providerComponent
         ProviderDetails {
+            maximumContentHeight: root.pageHeightLimit
             provider: root.navigation.selectedProvider
             switching: root.switching
             quotaHistory: root.quotaHistory
-            onClearHistoryRequested: clearHistoryDialog.open()
             loading: root.busy
             clockTick: root.clockTick
             showIdleWindows: root.showIdleWindows

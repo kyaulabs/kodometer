@@ -5,27 +5,22 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
-Flickable {
+PaginatedPage {
     id: root
 
     property var providers: []
     property bool showIdleWindows: false
     property bool fillRemaining: true
-    readonly property int visibleProviderCount: Math.min(6, providers.length)
+    readonly property int visibleProviderCount: providers.length
 
     signal providerSelected(string providerId)
 
-    contentWidth: width
-    contentHeight: overview.implicitHeight + Kirigami.Units.largeSpacing
-    clip: true
-    boundsBehavior: Flickable.StopAtBounds
-
-    ColumnLayout {
+    contentItem: ColumnLayout {
         id: overview
         objectName: "pageContent"
 
-        width: Math.max(0, root.width - pageScrollBar.width - Kirigami.Units.smallSpacing)
-        x: pageScrollBar.mirrored ? root.width - width : 0
+        parent: root.contentHost
+        width: root.width
         spacing: Kirigami.Units.smallSpacing
 
         QQC2.Label {
@@ -46,6 +41,7 @@ Flickable {
 
             delegate: ProviderSummary {
                 required property var modelData
+                objectName: "overview-provider-" + modelData.id
 
                 Layout.fillWidth: true
                 provider: modelData
@@ -64,10 +60,5 @@ Flickable {
             horizontalAlignment: Text.AlignHCenter
             font: Kirigami.Theme.smallFont
         }
-    }
-
-    QQC2.ScrollBar.vertical: QQC2.ScrollBar {
-        id: pageScrollBar
-        objectName: "pageScrollBar"
     }
 }

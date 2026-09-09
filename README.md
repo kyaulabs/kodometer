@@ -14,7 +14,7 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 
 ## Status
 
-Kodometer targets KDE Plasma 6.4 and newer. Version 0.4.0 adds provider-specific nested quota rings, adaptive popup height, consistent window switches, and persistent observed quota history. Spark is hidden by default, and popup bars fill with remaining quota unless configured otherwise. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
+Kodometer targets KDE Plasma 6.4 and newer. Version 0.5.0 adds per-provider colors, fixes popup sizing and hover padding, and replaces vertical popup scrolling with inner page tabs. Account selection now lives in settings, and provider links sit below usage/history. Spark is hidden by default, and popup bars fill with remaining quota unless configured otherwise. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
 
 - a compiled Plasma 6 applet for Wayland and X11;
 - native Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
@@ -35,7 +35,7 @@ Kodometer targets KDE Plasma 6.4 and newer. Version 0.4.0 adds provider-specific
 - per-widget automatic refresh, provider switches, and idle-window preferences;
 - named Codex, Claude, and Gemini credential profiles, with only the selected profile polled;
 - named DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai accounts in KWallet, with selected-only polling;
-- in-widget profile/account selection, including recovery when usage data is unavailable;
+- profile/account selection in settings, including recovery when usage data is unavailable;
 - opt-in low-quota desktop notifications with duplicate suppression;
 - last-good data retention when a refresh fails;
 - redacted account identity by default;
@@ -223,22 +223,21 @@ Open **Configure Kodometer… → General** to choose which providers run and ho
 - Individual quota-window switches appear after a successful refresh. Disabling a window hides it from Overview, provider quota rows, panel meters and tooltips, and the history chart's selector. These presentation switches do not change polling, recorded observations, or notification policy.
 - **Fill bars with remaining quota (instead of used)** is on by default: 65% left fills 65% of a popup bar. Turn it off to fill bars with used quota. Bars use a thicker, slightly rounded fill and a neutral track.
 - **Panel meters** offers **Bars** (default) or **Donut charts**. Bar mode retains the most constrained session and weekly remaining quotas across providers. Donut mode shows one meter per provider with valid visible quota. Its windows form differently colored nested rings in the provider's reported order. Hovering shows only that provider's percentages, with outer-to-inner ring positions. Provider icons identify meters when there is room. Meters sit side by side on horizontal panels and stack on vertical panels; balance-only providers do not get quota rings. With no usable quota, donut mode shows the Kodometer icon. Missing quota is **Not reported**, not zero.
-- **Bar meter accent** defaults to **Kodometer Iris**, using Iris on dark surfaces and Deep Iris on light surfaces. Choose **Desktop accent** to follow your Plasma highlight color. Donuts instead use provider-based window colors. Other controls and surfaces keep your desktop theme. See [artwork integration](branding/README.md).
-- **Session donut color** and **Weekly donut color** override those window colors across providers. **Use provider color** clears an override. Custom colors are saved per widget through Apply and do not change bar colors; Cancel restores saved choices and Defaults restores automatic colors.
+- Each provider under **General → Providers** has a **Choose color…** control. Its accent applies to provider tabs, Overview and detail bars, quota and spend history, and panel meters. **Use default color** restores that provider's built-in accent. Colors are staged per widget: Apply saves them, Cancel restores saved choices, and Defaults clears overrides. Color changes do not refresh providers or change credentials.
+- Panel bars use the accent of the provider supplying the most constrained session or weekly quota. **Bar meter accent** supplies the fallback when no provider accent is available, with **Kodometer Iris** or **Desktop accent** choices. Other controls and surfaces keep your desktop theme. See [artwork integration](branding/README.md).
+- **Session donut color** and **Weekly donut color** remain available for inherited window colors. An explicit provider color takes precedence; inner rings derive contrasting colors from it. **Use provider color** clears a window override.
 
-The popup keeps a stable width and adjusts its preferred height to the selected tab, including changes in visible quota rows and errors. Long pages scroll within a screen-height limit. The header wordmark has balanced vertical spacing.
+The popup keeps a stable width and fits its height to the current content, rather than retaining a taller tab's size. Provider rows include padding inside their hover background. When a tab exceeds the available screen-height budget, numbered page tabs appear inside it. Pages break between sections where possible; an exceptionally tall section continues on another page. Keyboard focus follows the active page, and popup pages have no vertical scrollbar. Overview includes all enabled providers with data. Settings dialogs can still scroll.
 
 These preferences use Plasma's per-widget configuration and its Apply, Cancel, and Defaults controls. The separate **Credentials** page writes directly to KWallet when you press Save, Replace, or Remove; Cancel does not undo wallet changes. OAuth credentials and API keys are never stored in the general settings file.
 
-## Switch accounts in the widget
+## Select profiles and accounts
 
-Use the **Profile** or **Account** selector in provider details to choose an existing entry. The footer's **Switch account…** action also works from Overview or when no usage data is available. Its provider list includes enabled providers only. Opening the dialog or choosing a provider does not change configuration, open KWallet, or request usage.
+Use **Configure Kodometer… → OAuth profiles** for Codex, Claude, and Gemini, or **KWallet accounts** for the other providers. The popup footer's configuration icon opens settings even when no usage is available. Profile/account selectors no longer occupy provider details or a popup switch dialog.
 
-Choosing an account saves the selection immediately for this widget. The selection action does not copy credentials, change another widget's selection, or switch a CLI login. Normal OAuth renewal still applies. Selecting the current entry again does not save or refetch. A changed selection uses the normal refresh cycle and clears that provider's old data. While waiting, the provider view stays accessible with a no-usage placeholder, never the previous account's quota or balance.
+Select an existing entry and press **Apply**. Cancel discards staged selection changes. Applying a different selection clears only that provider's old data and uses the normal refresh cycle; it does not copy credentials, change another widget, or switch a CLI login. Normal OAuth renewal still applies.
 
-Unavailable named wallet entries cannot be selected. Use **Open / retry KWallet** to reload them, or explicitly choose **Default** to restore existing credential discovery. Invalid OAuth profile metadata must be repaired in configuration; the switcher does not discard it. Add, replace, or remove entries through **Configure profiles and accounts…**.
-
-Runtime switches do not wait for Apply and are not undone by Cancel in an open settings dialog. Applying older staged settings can replace the runtime selection. Profile and account names are shown as plain text; the switcher never reads saved keys or team identifiers into its choice list.
+Use **Open / retry KWallet** to reload unavailable wallet entries, or explicitly choose **Default** to restore existing credential discovery. Invalid OAuth profile metadata must be repaired in settings. Names are plain text, and selection lists never reveal saved keys or private team identifiers.
 
 ## OAuth profiles
 
@@ -264,7 +263,7 @@ OpenRouter accounts require an ordinary API key and accept an optional Managemen
 
 Named accounts use only the selected KWallet keys. They ignore environment keys, DeepSeek's compatibility alias, and Kimi's CLI credentials. **Default** restores the existing environment/wallet precedence and Kimi CLI discovery. Only the selected account is polled; applying a selection clears that provider's old data and queues a normal refresh, even with automatic refresh disabled.
 
-Account names, keys, and provider selectors are stored together in KWallet and shared by widgets using that wallet. Saves, key replacements, and removals take effect immediately; Cancel does not undo them. Each widget stores only its selected account UUIDs in Plasma configuration. Selections made in settings follow Apply/Cancel/Defaults; in-widget switches save immediately. Defaults does not delete wallet entries. The entry fields never reveal saved keys.
+Account names, keys, and provider selectors are stored together in KWallet and shared by widgets using that wallet. Saves, key replacements, and removals take effect immediately; Cancel does not undo them. Each widget stores only its selected account UUIDs in Plasma configuration. Selections are made in settings and follow Apply/Cancel/Defaults. Defaults does not delete wallet entries. The entry fields never reveal saved keys.
 
 A locked or unreadable wallet, malformed account data, or a removed selection pauses providers using named accounts rather than silently choosing another credential. Existing requests may finish, but results from changed keys, selectors, or selections are discarded. Unlock the wallet and press the widget's **Refresh** button to reconnect; use **Open / retry KWallet** in settings to reload its account list. Repair malformed named entries with KWallet Manager. Removing an account leaves affected widgets paused until another account or Default is explicitly selected. Label-only edits and changes to unselected accounts do not refetch; replacing a selected key clears its retained data.
 
@@ -288,7 +287,7 @@ Partitions include the selected profile/account and the credentials used by the 
 
 Data older than 30 days is pruned during recording. Cleanup is observation-driven, so an inactive widget can leave its file on disk until a later refresh or explicit clear. Storage is also bounded to 64 partitions, 32 windows per partition, 64,000 observations overall, and 8 MiB; reaching a count limit evicts the oldest window or partition. Thirty days is a retention ceiling, not a promise of complete history under those limits. Unreadable, unsafe, or malformed files produce a visible warning without hiding current usage.
 
-The popup footer's **Clear quota history…** action is available even without provider data; charts offer the same action as **Clear saved quota history…**. Both ask for confirmation before deleting all locally recorded quota history, across providers, profiles, and accounts. Collection resumes with future successful refreshes. Other running widgets reload the shared file on their next successful refresh. Credentials, widget preferences, and provider-reported billing history are unchanged. Uninstalling Kodometer does not remove this user-owned history file.
+The popup footer's **Clear quota history…** icon is the single reset action and is available even without provider data. It asks for confirmation before deleting all locally recorded quota history, across providers, profiles, and accounts. Collection resumes with future successful refreshes. Other running widgets reload the shared file on their next successful refresh. Credentials, widget preferences, and provider-reported billing history are unchanged. Uninstalling Kodometer does not remove this user-owned history file.
 
 ## Cost history
 
@@ -312,7 +311,7 @@ Alerts contain only a public provider name and the remaining percentage—not ac
 
 ## Provider actions
 
-Provider details include **Open dashboard** and **Documentation** buttons. They open official pages in your default browser only when clicked. Hover over a button to preview its destination. If the desktop cannot launch the page, Kodometer shows an error without changing the usage snapshot.
+Provider details include **Open dashboard** and **Documentation** buttons below usage and history. They open official pages in your default browser only when clicked. Hover over a button to preview its destination. If the desktop cannot launch the page, Kodometer shows an error without changing the usage snapshot.
 
 Destinations are fixed in the C++ action catalog. Provider response URLs, account IDs, API keys, and OAuth tokens never enter the links. z.ai uses its global or BigModel CN destinations according to the normalized region of the displayed snapshot; unknown regions have no actions. Gemini opens Google Cloud Console rather than the unsupported consumer Gemini dashboard. BigModel CN opens the console home so you can choose the appropriate personal or team view.
 
@@ -357,7 +356,7 @@ Development follows Git Flow and Conventional Commits.
 5. The workflow opens or reuses a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret. Published assets are never replaced on retry.
 6. When explicitly enabled and configured, a separate job updates AUR recipes with a GPG-signed commit after GitHub publication. A failed AUR update can be retried without replacing GitHub assets.
 
-See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.4.0 overview](docs/releases/0.4.0.md) for the latest features, packages, and compatibility limits.
+See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.5.0 overview](docs/releases/0.5.0.md) for the latest features, packages, and compatibility limits.
 
 ## Security and privacy
 

@@ -14,7 +14,7 @@
     "Id": "org.kyaulabs.kodometer",
     "License": "AGPL-3.0-only",
     "Name": "Kodometer",
-    "Version": "0.4.0",
+    "Version": "0.5.0",
     "Website": "https://github.com/kyaulabs/kodometer"
   },
   "X-Plasma-API-Minimum-Version": "6.4"

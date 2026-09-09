@@ -10,11 +10,13 @@ ColumnLayout {
     required property var windowData
     property color accentColor: Kirigami.Theme.highlightColor
     property int clockTick: 0
-    readonly property real usedPercent: Private.PresentationFormatter.clampPercent(Number(
-                                                                                       windowData.usedPercent
-                                                                                       ?? (100 - Number(
-                                                                                               windowData.remainingPercent
-                                                                                               ?? 100))))
+    property bool fillRemaining: true
+    readonly property real rawUsedPercent: Number(windowData.usedPercent ?? (100 - Number(
+                                                                                 windowData.remainingPercent
+                                                                                 ?? NaN)))
+    readonly property real usedPercent: Number.isFinite(rawUsedPercent) ? Math.max(0, Math.min(100,
+                                                                                               rawUsedPercent)) :
+                                                                          NaN
     readonly property string title: Private.PresentationFormatter.windowTitle(String(
                                                                                   windowData.kind
                                                                                   || ""), String(
@@ -35,9 +37,11 @@ ColumnLayout {
     }
 
     UsageBar {
+        objectName: "detailQuotaBar"
         Layout.fillWidth: true
-        Layout.preferredHeight: Kirigami.Units.smallSpacing
-        percent: root.usedPercent
+        Layout.preferredHeight: Kirigami.Units.smallSpacing * 2.5
+        percent: root.fillRemaining ? Number(root.windowData.remainingPercent ?? NaN) :
+                                      root.usedPercent
         accentColor: root.accentColor
     }
 
@@ -45,7 +49,14 @@ ColumnLayout {
         Layout.fillWidth: true
 
         QQC2.Label {
-            text: qsTr("%1% used").arg(Math.round(root.usedPercent * 10) / 10)
+            text: root.fillRemaining ? Private.PresentationFormatter.remainingLabel(
+                                           root.windowData.remainingPercent) : (Number.isFinite(
+                                                                                    root.usedPercent)
+                                                                                ? qsTr("%1% used").arg(
+                                                                                      Math.round(
+                                                                                          root.usedPercent
+                                                                                          * 10) / 10) :
+                                                                                  qsTr("Not reported"))
             font: Kirigami.Theme.smallFont
         }
 

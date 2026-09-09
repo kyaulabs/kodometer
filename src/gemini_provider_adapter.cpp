@@ -178,6 +178,9 @@ void GeminiProviderAdapter::refresh()
         return;
     }
     m_credentials = *credentials;
+    setHistoryIdentity((m_credentials.refreshToken.isEmpty() ? m_credentials.accessToken
+                                                             : m_credentials.refreshToken)
+                           .toUtf8());
     if (m_credentials.needsRefresh()) {
         requestToken();
     }
@@ -401,6 +404,7 @@ void GeminiProviderAdapter::finishToken(int statusCode, QNetworkReply::NetworkEr
     }
     // GCOVR_EXCL_STOP
     m_credentials = *reloaded;
+    setHistoryIdentity(m_credentials.refreshToken.toUtf8(), true);
     requestCodeAssist();
 }
 

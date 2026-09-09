@@ -81,6 +81,12 @@ void OpenRouterProviderAdapter::setActivityEndpoint(const QUrl &endpoint)
     m_activityEndpoint = endpoint;
 }
 
+QByteArray OpenRouterProviderAdapter::defaultCredentialContext() const
+{
+    return credentialContext(m_environment,
+                             {u"OPENROUTER_API_KEY", u"OPENROUTER_MANAGEMENT_API_KEY"});
+}
+
 void OpenRouterProviderAdapter::setEnvironment(const QMap<QString, QString> &environment)
 {
     m_environment = environment;

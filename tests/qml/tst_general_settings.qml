@@ -89,6 +89,40 @@ TestCase {
         compare(findChild(page, "showIdleWindows").checked, true)
     }
 
+    function test_stagesQuotaWindowAndBarPreferences() {
+        const page = createTemporaryObject(settingsComponent, this)
+        compare(page.cfg_showCodexSpark, false)
+        compare(page.cfg_quotaBarsRemaining, true)
+        compare(page.cfg_hiddenQuotaWindows.length, 0)
+        findChild(page, "showCodexSpark").click()
+        compare(page.cfg_showCodexSpark, true)
+        findChild(page, "quotaBarsRemaining").click()
+        compare(page.cfg_quotaBarsRemaining, false)
+        page.cfg_quotaWindowCatalog = JSON.stringify([
+                                                         {
+                                                             key: "codex/session",
+                                                             provider: "Codex",
+                                                             label: "<b>Session</b>"
+                                                         }
+                                                     ])
+        const window = findChild(page, "quota-window-codex/session")
+        verify(window)
+        compare(window.contentItem.textFormat, Text.PlainText)
+        compare(window.contentItem.text, "Codex — <b>Session</b>")
+        window.click()
+        compare(page.cfg_hiddenQuotaWindows[0], "codex/session")
+        window.click()
+        compare(page.cfg_hiddenQuotaWindows.length, 0)
+        page.cfg_hiddenQuotaWindows = ["codex/session"]
+        compare(window.checked, false)
+        page.cfg_quotaWindowCatalog = "broken"
+        compare(page.quotaWindows.length, 0)
+        page.cfg_quotaWindowCatalog = "{}"
+        compare(page.quotaWindows.length, 0)
+        page.cfg_quotaWindowCatalog = '[{},null,{"key":1}]'
+        compare(page.quotaWindows.length, 0)
+    }
+
     function test_independentColorsFollowStagedSettings() {
         const page = createTemporaryObject(settingsComponent, this)
         compare(page.cfg_panelSessionColor, "")

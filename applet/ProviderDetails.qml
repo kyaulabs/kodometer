@@ -12,6 +12,15 @@ Flickable {
     required property var provider
     property int clockTick: 0
     property bool showIdleWindows: false
+    property bool fillRemaining: true
+    property var quotaHistory: null
+    signal clearHistoryRequested
+    readonly property var historySeries: {
+        if (!quotaHistory)
+            return []
+        quotaHistory.revision
+        return quotaHistory.view(String(provider.id || ""))
+    }
     property var switching: null
     property bool loading: false
     readonly property color accentColor: provider.display && provider.display.accentColor
@@ -181,6 +190,7 @@ Flickable {
 
                 Layout.fillWidth: true
                 windowData: modelData
+                fillRemaining: root.fillRemaining
                 accentColor: root.accentColor
                 clockTick: root.clockTick
             }
@@ -220,6 +230,7 @@ Flickable {
                     provider: modelData
                     windowLimit: 0
                     showIdleWindows: root.showIdleWindows
+                    fillRemaining: root.fillRemaining
                     badgeText: modelData.active ? qsTr("Active") : ""
                 }
             }
@@ -301,6 +312,23 @@ Flickable {
                           Private.PresentationFormatter.usdLabel(Number(root.cost.last30DaysUSD
                                                                         || 0)))
             }
+        }
+
+        QuotaHistoryChart {
+            objectName: "quotaHistoryChart"
+            Layout.fillWidth: true
+            visible: ["codex", "claude", "gemini", "kimi", "zai"].includes(String(
+                                                                               root.provider.id))
+            && windows.length > 0
+            windows: root.windows.filter(windowData => windowData.kind !== "spend-limit")
+            series: root.historySeries
+            accentColor: root.accentColor
+            endTime: {
+                root.clockTick
+                root.historySeries
+                return Date.now() / 1000
+            }
+            onClearRequested: root.clearHistoryRequested()
         }
 
         CostHistory {

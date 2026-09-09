@@ -1,4 +1,5 @@
 import QtQuick
+import org.kde.kirigami as Kirigami
 
 Item {
     id: root
@@ -6,22 +7,26 @@ Item {
     property real percent: 0
     property color accentColor: "#49a3b0"
     property real trackOpacity: 0.16
-    readonly property real normalizedPercent: Math.max(0, Math.min(100, percent))
+    readonly property real normalizedPercent: Number.isFinite(percent) ? Math.max(0, Math.min(100,
+                                                                                              percent)) :
+                                                                         0
     readonly property real fillWidth: width * normalizedPercent / 100
 
     implicitWidth: 180
-    implicitHeight: 6
+    implicitHeight: 10
 
     Rectangle {
-        anchors.fill: parent
-        radius: height / 2
-        color: Qt.alpha(root.accentColor, root.trackOpacity)
+        x: root.fillWidth > 0 ? root.fillWidth + 2 : 0
+        width: Math.max(0, root.width - x)
+        height: root.height
+        radius: 2
+        color: Qt.alpha(Kirigami.Theme.textColor, root.trackOpacity)
     }
 
     Rectangle {
         width: root.fillWidth
         height: parent.height
-        radius: height / 2
+        radius: 2
         color: root.accentColor
     }
 }

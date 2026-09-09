@@ -78,6 +78,8 @@ Read `docs/architecture/0002-native-provider-adapters.md`, README, and focused t
 - Account switching is metadata-only until an explicit selection. Pending navigation placeholders must contain no old usage and must never reach the compact quota meter or notifications.
 - Notifications are off by default and use fresh successful results, never retained snapshots. One low-quota episode per provider; recovery requires threshold +5 percentage points. Invalid data cannot prove recovery. No private labels/selectors in notifications.
 - Cost history is transient, reported-only UTC data. Unknown days are not zero. Do not add billing-history persistence, requests, synthetic provider totals, or a Qt Charts dependency.
+- Observed subscription-quota history may persist for up to 30 days in bounded, owner-only local storage. Record only successful current-context refreshes, partition by the selected profile/account and pinned authenticated identity, and never serialize credentials, private selectors, labels, or credential paths. Restore only after a matching successful refresh; preserve gaps and resets instead of inventing activity.
+- Donut mode is provider-specific: one meter per quota provider, with differently colored nested rings for its enabled windows and provider-only tooltips. Window switches apply across quota displays, independently of notification policy. Hide Codex Spark by default; popup bars default to remaining quota with a used-quota option. Keep the popup width stable and adapt its height to the selected tab within screen bounds.
 
 ### Provider-specific contracts
 

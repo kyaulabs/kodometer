@@ -129,6 +129,11 @@ void CodexProviderAdapter::refresh()
         return;
     }
     m_credentials = *credentials;
+    setHistoryIdentity((m_credentials.accountId.isEmpty()
+                            ? (m_credentials.refreshToken.isEmpty() ? m_credentials.accessToken
+                                                                    : m_credentials.refreshToken)
+                            : m_credentials.accountId)
+                           .toUtf8());
 
     if (m_credentials.needsRefresh()) {
         requestToken();
@@ -304,6 +309,10 @@ void CodexProviderAdapter::finishToken(int statusCode, QNetworkReply::NetworkErr
         return;                     // GCOVR_EXCL_LINE
     }
     m_credentials = *reloaded;
+    setHistoryIdentity(
+        (m_credentials.accountId.isEmpty() ? m_credentials.refreshToken : m_credentials.accountId)
+            .toUtf8(),
+        m_credentials.accountId.isEmpty());
     requestUsage();
 }
 

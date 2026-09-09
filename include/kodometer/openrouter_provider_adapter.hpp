@@ -34,6 +34,7 @@ class OpenRouterProviderAdapter final : public ProviderAdapter
     void setApiBaseEndpoint(const QUrl &endpoint);
     void setActivityEndpoint(const QUrl &endpoint);
     void setEnvironment(const QMap<QString, QString> &environment);
+    [[nodiscard]] QByteArray defaultCredentialContext() const override;
     void setCurrentDateTime(const QDateTime &dateTime);
     void setTimeoutMilliseconds(int milliseconds);
 

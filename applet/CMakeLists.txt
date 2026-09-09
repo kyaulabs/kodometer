@@ -4,10 +4,14 @@ plasma_add_applet(org.kyaulabs.kodometer
         AccountSwitchDialog.qml
         AccountSelector.qml
         UsageNavigation.qml
+        UsagePopup.qml
         BrandPalette.qml
         CompactMeter.qml
         PanelToolTip.qml
         QuotaRing.qml
+        QuotaPresentation.qml
+        QuotaHistoryChart.qml
+        ProviderMeter.qml
         ProviderIcon.qml
         CostHistory.qml
         DetailSection.qml
@@ -60,6 +64,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../include/kodometer/zai_usage_parser.hpp
         ../include/kodometer/oauth_profiles.hpp
         ../include/kodometer/cost_history_model.hpp
+        ../include/kodometer/quota_history.hpp
         ../include/kodometer/presentation_formatter.hpp
         ../include/kodometer/provider_actions.hpp
         ../include/kodometer/provider_adapter.hpp
@@ -97,6 +102,7 @@ plasma_add_applet(org.kyaulabs.kodometer
         ../src/zai_usage_parser.cpp
         ../src/oauth_profiles.cpp
         ../src/cost_history_model.cpp
+        ../src/quota_history.cpp
         ../src/presentation_formatter.cpp
         ../src/provider_actions.cpp
         ../src/provider_adapter.cpp

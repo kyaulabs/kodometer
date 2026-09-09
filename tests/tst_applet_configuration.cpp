@@ -142,14 +142,208 @@ class AppletConfigurationTest final : public QObject
         }
         QQmlComponent meterComponent(&engine,
                                      root.resolved(QUrl(QStringLiteral("CompactMeter.qml"))));
+        const QVariantMap quotaWindow{{QStringLiteral("kind"), QStringLiteral("session")},
+                                      {QStringLiteral("remainingPercent"), 12.8}};
+        const QVariantMap quotaProvider{{QStringLiteral("id"), QStringLiteral("codex")},
+                                        {QStringLiteral("windows"), QVariantList{quotaWindow}}};
         QScopedPointer<QObject> meter(meterComponent.createWithInitialProperties(
             {{QStringLiteral("donutCharts"), true},
-             {QStringLiteral("sessionRemaining"), 12.8},
-             {QStringLiteral("weeklyRemaining"), 55.1}}));
+             {QStringLiteral("providers"), QVariantList{quotaProvider}}}));
         QVERIFY2(meter, qPrintable(meterComponent.errorString()));
-        auto *session = meter->findChild<QObject *>(QStringLiteral("sessionRing"));
+        auto *session = findVisualItem(qobject_cast<QQuickItem *>(meter.data()),
+                                       QStringLiteral("quota-ring-codex-session"));
         QVERIFY(session);
         QCOMPARE(session->property("value").toDouble(), 12.8);
+    }
+
+    void adaptsPopupHeightAcrossTabs()
+    {
+        QQmlEngine engine;
+        const QUrl root(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/"));
+        const QVariantMap session{
+            {"kind", "session"}, {"label", "Session"}, {"remainingPercent", 65.0}};
+        const QVariantMap weekly{
+            {"kind", "weekly"}, {"label", "7-day usage"}, {"remainingPercent", 30.0}};
+        const QVariantMap codex{{"id", "codex"},
+                                {"name", "Codex"},
+                                {"windows", QVariantList{session}},
+                                {"display", QVariantMap{{"accentColor", "#49a3b0"}}}};
+        const QVariantMap kimi{{"id", "kimi"},
+                               {"name", "Kimi Code"},
+                               {"windows", QVariantList{weekly, session}},
+                               {"display", QVariantMap{{"accentColor", "#ff603e"}}}};
+        const QVariantMap balance{
+            {"id", "deepseek"}, {"name", "DeepSeek"}, {"cost", QVariantMap{{"balance", 0.61}}}};
+        QQmlComponent navigationComponent(&engine, root.resolved(QUrl("UsageNavigation.qml")));
+        QScopedPointer<QObject> navigation(navigationComponent.createWithInitialProperties(
+            {{"providers", QVariantList{codex, kimi, balance}}}));
+        QVERIFY2(navigation, qPrintable(navigationComponent.errorString()));
+        QQmlComponent switchingComponent(&engine, root.resolved(QUrl("AccountSwitching.qml")));
+        const QVariantMap configuration{
+            {"oauthProfiles", "{}"}, {"disabledProviders", QStringList{}},
+            {"codexAccountId", ""},  {"deepseekAccountId", ""},
+            {"kimiAccountId", ""},   {"openrouterAccountId", ""},
+            {"xaiAccountId", ""},    {"zaiAccountId", ""}};
+        QScopedPointer<QObject> switching(
+            switchingComponent.createWithInitialProperties({{"configuration", configuration}}));
+        QVERIFY2(switching, qPrintable(switchingComponent.errorString()));
+        QQmlComponent popupComponent(&engine, root.resolved(QUrl("UsagePopup.qml")));
+        QScopedPointer<QObject> popup(popupComponent.createWithInitialProperties(
+            {{"navigation", QVariant::fromValue(navigation.data())},
+             {"switching", QVariant::fromValue(switching.data())},
+             {"availableHeight", 1400}}));
+        QVERIFY2(popup, qPrintable(popupComponent.errorString()));
+        auto *item = qobject_cast<QQuickItem *>(popup.data());
+        QVERIFY(item);
+        QQuickWindow window;
+        item->setParentItem(window.contentItem());
+        item->setWidth(400);
+        window.resize(400, 900);
+        window.show();
+        QTRY_VERIFY(item->implicitHeight() > 200);
+        item->setHeight(item->implicitHeight());
+        QTest::qWait(100);
+        const qreal overviewHeight = item->implicitHeight();
+        auto *wordmark = findVisualItem(item, "headerWordmark");
+        auto *tabs = findVisualItem(item, "popupProviderTabs");
+        QVERIFY(wordmark);
+        QVERIFY(tabs);
+        const qreal above = wordmark->mapToItem(item, QPointF{}).y();
+        const qreal below = tabs->mapToItem(item, QPointF{}).y() - above - wordmark->height();
+        QVERIFY(qAbs(above - below) <= 2);
+
+        const auto capture = [&](const QString &name) {
+            item->setHeight(item->implicitHeight());
+            window.resize(400, qCeil(item->height()));
+            QTest::qWait(100);
+            const QString directory = qEnvironmentVariable("KODOMETER_UI_CAPTURE_DIR");
+            if (!directory.isEmpty()) {
+                QVERIFY(QDir().mkpath(directory));
+                QVERIFY(window.grabWindow().save(QDir(directory).filePath(name + ".png")));
+            }
+        };
+        capture("overview");
+        QVERIFY(QMetaObject::invokeMethod(navigation.data(), "selectProvider",
+                                          Q_ARG(QVariant, QStringLiteral("codex"))));
+        QTRY_VERIFY(item->implicitHeight() != overviewHeight);
+        const qreal codexHeight = item->implicitHeight();
+        auto *chart = findVisualItem(item, QStringLiteral("quotaHistoryChart"));
+        QVERIFY(chart);
+        QVariantList observed;
+        const qint64 end = QDateTime::currentSecsSinceEpoch();
+        for (int i = 0; i < 288; ++i)
+            observed.append(
+                QVariant(QVariantList{end - (287 - i) * 300, 65.0 + ((287 - i) % 48) * 0.4, 0}));
+        QVERIFY(chart->setProperty(
+            "series", QVariantList{QVariantMap{{"kind", "session"}, {"points", observed}}}));
+        capture("codex");
+        QVERIFY(QMetaObject::invokeMethod(navigation.data(), "selectProvider",
+                                          Q_ARG(QVariant, QStringLiteral("deepseek"))));
+        QTRY_VERIFY(item->implicitHeight() < codexHeight);
+        capture("deepseek");
+        QVERIFY(popup->setProperty("availableHeight", 300));
+        QTRY_VERIFY(item->implicitHeight() <= 255);
+        auto *loader = findVisualItem(item, "popupPageLoader");
+        QVERIFY(loader);
+        auto *page = loader->property("item").value<QObject *>();
+        QVERIFY(page);
+        QVERIFY(page->property("contentHeight").toDouble() > 0);
+    }
+
+    void confirmsHistoryClearWithoutProviderData()
+    {
+        QQmlEngine engine;
+        const QUrl root(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/"));
+        QQmlComponent navigationComponent(&engine, root.resolved(QUrl("UsageNavigation.qml")));
+        QScopedPointer<QObject> navigation(navigationComponent.create());
+        QVERIFY2(navigation, qPrintable(navigationComponent.errorString()));
+        QQmlComponent historyComponent(&engine);
+        historyComponent.setData(R"(import QtQml
+            QtObject {
+                property int revision: 0
+                property string error: ""
+                property bool cleared: false
+                function view(provider) { return [] }
+                function clear() { cleared = true }
+            })",
+                                 root.resolved(QUrl("test-history.qml")));
+        QScopedPointer<QObject> history(historyComponent.create());
+        QVERIFY2(history, qPrintable(historyComponent.errorString()));
+        QQmlComponent component(&engine, root.resolved(QUrl("UsagePopup.qml")));
+        QScopedPointer<QObject> popup(component.createWithInitialProperties(
+            {{"navigation", QVariant::fromValue(navigation.data())},
+             {"quotaHistory", QVariant::fromValue(history.data())}}));
+        QVERIFY2(popup, qPrintable(component.errorString()));
+        auto *item = qobject_cast<QQuickItem *>(popup.data());
+        QVERIFY(item);
+        QQuickWindow window;
+        item->setParentItem(window.contentItem());
+        item->setSize(QSizeF(400, 500));
+        window.resize(400, 500);
+        window.show();
+        auto *button = findVisualItem(item, "clearQuotaHistory");
+        auto *dialog = popup->findChild<QObject *>("clearHistoryConfirmation");
+        QVERIFY(button);
+        QVERIFY(dialog);
+        QVERIFY(button->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QVERIFY(!history->property("cleared").toBool());
+        QVERIFY(QMetaObject::invokeMethod(dialog, "reject"));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        QVERIFY(!history->property("cleared").toBool());
+        QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(dialog, "accept"));
+        QVERIFY(history->property("cleared").toBool());
+    }
+
+    void excludesMonetaryCapsFromSubscriptionCharts()
+    {
+        QQmlEngine engine;
+        QQmlComponent component(
+            &engine, QUrl(QStringLiteral(
+                         "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ProviderDetails.qml")));
+        const QVariantMap cap{{"kind", "spend-limit"}, {"remainingPercent", 65.0}};
+        QVariantMap provider{{"id", "claude"}, {"windows", QVariantList{cap}}};
+        QScopedPointer<QObject> object(
+            component.createWithInitialProperties({{"width", 400}, {"provider", provider}}));
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *chart =
+            findVisualItem(qobject_cast<QQuickItem *>(object.data()), "quotaHistoryChart");
+        QVERIFY(chart);
+        QVERIFY(!chart->isVisible());
+        provider["windows"] =
+            QVariantList{cap, QVariantMap{{"kind", "session"}, {"remainingPercent", 50.0}}};
+        QVERIFY(object->setProperty("provider", provider));
+        QVERIFY(chart->isVisible());
+        QCOMPARE(chart->property("windows").value<QJSValue>().property("length").toInt(), 1);
+    }
+
+    void fillsBarsWithRemainingOrUsedQuota()
+    {
+        QQmlEngine engine;
+        const QUrl root(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/"));
+        const QVariantMap window{{"kind", "session"}, {"remainingPercent", 65.0}};
+        const QVariantMap provider{{"id", "codex"}, {"windows", QVariantList{window}}};
+        for (const auto &name :
+             {QStringLiteral("WindowRow.qml"), QStringLiteral("ProviderSummary.qml")}) {
+            const bool detail = name == QLatin1String("WindowRow.qml");
+            QQmlComponent component(&engine, root.resolved(QUrl(name)));
+            QVariantMap properties{{"width", 300}};
+            properties.insert(detail ? QStringLiteral("windowData") : QStringLiteral("provider"),
+                              detail ? window : provider);
+            QScopedPointer<QObject> object(component.createWithInitialProperties(properties));
+            QVERIFY2(object, qPrintable(component.errorString()));
+            auto *bar = findVisualItem(qobject_cast<QQuickItem *>(object.data()),
+                                       detail ? QStringLiteral("detailQuotaBar")
+                                              : QStringLiteral("summaryQuotaBar"));
+            QVERIFY(bar);
+            QCOMPARE(bar->property("percent").toDouble(), 65.0);
+            QVERIFY(object->setProperty("fillRemaining", false));
+            QCOMPARE(bar->property("percent").toDouble(), 35.0);
+            QCOMPARE(bar->property("implicitHeight").toDouble(), 10.0);
+        }
     }
 
     void exposesConfigurationAtResourceRoot()
@@ -222,12 +416,16 @@ class AppletConfigurationTest final : public QObject
         {
             KConfig config(path, KConfig::SimpleConfig);
             KConfigLoader loader(KConfigGroup(&config, "Widget"), &schema);
-            QCOMPARE(loader.items().size(), 16);
+            QCOMPARE(loader.items().size(), 20);
             const QVariantMap preferences{
                 {QStringLiteral("autoRefresh"), false},
                 {QStringLiteral("refreshIntervalMinutes"), 15},
                 {QStringLiteral("disabledProviders"), QStringList{QStringLiteral("codex")}},
                 {QStringLiteral("showIdleWindows"), true},
+                {QStringLiteral("showCodexSpark"), true},
+                {QStringLiteral("quotaBarsRemaining"), false},
+                {QStringLiteral("hiddenQuotaWindows"), QStringList{QStringLiteral("codex/weekly")}},
+                {QStringLiteral("quotaWindowCatalog"), QStringLiteral("[]")},
                 {QStringLiteral("panelDonutCharts"), true},
                 {QStringLiteral("panelSystemAccent"), true},
                 {QStringLiteral("panelSessionColor"), QStringLiteral("#112233")},
@@ -262,6 +460,10 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(reloaded.property("disabledProviders").toStringList(),
                  QStringList{QStringLiteral("codex")});
         QCOMPARE(reloaded.property("showIdleWindows").toBool(), true);
+        QCOMPARE(reloaded.property("showCodexSpark").toBool(), true);
+        QCOMPARE(reloaded.property("quotaBarsRemaining").toBool(), false);
+        QCOMPARE(reloaded.property("hiddenQuotaWindows").toStringList(),
+                 QStringList{QStringLiteral("codex/weekly")});
         QCOMPARE(reloaded.property("panelDonutCharts").toBool(), true);
         QCOMPARE(reloaded.property("panelSystemAccent").toBool(), true);
         QCOMPARE(reloaded.property("panelSessionColor").toString(), QStringLiteral("#112233"));

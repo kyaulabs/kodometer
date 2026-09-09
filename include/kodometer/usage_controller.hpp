@@ -3,6 +3,7 @@
 #include <kodometer/credential_store.hpp>
 #include <kodometer/oauth_profiles.hpp>
 #include <kodometer/provider_adapter.hpp>
+#include <kodometer/quota_history.hpp>
 
 #include <QObject>
 #include <QQmlEngine>
@@ -19,6 +20,7 @@ class UsageController : public QObject
     QML_ELEMENT
 
     Q_PROPERTY(Kodometer::OAuthProfiles *profiles READ profiles CONSTANT)
+    Q_PROPERTY(Kodometer::QuotaHistory *history READ history CONSTANT)
     Q_PROPERTY(QString deepseekAccountId READ deepseekAccountId WRITE setDeepseekAccountId NOTIFY
                    accountSelectionChanged)
     Q_PROPERTY(QString openrouterAccountId READ openrouterAccountId WRITE setOpenrouterAccountId
@@ -46,6 +48,7 @@ class UsageController : public QObject
     explicit UsageController(const QList<ProviderAdapter *> &adapters, QObject *parent = nullptr);
 
     [[nodiscard]] OAuthProfiles *profiles() noexcept;
+    [[nodiscard]] QuotaHistory *history() noexcept;
     [[nodiscard]] QString deepseekAccountId() const;
     [[nodiscard]] QString kimiAccountId() const;
     [[nodiscard]] QString openrouterAccountId() const;
@@ -87,8 +90,9 @@ class UsageController : public QObject
   private:
     void registerAdapter(ProviderAdapter *adapter);
     void profileSettingsChanged();
+    bool updateContexts(bool queueRefresh);
     void setAccountSelection(const QString &provider, const QString &id);
-    [[nodiscard]] QString contextKey(const QString &provider) const;
+    [[nodiscard]] QString contextKey(const ProviderAdapter *adapter) const;
     [[nodiscard]] std::optional<QString> selectedAccountKey(const QString &provider) const;
     [[nodiscard]] QString selectedAccountManagementKey(const QString &provider) const;
     [[nodiscard]] QString selectedAccountTeamId(const QString &provider) const;
@@ -107,6 +111,7 @@ class UsageController : public QObject
     void setError(const QString &error);
 
     OAuthProfiles m_profiles;
+    QuotaHistory m_history;
     QMap<QString, QString> m_accountSelections;
     QMap<QString, QString> m_profileContexts;
     QMap<QString, quint64> m_profileRevisions;

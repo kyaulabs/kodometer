@@ -109,6 +109,11 @@ void KimiProviderAdapter::setBaseEndpoint(const QUrl &endpoint)
     m_baseEndpoint = endpoint;
 }
 
+QByteArray KimiProviderAdapter::defaultCredentialContext() const
+{
+    return credentialContext(m_environment, {u"KIMI_CODE_API_KEY"});
+}
+
 void KimiProviderAdapter::setEnvironment(const QMap<QString, QString> &environment)
 {
     m_environment = environment;
@@ -152,6 +157,7 @@ void KimiProviderAdapter::refresh()
         return;
     }
     m_credentials = *credentials;
+    setHistoryIdentity(m_credentials.accessToken.toUtf8());
     m_triedCliFallback = false;
     requestUsage();
 }
@@ -223,6 +229,7 @@ bool KimiProviderAdapter::tryCliFallback()
         return false;
     }
     m_credentials = *credentials;
+    setHistoryIdentity(m_credentials.accessToken.toUtf8());
     m_triedCliFallback = true;
     requestUsage();
     return true;

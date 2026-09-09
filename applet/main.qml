@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasmoid
@@ -15,30 +14,39 @@ PlasmoidItem {
     switchHeight: Kirigami.Units.gridUnit * 10
     Plasmoid.icon: "kodometer"
     Plasmoid.status: backend.busy ? PlasmaCore.Types.ActiveStatus : PlasmaCore.Types.PassiveStatus
-
     toolTipMainText: panelToolTip.mainText
     toolTipSubText: panelToolTip.subText
     toolTipTextFormat: Text.PlainText
+    property var settings: Plasmoid.configuration
+    property int clockTick: 0
 
     PanelToolTip {
         id: panelToolTip
-        providers: backend.providers
-        donutCharts: Plasmoid.configuration.panelDonutCharts
+        providers: presentation.displayedProviders
+        donutCharts: false
     }
 
-    property int clockTick: 0
+    QuotaPresentation {
+        id: presentation
+        providers: backend.providers
+        showSpark: Plasmoid.configuration.showCodexSpark
+        showIdleWindows: Plasmoid.configuration.showIdleWindows
+        hiddenWindows: Plasmoid.configuration.hiddenQuotaWindows
+        onCatalogChanged: {
+            const encoded = JSON.stringify(catalog)
+            if (catalog.length > 0 && Plasmoid.configuration.quotaWindowCatalog !== encoded) {
+                Plasmoid.configuration.quotaWindowCatalog = encoded
+                root.settings.writeConfig()
+            }
+        }
+    }
 
     function remainingFor(kind) {
         let remaining = null
-        for (const provider of backend.providers) {
-            const windows = provider.windows || []
-            for (const windowData of windows) {
-                if (windowData.kind !== kind || windowData.remainingPercent === null
-                        || windowData.remainingPercent === undefined) {
-                    continue
-                }
-                const value = Number(windowData.remainingPercent)
-                if (Number.isFinite(value))
+        for (const provider of presentation.displayedProviders) {
+            for (const windowData of (provider.windows || [])) {
+                const value = windowData.remainingPercent
+                if (windowData.kind === kind && typeof value === "number" && Number.isFinite(value))
                     remaining = remaining === null ? value : Math.min(remaining, value)
             }
         }
@@ -52,19 +60,20 @@ PlasmoidItem {
     Private.UsageController {
         id: backend
         credentialStore: credentialStore
+        history.persistent: true
         deepseekAccountId: Plasmoid.configuration.deepseekAccountId
         kimiAccountId: Plasmoid.configuration.kimiAccountId
         openrouterAccountId: Plasmoid.configuration.openrouterAccountId
         xaiAccountId: Plasmoid.configuration.xaiAccountId
         zaiAccountId: Plasmoid.configuration.zaiAccountId
         profiles.configuration: Plasmoid.configuration.oauthProfiles
+        autoRefresh: Plasmoid.configuration.autoRefresh
+        refreshIntervalMinutes: Plasmoid.configuration.refreshIntervalMinutes
+        disabledProviders: Plasmoid.configuration.disabledProviders
         onProviderContextChanged: provider => {
             if (quotaNotifier)
                 quotaNotifier.forgetProvider(provider)
         }
-        autoRefresh: Plasmoid.configuration.autoRefresh
-        refreshIntervalMinutes: Plasmoid.configuration.refreshIntervalMinutes
-        disabledProviders: Plasmoid.configuration.disabledProviders
         onProviderRefreshed: provider => quotaNotifier.observe(provider)
     }
 
@@ -78,12 +87,12 @@ PlasmoidItem {
         id: accountSwitching
         configuration: Plasmoid.configuration
         accounts: credentialStore.accounts
-        onSelectionApplied: providerId => navigation.focusProvider(providerId)
+        onSelectionApplied: providerId => usageNavigation.focusProvider(providerId)
     }
 
     UsageNavigation {
-        id: navigation
-        providers: backend.providers
+        id: usageNavigation
+        providers: presentation.displayedProviders
         catalog: accountSwitching.providers
     }
 
@@ -98,10 +107,11 @@ PlasmoidItem {
         id: compactView
         readonly property bool vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
         readonly property bool donuts: Plasmoid.configuration.panelDonutCharts
-        Layout.minimumWidth: donuts && !vertical ? height * 2 + 4 : 0
-        Layout.minimumHeight: donuts && vertical ? width * 2 + 4 : 0
-        Layout.preferredWidth: donuts && !vertical ? height * 2 + 4 : -1
-        Layout.preferredHeight: donuts && vertical ? width * 2 + 4 : -1
+        readonly property int meterCount: Math.max(1, compactMeter.providerCount)
+        Layout.minimumWidth: donuts && !vertical ? height * meterCount + 4 * (meterCount - 1) : 0
+        Layout.minimumHeight: donuts && vertical ? width * meterCount + 4 * (meterCount - 1) : 0
+        Layout.preferredWidth: donuts && !vertical ? Layout.minimumWidth : -1
+        Layout.preferredHeight: donuts && vertical ? Layout.minimumHeight : -1
         Accessible.role: Accessible.Button
         Accessible.name: qsTr("Kodometer usage")
         Accessible.description: compactMeter.quotaDescription
@@ -118,202 +128,38 @@ PlasmoidItem {
             systemAccent: Plasmoid.configuration.panelSystemAccent
             sessionColor: Plasmoid.configuration.panelSessionColor
             weeklyColor: Plasmoid.configuration.panelWeeklyColor
-            providers: backend.providers
+            providers: presentation.displayedProviders
             toolTipsEnabled: !root.expanded
             toolTipLocation: Plasmoid.location
             sessionRemaining: root.remainingFor("session")
             weeklyRemaining: root.remainingFor("weekly")
         }
-
         MouseArea {
-            id: compactMouse
             anchors.fill: parent
             onClicked: root.expanded = !root.expanded
         }
     }
 
-    fullRepresentation: Item {
-        id: fullView
-        implicitWidth: Kirigami.Units.gridUnit * 22
-        implicitHeight: Kirigami.Units.gridUnit * 34
-        Layout.minimumWidth: Kirigami.Units.gridUnit * 18
-        Layout.minimumHeight: Kirigami.Units.gridUnit * 22
-        focus: true
-
-        Keys.onLeftPressed: navigation.selectPrevious()
-        Keys.onRightPressed: navigation.selectNext()
-
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Kirigami.Units.largeSpacing
-            spacing: Kirigami.Units.smallSpacing
-
-            BrandPalette {
-                id: brand
-            }
-
-            Image {
-                Layout.alignment: Qt.AlignHCenter
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 10
-                Layout.preferredHeight: Kirigami.Units.gridUnit * 2.5
-                source: brand.wordmark
-                fillMode: Image.PreserveAspectFit
-                sourceSize.width: Math.ceil(width * Screen.devicePixelRatio)
-                sourceSize.height: Math.ceil(height * Screen.devicePixelRatio)
-                Accessible.role: Accessible.Graphic
-                Accessible.name: qsTr("Kodometer")
-            }
-
-            ProviderTabs {
-                Layout.fillWidth: true
-                visible: providers.length > 0
-                providers: navigation.displayedProviders
-                overviewVisible: providers.length > 1
-                selectedIndex: navigation.selectedTabIndex
-                onOverviewSelected: navigation.selectOverview()
-                onProviderSelected: providerId => navigation.selectProvider(providerId)
-            }
-
-            Kirigami.Separator {
-                Layout.fillWidth: true
-                visible: navigation.displayedProviders.length > 0
-            }
-
-            Loader {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                active: navigation.displayedProviders.length > 0
-                sourceComponent: navigation.overviewSelected ? overviewComponent : providerComponent
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                visible: navigation.displayedProviders.length === 0
-
-                Item {
-                    Layout.fillHeight: true
-                }
-                Kirigami.Icon {
-                    Layout.alignment: Qt.AlignHCenter
-                    source: backend.busy ? "view-refresh" : Qt.resolvedUrl(
-                                               "assets/kodometer-symbolic.svg")
-                    isMask: !backend.busy
-                    implicitWidth: Kirigami.Units.iconSizes.large
-                    implicitHeight: width
-                }
-                QQC2.Label {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: backend.busy ? qsTr("Loading provider usage…") : qsTr("No provider data")
-                }
-                QQC2.Button {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: qsTr("Configure providers…")
-                    onClicked: Plasmoid.internalAction("configure").trigger()
-                }
-                Item {
-                    Layout.fillHeight: true
-                }
-            }
-
-            Kirigami.InlineMessage {
-                Layout.fillWidth: true
-                visible: !backend.profiles.valid && accountSwitching.providers.some(provider
-                                                                                    => provider.kind
-                                                                                       === "profile")
-                type: Kirigami.MessageType.Error
-                text: backend.profiles.error
-            }
-
-            Kirigami.InlineMessage {
-                Layout.fillWidth: true
-                visible: backend.error.length > 0
-                type: Kirigami.MessageType.Error
-                text: backend.error
-            }
-
-            Kirigami.InlineMessage {
-                Layout.fillWidth: true
-                visible: accountSwitching.error.length > 0
-                type: Kirigami.MessageType.Error
-                text: accountSwitching.error
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-
-                QQC2.ToolButton {
-                    objectName: "openAccountSwitcher"
-                    icon.name: "user-identity"
-                    text: qsTr("Switch account…")
-                    display: QQC2.AbstractButton.IconOnly
-                    enabled: accountSwitching.providers.length > 0
-                    onClicked: accountDialog.open()
-                    QQC2.ToolTip.text: text
-                    QQC2.ToolTip.visible: hovered
-                }
-
-                QQC2.BusyIndicator {
-                    implicitWidth: Kirigami.Units.iconSizes.small
-                    implicitHeight: width
-                    running: backend.busy
-                    visible: running
-                }
-
-                QQC2.Label {
-                    Layout.fillWidth: true
-                    text: backend.snapshot.generatedAt ? qsTr("Snapshot %1").arg(
-                                                             backend.snapshot.generatedAt) : ""
-                    color: Kirigami.Theme.disabledTextColor
-                    font: Kirigami.Theme.smallFont
-                    elide: Text.ElideRight
-                }
-
-                QQC2.ToolButton {
-                    icon.name: "view-refresh"
-                    text: qsTr("Refresh")
-                    display: QQC2.AbstractButton.IconOnly
-                    enabled: !backend.busy
-                    onClicked: {
-                        credentialStore.open()
-                        backend.refresh()
-                    }
-                    QQC2.ToolTip.text: text
-                    QQC2.ToolTip.visible: hovered
-                }
-            }
+    fullRepresentation: UsagePopup {
+        navigation: usageNavigation
+        switching: accountSwitching
+        quotaHistory: backend.history
+        busy: backend.busy
+        generatedAt: String(backend.snapshot.generatedAt || "")
+        error: backend.error
+        profileError: !backend.profiles.valid && accountSwitching.providers.some(provider
+                                                                                 => provider.kind
+                                                                                    === "profile")
+                      ? backend.profiles.error : ""
+        clockTick: root.clockTick
+        showIdleWindows: Plasmoid.configuration.showIdleWindows
+        fillRemaining: Plasmoid.configuration.quotaBarsRemaining
+        onRefreshRequested: {
+            credentialStore.open()
+            backend.refresh()
         }
-
-        AccountSwitchDialog {
-            id: accountDialog
-            parent: fullView
-            switching: accountSwitching
-            initialProviderId: navigation.selectedProviderId
-            onWalletRequested: credentialStore.open()
-            onConfigureRequested: Plasmoid.internalAction("configure").trigger()
-        }
-    }
-
-    Component {
-        id: overviewComponent
-
-        OverviewPage {
-            providers: backend.providers
-            showIdleWindows: Plasmoid.configuration.showIdleWindows
-            onProviderSelected: providerId => navigation.selectProvider(providerId)
-        }
-    }
-
-    Component {
-        id: providerComponent
-
-        ProviderDetails {
-            provider: navigation.selectedProvider
-            switching: accountSwitching
-            loading: backend.busy
-            clockTick: root.clockTick
-            showIdleWindows: Plasmoid.configuration.showIdleWindows
-        }
+        onWalletRequested: credentialStore.open()
+        onConfigureRequested: Plasmoid.internalAction("configure").trigger()
     }
 
     Component.onCompleted: {

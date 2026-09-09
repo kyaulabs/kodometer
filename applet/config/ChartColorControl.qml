@@ -33,7 +33,7 @@ RowLayout {
 
     QQC2.Button {
         objectName: "resetColor"
-        text: qsTr("Use meter accent")
+        text: qsTr("Use provider color")
         enabled: root.colorValue !== ""
         onClicked: root.colorValue = ""
     }

@@ -14,7 +14,7 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 
 ## Status
 
-Kodometer targets KDE Plasma 6.4 and newer. Version 0.3.1 repairs General settings scrolling and panel tooltips, and adds independent Session/Weekly donut colors. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
+Kodometer targets KDE Plasma 6.4 and newer. Version 0.4.0 adds provider-specific nested quota rings, adaptive popup height, consistent window switches, and persistent observed quota history. Spark is hidden by default, and popup bars fill with remaining quota unless configured otherwise. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
 
 - a compiled Plasma 6 applet for Wayland and X11;
 - native Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
@@ -27,7 +27,9 @@ Kodometer targets KDE Plasma 6.4 and newer. Version 0.3.1 repairs General settin
 - z.ai and BigModel CN Coding Plan, MCP, model-token, and account-balance data;
 - OpenRouter credit balance, API-key spending cap, and optional 30-day activity totals;
 - 7-day and 30-day daily spend charts for xAI and OpenRouter;
-- Soft Iris branding, native provider icons, and optional panel donut meters;
+- Soft Iris branding, native provider icons, and provider-specific nested panel donut meters;
+- content-sized popup tabs, configurable quota-window visibility, and remaining-quota bars;
+- 30-day local observations of subscription quotas, with minimal provider-colored history charts;
 - provider tabs, an overview, reset countdowns, and account and plan labels;
 - official dashboard and documentation links from provider details;
 - per-widget automatic refresh, provider switches, and idle-window preferences;
@@ -38,7 +40,7 @@ Kodometer targets KDE Plasma 6.4 and newer. Version 0.3.1 repairs General settin
 - last-good data retention when a refresh fails;
 - redacted account identity by default;
 - request timeouts, response-size limits, and manual redirect handling;
-- C++ and QML tests with line, function, and branch coverage gates above 95%;
+- C++ and QML tests with 96% minimum line, function, and branch coverage gates;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
 Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Codex, Claude, and Gemini support named credential profiles; DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai support named KWallet accounts.
@@ -217,9 +219,14 @@ Open **Configure Kodometer… → General** to choose which providers run and ho
 - Turn automatic refresh off for startup and manual refresh only. Credential changes and provider switches still trigger a refresh; changes during an active cycle queue one follow-up cycle.
 - Uncheck a provider to hide its data and errors and skip it on future refreshes. Requests already in progress may finish. KWallet entries and last-good data are retained so the provider can be re-enabled. Disabling all providers stops polling.
 - **Show idle quota windows** is off by default. Enable it to include windows marked idle in the overview, provider details, and account summaries.
-- **Panel meters** offers **Bars** (default) or **Donut charts**. Both show the most constrained session and weekly remaining quotas across providers, in that order. Rings sit side by side on horizontal panels and stack on vertical panels. Percentages appear inside when space permits. Each donut has its own native Plasma tooltip listing the matching session or weekly quotas by provider. Bar mode uses one tooltip with provider balances or remaining quotas, preferring weekly over session windows. Missing quota is **Not reported**, not zero. Popup quota rows remain bars.
-- **Meter accent** defaults to **Kodometer Iris**, using Iris on dark surfaces and Deep Iris on light surfaces. Choose **Desktop accent** to follow your Plasma highlight color. Other controls and surfaces keep your desktop theme. See [artwork integration](branding/README.md).
-- In donut mode, **Session donut color** and **Weekly donut color** each have a color picker. **Use meter accent** clears that donut's override. Custom colors are saved per widget through Apply and do not change bar colors; Cancel restores saved choices and Defaults restores inherited accents.
+- **Show Codex Spark quota** is off by default. Enable it to include Spark in quota displays.
+- Individual quota-window switches appear after a successful refresh. Disabling a window hides it from Overview, provider quota rows, panel meters and tooltips, and the history chart's selector. These presentation switches do not change polling, recorded observations, or notification policy.
+- **Fill bars with remaining quota (instead of used)** is on by default: 65% left fills 65% of a popup bar. Turn it off to fill bars with used quota. Bars use a thicker, slightly rounded fill and a neutral track.
+- **Panel meters** offers **Bars** (default) or **Donut charts**. Bar mode retains the most constrained session and weekly remaining quotas across providers. Donut mode shows one meter per provider with valid visible quota. Its windows form differently colored nested rings in the provider's reported order. Hovering shows only that provider's percentages, with outer-to-inner ring positions. Provider icons identify meters when there is room. Meters sit side by side on horizontal panels and stack on vertical panels; balance-only providers do not get quota rings. With no usable quota, donut mode shows the Kodometer icon. Missing quota is **Not reported**, not zero.
+- **Bar meter accent** defaults to **Kodometer Iris**, using Iris on dark surfaces and Deep Iris on light surfaces. Choose **Desktop accent** to follow your Plasma highlight color. Donuts instead use provider-based window colors. Other controls and surfaces keep your desktop theme. See [artwork integration](branding/README.md).
+- **Session donut color** and **Weekly donut color** override those window colors across providers. **Use provider color** clears an override. Custom colors are saved per widget through Apply and do not change bar colors; Cancel restores saved choices and Defaults restores automatic colors.
+
+The popup keeps a stable width and adjusts its preferred height to the selected tab, including changes in visible quota rows and errors. Long pages scroll within a screen-height limit. The header wordmark has balanced vertical spacing.
 
 These preferences use Plasma's per-widget configuration and its Apply, Cancel, and Defaults controls. The separate **Credentials** page writes directly to KWallet when you press Save, Replace, or Remove; Cancel does not undo wallet changes. OAuth credentials and API keys are never stored in the general settings file.
 
@@ -265,7 +272,23 @@ A locked or unreadable wallet, malformed account data, or a removed selection pa
 
 The widget's **Refresh** action and **Open / retry KWallet** reload both Default credentials and named accounts. An already-ready wallet is reread without another open request. A failed or malformed Default-credential read clears its cached keys and readiness; a later wallet update or manual retry can recover them. Valid named accounts remain usable when only Default entries are unreadable. Existing environment precedence and Default discovery rules are unchanged.
 
+Changes to an effective Default credential set now clear that provider's old usage and quota-history view and reject its pending replies. A wallet edit schedules no refresh when all selected credential contexts remain unchanged, such as when a matching environment credential shadows the edited value. Named-account selections remain independent.
+
 Closing the wallet clears both registries. Late read replies and abandoned open completions cannot restore closed-wallet keys or overwrite a newer read. A key write may succeed before its follow-up read fails; retry the wallet and check its state before repeating the write. Automatic polling does not reopen a closed wallet.
+
+## Recorded quota history
+
+Codex, Claude, Gemini, Kimi Code, and z.ai details include a minimal **Quota history** chart for their visible quota windows. Choose a window and **24 hours**, **7 days**, or **30 days**. Lines use the provider tab's accent and plot **remaining quota**, not request counts or spend. History starts with successful normal refreshes; idle and invalid quotas do not produce observations, and monetary spending caps are not recorded. Kodometer does not fetch or invent earlier activity. Disabled automatic polling therefore produces only the observations available from startup, manual refreshes, and context-triggered refreshes.
+
+The chart breaks lines at reported resets, increases in remaining quota, and gaps longer than 15 minutes. A single observation is a point, not a fabricated trend. Missing intervals are not zero. The chart retains the latest actual observation in each five-minute bucket, so faster polling does not create unlimited samples.
+
+Observations persist in `$XDG_DATA_HOME/kodometer-quota-history/history.json` (normally `~/.local/share/kodometer-quota-history/history.json`). The directory is owner-only and files are written atomically with owner-only permissions. Only opaque partition digests, quota-window kinds, timestamps, remaining percentages, and reset timestamps are saved. No keys, tokens, account labels, credential paths, private selectors, or billing history are serialized.
+
+Partitions include the selected profile/account and the credentials used by the successful request. A selection or credential change cannot expose another partition's history. Stored data is restored only after a successful matching refresh; stale and failed replies do not add observations. Kodometer-managed OAuth renewal can link the old and new token identities. An external login/key replacement, including renewal of Kimi's read-only CLI credentials, may start a new history rather than risk joining different accounts.
+
+Data older than 30 days is pruned during recording. Cleanup is observation-driven, so an inactive widget can leave its file on disk until a later refresh or explicit clear. Storage is also bounded to 64 partitions, 32 windows per partition, 64,000 observations overall, and 8 MiB; reaching a count limit evicts the oldest window or partition. Thirty days is a retention ceiling, not a promise of complete history under those limits. Unreadable, unsafe, or malformed files produce a visible warning without hiding current usage.
+
+The popup footer's **Clear quota history…** action is available even without provider data; charts offer the same action as **Clear saved quota history…**. Both ask for confirmation before deleting all locally recorded quota history, across providers, profiles, and accounts. Collection resumes with future successful refreshes. Other running widgets reload the shared file on their next successful refresh. Credentials, widget preferences, and provider-reported billing history are unchanged. Uninstalling Kodometer does not remove this user-owned history file.
 
 ## Cost history
 
@@ -334,7 +357,7 @@ Development follows Git Flow and Conventional Commits.
 5. The workflow opens or reuses a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret. Published assets are never replaced on retry.
 6. When explicitly enabled and configured, a separate job updates AUR recipes with a GPG-signed commit after GitHub publication. A failed AUR update can be retried without replacing GitHub assets.
 
-See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.3.1 overview](docs/releases/0.3.1.md) for the latest features, packages, and compatibility limits.
+See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.4.0 overview](docs/releases/0.4.0.md) for the latest features, packages, and compatibility limits.
 
 ## Security and privacy
 

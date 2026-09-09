@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.24)
 
 project(
     kodometer
-    VERSION 0.3.1
+    VERSION 0.4.0
     DESCRIPTION "AI provider usage meter for KDE Plasma 6"
     HOMEPAGE_URL "https://github.com/kyaulabs/kodometer"
     LANGUAGES CXX
@@ -84,6 +84,7 @@ target_sources(kodometer-core
         src/zai_usage_parser.cpp
         src/oauth_profiles.cpp
         src/cost_history_model.cpp
+        src/quota_history.cpp
         src/presentation_formatter.cpp
         src/quota_alert_policy.cpp
         src/provider_actions.cpp
@@ -123,6 +124,7 @@ target_sources(kodometer-core
             include/kodometer/zai_usage_parser.hpp
             include/kodometer/oauth_profiles.hpp
             include/kodometer/cost_history_model.hpp
+            include/kodometer/quota_history.hpp
             include/kodometer/presentation_formatter.hpp
             include/kodometer/quota_alert_policy.hpp
             include/kodometer/provider_actions.hpp

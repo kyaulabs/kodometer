@@ -31,6 +31,7 @@ class ZaiProviderAdapter final : public ProviderAdapter
     [[nodiscard]] QVariantMap provider() const;
 
     void setEnvironment(const QMap<QString, QString> &environment);
+    [[nodiscard]] QByteArray defaultCredentialContext() const override;
     void setHomeDirectory(const QString &homeDirectory);
     void setQuotaEndpoint(const QUrl &endpoint);
     void setModelUsageEndpoint(const QUrl &endpoint);

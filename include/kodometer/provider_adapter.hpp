@@ -3,7 +3,9 @@
 #include <QMap>
 #include <QObject>
 #include <QString>
+#include <QStringView>
 #include <QVariantMap>
+#include <initializer_list>
 #include <optional>
 
 namespace Kodometer {
@@ -21,6 +23,8 @@ class ProviderAdapter : public QObject
     // Only adapters with provider-owned credential folders override this hook.
     virtual void setProfileDirectory(const QString &) {}
 
+    [[nodiscard]] QList<QByteArray> historyIdentities() const;
+    [[nodiscard]] virtual QByteArray defaultCredentialContext() const;
     void setCredentialOverrides(const QMap<QString, QString> &overrides);
     void setAccountCredential(const std::optional<QString> &credential,
                               const QString &managementCredential = {}, const QString &teamId = {},
@@ -31,6 +35,11 @@ class ProviderAdapter : public QObject
     void refreshFailed(const QString &error);
 
   protected:
+    // C++ only: pin a credential/identity digest to this request. Only a successful
+    // provider-owned OAuth rotation may link the previous and new identities.
+    void setHistoryIdentity(const QByteArray &identity, bool rotation = false);
+    [[nodiscard]] QByteArray credentialContext(const QMap<QString, QString> &environment,
+                                               std::initializer_list<QStringView> keys) const;
     [[nodiscard]] std::optional<QString> selectedAccountCredential() const;
     [[nodiscard]] QString selectedAccountManagementCredential() const;
     [[nodiscard]] QString selectedAccountTeamId() const;
@@ -39,6 +48,7 @@ class ProviderAdapter : public QObject
     environmentWithCredentialOverrides(const QMap<QString, QString> &environment) const;
 
   private:
+    QList<QByteArray> m_historyIdentities;
     QMap<QString, QString> m_credentialOverrides;
     std::optional<QString> m_accountCredential;
     QString m_accountManagementCredential;

@@ -14,7 +14,8 @@ Item {
     readonly property string valueText: available ? qsTr("%1%").arg(value.toFixed(1)) : "—"
     readonly property string remainingText: available ? qsTr("%1 remaining").arg(valueText) : qsTr(
                                                             "Not reported")
-    readonly property real strokeWidth: Math.max(2, Math.min(width, height) * 0.09)
+    property real strokeWidth: Math.max(2, Math.min(width, height) * 0.09)
+    property bool showValue: true
 
     implicitWidth: 48
     implicitHeight: 48
@@ -57,7 +58,7 @@ Item {
         anchors.centerIn: parent
         width: Math.max(0, parent.width - root.strokeWidth * 3)
         height: parent.height / 2
-        visible: parent.width >= 32
+        visible: root.showValue && parent.width >= 32
         text: root.valueText
         textFormat: Text.PlainText
         color: Kirigami.Theme.textColor

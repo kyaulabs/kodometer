@@ -21,6 +21,11 @@ class PanelUiTests(unittest.TestCase):
             self.assertIn(f'export {key}="$work/', script)
         self.assertIn('dbus-run-session -- "$@"', script)
 
+    def test_legacy_ring_colors_have_no_runtime_bindings(self):
+        main = (ROOT / "applet/main.qml").read_text()
+        self.assertNotIn("configuration.panelSessionColor", main)
+        self.assertNotIn("configuration.panelWeeklyColor", main)
+
     def test_native_tooltip_is_bound_to_real_provider_data(self):
         main = (ROOT / "applet/main.qml").read_text()
         self.assertIn("toolTipMainText: panelToolTip.mainText", main)

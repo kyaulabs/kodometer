@@ -52,6 +52,11 @@ void OpenRouterUsageParserTest::parsesCreditsAndKeyQuota()
     const QVariantMap provider = OpenRouterUsageParser::provider(
         *credits, key, {}, QStringLiteral("Management API key not configured"), UpdatedAt);
     QCOMPARE(provider.value(QStringLiteral("id")).toString(), QStringLiteral("openrouter"));
+    QCOMPARE(provider.value(QStringLiteral("display"))
+                 .toMap()
+                 .value(QStringLiteral("accentColor"))
+                 .toString(),
+             QStringLiteral("#C8FF00"));
     QCOMPARE(provider.value(QStringLiteral("name")).toString(), QStringLiteral("OpenRouter"));
     QCOMPARE(provider.value(QStringLiteral("identity")).toMap().value(QStringLiteral("plan")),
              QStringLiteral("Balance: $60.00"));

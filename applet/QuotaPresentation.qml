@@ -22,8 +22,9 @@ QtObject {
 
     function enabled(providerId, windowData) {
         const spark = providerId === "codex" && /spark/i.test(String(windowData.kind || ""))
-        return (showSpark || !spark) && (showIdleWindows || !windowData.idle) &&
-                !hiddenWindows.includes(key(providerId, windowData))
+        // The master Spark switch supersedes obsolete per-window Spark entries.
+        return (spark ? showSpark : !hiddenWindows.includes(key(providerId, windowData))) && (showIdleWindows ||
+                                                                                              !windowData.idle)
     }
 
     function filtered(provider) {
@@ -31,8 +32,7 @@ QtObject {
         const custom = colors[provider.id]
         if (typeof custom === "string" && /^#[0-9a-fA-F]{6}$/.test(custom))
             result.display = Object.assign({}, provider.display || {}, {
-                                               accentColor: custom,
-                                               customAccent: true
+                                               accentColor: custom
                                            })
         result.windows = (provider.windows || []).filter(windowData => enabled(provider.id,
                                                                                windowData))

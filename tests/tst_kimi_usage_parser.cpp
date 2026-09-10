@@ -47,6 +47,11 @@ void KimiUsageParserTest::parsesOfficialUsageResponse()
     QVERIFY(provider.has_value());
     QVERIFY(error.isEmpty());
     QCOMPARE(provider->value(QStringLiteral("id")).toString(), QStringLiteral("kimi"));
+    QCOMPARE(provider->value(QStringLiteral("display"))
+                 .toMap()
+                 .value(QStringLiteral("accentColor"))
+                 .toString(),
+             QStringLiteral("#49A3B0"));
     QCOMPARE(provider->value(QStringLiteral("name")).toString(), QStringLiteral("Kimi Code"));
     QCOMPARE(provider->value(QStringLiteral("source")).toString(), QStringLiteral("api-key"));
     QCOMPARE(provider->value(QStringLiteral("updatedAt")).toString(),

@@ -8,6 +8,12 @@ Item {
     id: root
 
     property var providers: []
+    readonly property color overviewAccentColor: brand.logoColor
+
+    BrandPalette {
+        id: brand
+        objectName: "tabBrandPalette"
+    }
     property bool overviewVisible: providers.length > 1
     property int selectedIndex: overviewVisible ? 0 : -1
     readonly property var tabs: {
@@ -16,6 +22,7 @@ Item {
             result.push({
                             id: "",
                             name: "Overview",
+                            accent: root.overviewAccentColor,
                             overview: true
                         })
         }
@@ -69,6 +76,8 @@ Item {
             width: Kirigami.Units.gridUnit * 4
             height: tabList.height
             checked: index === root.selectedIndex
+            palette.highlight: button.modelData.overview ? root.overviewAccentColor :
+                                                           Kirigami.Theme.highlightColor
             onClicked: root.activateTab(index)
 
             Rectangle {
@@ -79,7 +88,6 @@ Item {
                 anchors.margins: 1
                 height: Kirigami.Units.smallSpacing
                 radius: height / 2
-                visible: !button.modelData.overview
                 color: button.modelData.accent || Kirigami.Theme.highlightColor
             }
 

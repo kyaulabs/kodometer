@@ -4,6 +4,7 @@
 #include <QPluginLoader>
 #include <QQmlComponent>
 #include <QQmlEngine>
+#include <QQmlProperty>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QScopeGuard>
@@ -158,6 +159,7 @@ class AppletConfigurationTest final : public QObject
 
     void adaptsPopupHeightAcrossTabs()
     {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*PaginatedPage.*")));
         QQmlEngine engine;
         const QUrl root(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/"));
         const QVariantMap session{
@@ -167,11 +169,11 @@ class AppletConfigurationTest final : public QObject
         const QVariantMap codex{{"id", "codex"},
                                 {"name", "Codex"},
                                 {"windows", QVariantList{session}},
-                                {"display", QVariantMap{{"accentColor", "#49a3b0"}}}};
+                                {"display", QVariantMap{{"accentColor", "#a28be0"}}}};
         const QVariantMap kimi{{"id", "kimi"},
                                {"name", "Kimi Code"},
                                {"windows", QVariantList{weekly, session}},
-                               {"display", QVariantMap{{"accentColor", "#ff603e"}}}};
+                               {"display", QVariantMap{{"accentColor", "#49a3b0"}}}};
         const QVariantMap balance{
             {"id", "deepseek"}, {"name", "DeepSeek"}, {"cost", QVariantMap{{"balance", 0.61}}}};
         QQmlComponent navigationComponent(&engine, root.resolved(QUrl("UsageNavigation.qml")));
@@ -222,6 +224,16 @@ class AppletConfigurationTest final : public QObject
             QTest::qWait(100);
             auto *footer = findVisualItem(item, "popupFooter");
             QVERIFY(footer);
+            auto *settings = findVisualItem(item, "configureAccounts");
+            auto *refresh = findVisualItem(item, "refreshUsage");
+            QVERIFY(settings);
+            QVERIFY(refresh);
+            QCOMPARE(QQmlProperty::read(settings, "icon.name").toString(),
+                     QStringLiteral("configure-symbolic"));
+            QCOMPARE(QQmlProperty::read(settings, "icon.width"),
+                     QQmlProperty::read(refresh, "icon.width"));
+            QCOMPARE(QQmlProperty::read(settings, "icon.height"),
+                     QQmlProperty::read(refresh, "icon.height"));
             const qreal footerBottom = footer->mapToItem(item, QPointF(0, footer->height())).y();
             QVERIFY2(footerBottom <= item->height(),
                      qPrintable(QStringLiteral("%1: footer %2, popup %3, preferred %4")
@@ -363,27 +375,46 @@ class AppletConfigurationTest final : public QObject
         const QVariantMap provider{
             {"id", "codex"},
             {"name", "Codex"},
-            {"display", QVariantMap{{"accentColor", "#123456"}, {"customAccent", true}}},
+            {"display", QVariantMap{{"accentColor", "#123456"}}},
             {"windows",
              QVariantList{QVariantMap{{"kind", "session"}, {"remainingPercent", 45.0}}}}};
         QQmlComponent tabsComponent(&engine, root.resolved(QUrl("ProviderTabs.qml")));
         QScopedPointer<QObject> tabs(tabsComponent.createWithInitialProperties(
-            {{"width", 400}, {"providers", QVariantList{provider}}}));
+            {{"width", 400}, {"providers", QVariantList{provider}}, {"overviewVisible", true}}));
         QVERIFY2(tabs, qPrintable(tabsComponent.errorString()));
         auto *tabsItem = qobject_cast<QQuickItem *>(tabs.data());
         QQuickWindow window;
         tabsItem->setParentItem(window.contentItem());
         window.show();
         QQuickItem *accent = nullptr;
-        QTRY_VERIFY((accent = findVisualItem(tabsItem, "provider-tab-accent-0")));
+        QTRY_VERIFY((accent = findVisualItem(tabsItem, "provider-tab-accent-1")));
         QCOMPARE(accent->property("color").value<QColor>(), QColor("#123456"));
+        auto *overviewAccent = findVisualItem(tabsItem, "provider-tab-accent-0");
+        QVERIFY(overviewAccent);
+        QVERIFY(overviewAccent->isVisible());
+        QCOMPARE(overviewAccent->property("color"), tabs->property("overviewAccentColor"));
+        auto *tabBrand = findVisualItem(tabsItem, "tabBrandPalette");
+        auto *overviewTab = findVisualItem(tabsItem, "provider-tab-0");
+        QVERIFY(tabBrand);
+        QVERIFY(overviewTab);
+        QVERIFY(tabBrand->setProperty("surfaceColor", QColor("#252333")));
+        QTRY_COMPARE(
+            findVisualItem(tabsItem, "provider-tab-accent-0")->property("color").value<QColor>(),
+            QColor("#F7F5FB"));
+        overviewTab = findVisualItem(tabsItem, "provider-tab-0");
+        QCOMPARE(QQmlProperty::read(overviewTab, "palette.highlight").value<QColor>(),
+                 QColor("#F7F5FB"));
+        QVERIFY(tabBrand->setProperty("surfaceColor", QColor("#ffffff")));
+        QTRY_COMPARE(
+            findVisualItem(tabsItem, "provider-tab-accent-0")->property("color").value<QColor>(),
+            QColor("#252333"));
 
         QQmlComponent meterComponent(&engine, root.resolved(QUrl("CompactMeter.qml")));
-        QScopedPointer<QObject> meter(
-            meterComponent.createWithInitialProperties({{"providers", QVariantList{provider}},
-                                                        {"donutCharts", true},
-                                                        {"sessionColor", "#abcdef"}}));
+        QScopedPointer<QObject> meter(meterComponent.createWithInitialProperties(
+            {{"providers", QVariantList{provider}}, {"donutCharts", true}}));
         QVERIFY2(meter, qPrintable(meterComponent.errorString()));
+        QCOMPARE(meter->metaObject()->indexOfProperty("sessionColor"), -1);
+        QCOMPARE(meter->metaObject()->indexOfProperty("weeklyColor"), -1);
         auto *ring =
             findVisualItem(qobject_cast<QQuickItem *>(meter.data()), "quota-ring-codex-session");
         QVERIFY(ring);
@@ -543,11 +574,15 @@ class AppletConfigurationTest final : public QObject
         QVERIFY2(page, qPrintable(component.errorString()));
         QVERIFY(page->property("flickable").value<QObject *>());
         QVERIFY(page->setProperty("cfg_panelDonutCharts", true));
-        QVERIFY(page->setProperty("cfg_panelSessionColor", QStringLiteral("#112233")));
-        auto *session = findVisualItem(qobject_cast<QQuickItem *>(page.data()),
-                                       QStringLiteral("panelSessionColor"));
-        QVERIFY(session);
-        QCOMPARE(session->property("colorValue").toString(), QStringLiteral("#112233"));
+        QVERIFY(page->setProperty("cfg_providerColors", QStringLiteral("{\"codex\":\"#112233\"}")));
+        auto *codex = findVisualItem(qobject_cast<QQuickItem *>(page.data()),
+                                     QStringLiteral("provider-color-codex"));
+        QVERIFY(codex);
+        QCOMPARE(codex->property("colorValue").toString(), QStringLiteral("#112233"));
+        QVERIFY(!findVisualItem(qobject_cast<QQuickItem *>(page.data()),
+                                QStringLiteral("panelSessionColor")));
+        QVERIFY(!findVisualItem(qobject_cast<QQuickItem *>(page.data()),
+                                QStringLiteral("panelWeeklyColor")));
     }
 
     void persistsOnlyNonsecretPreferences()

@@ -127,8 +127,6 @@ PlasmoidItem {
             donutCharts: compactView.donuts
             vertical: compactView.vertical
             systemAccent: Plasmoid.configuration.panelSystemAccent
-            sessionColor: Plasmoid.configuration.panelSessionColor
-            weeklyColor: Plasmoid.configuration.panelWeeklyColor
             providers: presentation.displayedProviders
             toolTipsEnabled: !root.expanded
             toolTipLocation: Plasmoid.location

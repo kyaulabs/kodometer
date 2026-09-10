@@ -113,7 +113,7 @@ TestCase {
         compare(findChild(meter, "provider-meter-codex"), null)
     }
 
-    function test_independentDonutColors() {
+    function test_donutColorsFollowProvider() {
         const meter = createTemporaryObject(compactMeterComponent, this, {
                                                 donutCharts: true,
                                                 providers: [
@@ -140,23 +140,22 @@ TestCase {
         const weekly = findChild(meter, "quota-ring-codex-weekly")
         compare(session.accentColor, provider.accentColor)
         verify(weekly.accentColor.toString() !== session.accentColor.toString())
-        meter.sessionColor = "#112233"
-        compare(session.accentColor, "#112233")
-        compare(weekly.accentColor, provider.windowColor(1))
-        meter.weeklyColor = "#aabbcc"
-        compare(weekly.accentColor, "#aabbcc")
-        meter.accentColor = "#778899"
-        compare(session.accentColor, "#112233")
-        compare(weekly.accentColor, "#aabbcc")
-        meter.sessionColor = ""
-        compare(session.accentColor, "#778899")
-        meter.weeklyColor = "not-a-color"
-        compare(weekly.accentColor, provider.windowColor(1))
-        meter.weeklyColor = "#00000000"
-        compare(weekly.accentColor, provider.windowColor(1))
-        meter.donutCharts = false
-        compare(meter.accentColor, "#778899")
-        // Custom donut colors never change bar accents.
+        const windows = meter.providers[0].windows
+        meter.providers = [
+                    {
+                        id: "codex",
+                        display: {
+                            accentColor: "#112233"
+                        },
+                        windows: windows
+                    }
+                ]
+        const updatedSession = findChild(meter, "quota-ring-codex-session")
+        const updatedWeekly = findChild(meter, "quota-ring-codex-weekly")
+        compare(updatedSession.accentColor, "#112233")
+        verify(updatedWeekly.accentColor.toString() !== updatedSession.accentColor.toString())
+        compare(meter.barColor("session"), "#112233")
+        compare(meter.barColor("weekly"), "#112233")
     }
 
     function test_donutToolTipsHaveSeparateHitAreas() {

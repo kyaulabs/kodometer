@@ -36,6 +36,7 @@ TestCase {
         const palette = createTemporaryObject(paletteComponent, this)
         palette.surfaceColor = "#ffffff"
         compare(palette.accentColor, "#7052b5")
+        compare(palette.logoColor, "#252333")
         verify(String(palette.wordmark).endsWith("kodometer-deep-iris-on-light.svg"))
         let image = createTemporaryObject(imageComponent, this, {
                                               source: palette.wordmark
@@ -43,6 +44,7 @@ TestCase {
         tryCompare(image, "status", Image.Ready)
         palette.surfaceColor = "#252333"
         compare(palette.accentColor, "#a28be0")
+        compare(palette.logoColor, "#f7f5fb")
         verify(String(palette.wordmark).endsWith("kodometer-iris-on-dark.svg"))
         image.source = palette.wordmark
         tryCompare(image, "status", Image.Ready)

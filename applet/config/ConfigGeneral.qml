@@ -34,7 +34,10 @@ Kirigami.ScrollablePage {
                                                                     && typeof entry.provider
                                                                     === "string"
                                                                     && typeof entry.label
-                                                                    === "string").slice(0, 128) : []
+                                                                    === "string" && !
+                                                                    /^codex\/.*spark/i.test(
+                                                                        entry.key)).slice(0, 128) :
+                                            []
         } catch (error) {
             return []
         }
@@ -57,14 +60,14 @@ Kirigami.ScrollablePage {
         }
     }
     readonly property var defaultColors: ({
-                                              codex: "#49A3B0",
+                                              codex: "#A28BE0",
                                               claude: "#D97757",
                                               gemini: "#4285F4",
                                               xai: "#8E8E93",
-                                              kimi: "#FE603C",
+                                              kimi: "#49A3B0",
                                               deepseek: "#4D6BFE",
                                               zai: "#E85A6A",
-                                              openrouter: "#6467F2"
+                                              openrouter: "#C8FF00"
                                           })
 
     function setProviderColor(id, value) {
@@ -77,16 +80,8 @@ Kirigami.ScrollablePage {
     }
     property bool cfg_panelDonutCharts: false
     property bool cfg_panelSystemAccent: false
-    property alias cfg_panelSessionColor: sessionColor.colorValue
-    property alias cfg_panelWeeklyColor: weeklyColor.colorValue
     property alias cfg_quotaNotifications: notifications.checked
     property alias cfg_quotaNotificationThreshold: notificationThreshold.value
-
-    // Configuration resources are flattened by ECM; keep the preview on the same
-    // documented Iris colors as BrandPalette without a source-only relative import.
-    readonly property color meterAccent: cfg_panelSystemAccent ? Kirigami.Theme.highlightColor : (
-                                                                     Kirigami.Theme.backgroundColor.hslLightness
-                                                                     < 0.5 ? "#A28BE0" : "#7052B5")
 
     Kirigami.FormLayout {
         QQC2.CheckBox {
@@ -155,7 +150,7 @@ Kirigami.ScrollablePage {
 
         QQC2.Label {
             text: qsTr(
-                      "Window switches apply to all quota displays, not notifications. Available windows appear after a successful refresh. Spark and idle windows also require their display switches above.")
+                      "Window switches apply to all quota displays, not notifications. Available windows appear after a successful refresh. The single Spark switch controls all Codex Spark windows; idle windows also require their display switch above.")
             wrapMode: Text.WordWrap
             Kirigami.FormData.isSection: true
         }
@@ -176,22 +171,6 @@ Kirigami.ScrollablePage {
             model: [qsTr("Kodometer Iris"), qsTr("Desktop accent")]
             currentIndex: root.cfg_panelSystemAccent ? 1 : 0
             onActivated: root.cfg_panelSystemAccent = currentIndex === 1
-        }
-
-        ChartColorControl {
-            id: sessionColor
-            objectName: "panelSessionColor"
-            Kirigami.FormData.label: qsTr("Session donut color:")
-            enabled: root.cfg_panelDonutCharts
-            fallbackColor: root.meterAccent
-        }
-
-        ChartColorControl {
-            id: weeklyColor
-            objectName: "panelWeeklyColor"
-            Kirigami.FormData.label: qsTr("Weekly donut color:")
-            enabled: root.cfg_panelDonutCharts
-            fallbackColor: root.meterAccent
         }
 
         QQC2.CheckBox {

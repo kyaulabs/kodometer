@@ -60,7 +60,9 @@ Item {
                                ]
     }
     readonly property int pageCount: pages.length
-    readonly property var selectedPage: pages[Math.max(0, Math.min(currentPage, pageCount - 1))]
+    // Read the array length directly: pageCount can still describe the previous array
+    // while a shrinking page list is publishing its change notifications.
+    readonly property var selectedPage: pages[Math.max(0, Math.min(currentPage, pages.length - 1))]
     readonly property real contentHeight: selectedPage.end - selectedPage.start + (pageCount > 1 ? navigationHeight :
                                                                                                    0)
     implicitHeight: contentHeight

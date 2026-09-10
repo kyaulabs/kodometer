@@ -123,30 +123,42 @@ TestCase {
         compare(page.quotaWindows.length, 0)
     }
 
-    function test_independentColorsFollowStagedSettings() {
+    function test_onlyProviderColorsRemain() {
         const page = createTemporaryObject(settingsComponent, this)
-        compare(page.cfg_panelSessionColor, "")
-        compare(page.cfg_panelWeeklyColor, "")
-        const session = findChild(page, "panelSessionColor")
-        const weekly = findChild(page, "panelWeeklyColor")
-        verify(session)
-        verify(weekly)
-        compare(session.enabled, false)
-        page.cfg_panelDonutCharts = true
-        compare(session.enabled, true)
-        compare(weekly.enabled, true)
-        session.colorValue = "#112233"
-        weekly.colorValue = "#aabbcc"
-        compare(page.cfg_panelSessionColor, "#112233")
-        compare(page.cfg_panelWeeklyColor, "#aabbcc")
-        // Plasma Cancel reloads persisted values; Defaults restores empty/inherited colors.
-        page.cfg_panelSessionColor = "#445566"
-        compare(session.colorValue, "#445566")
-        compare(weekly.colorValue, "#aabbcc")
-        page.cfg_panelSessionColor = ""
-        page.cfg_panelWeeklyColor = ""
-        compare(session.colorValue, "")
-        compare(weekly.colorValue, "")
+        compare(findChild(page, "panelSessionColor"), null)
+        compare(findChild(page, "panelWeeklyColor"), null)
+        compare(findChild(page, "provider-color-codex").fallbackColor, "#a28be0")
+        compare(findChild(page, "provider-color-kimi").fallbackColor, "#49a3b0")
+        compare(findChild(page, "provider-color-openrouter").fallbackColor, "#c8ff00")
+    }
+
+    function test_sparkHasOneControl() {
+        const page = createTemporaryObject(settingsComponent, this, {
+                                               cfg_quotaWindowCatalog: JSON.stringify([
+                                                                                          {
+                                                                                              key: "codex/session",
+                                                                                              provider: "Codex",
+                                                                                              label: "Session"
+                                                                                          },
+                                                                                          {
+                                                                                              key: "codex/model-gpt-5-3-codex-spark",
+                                                                                              provider: "Codex",
+                                                                                              label: "Spark"
+                                                                                          },
+                                                                                          {
+                                                                                              key: "codex/model-gpt-5-3-codex-spark-weekly",
+                                                                                              provider: "Codex",
+                                                                                              label: "Spark Weekly"
+                                                                                          }
+                                                                                      ])
+                                           })
+        compare(page.quotaWindows.length, 1)
+        verify(findChild(page, "showCodexSpark"))
+        verify(findChild(page, "quota-window-codex/session"))
+        compare(findChild(page, "quota-window-codex/model-gpt-5-3-codex-spark"), null)
+        compare(findChild(page, "quota-window-codex/model-gpt-5-3-codex-spark-weekly"), null)
+        findChild(page, "showCodexSpark").click()
+        compare(page.cfg_showCodexSpark, true)
     }
 
     function test_providerColorsFollowApplyCancelAndDefaults() {

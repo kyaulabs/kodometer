@@ -66,6 +66,11 @@ void CodexUsageParserTest::mapsUsageResponse()
 
     QVERIFY2(provider.has_value(), qPrintable(error));
     QCOMPARE(provider->value(QStringLiteral("id")).toString(), QStringLiteral("codex"));
+    QCOMPARE(provider->value(QStringLiteral("display"))
+                 .toMap()
+                 .value(QStringLiteral("accentColor"))
+                 .toString(),
+             QStringLiteral("#A28BE0"));
     QCOMPARE(provider->value(QStringLiteral("name")).toString(), QStringLiteral("Codex"));
     QCOMPARE(provider->value(QStringLiteral("source")).toString(), QStringLiteral("oauth"));
     QCOMPARE(provider->value(QStringLiteral("updatedAt")).toString(),

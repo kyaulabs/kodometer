@@ -7,8 +7,6 @@ import org.kde.plasma.core as PlasmaCore
 Item {
     id: root
     required property var provider
-    property string sessionColor
-    property string weeklyColor
     property bool toolTipsEnabled: true
     property int toolTipLocation: PlasmaCore.Types.Floating
     readonly property var windows: provider.windows || []
@@ -32,10 +30,6 @@ Item {
 
     function windowColor(index) {
         const kind = windows[index].kind
-        const custom = kind === "session" ? sessionColor : kind === "weekly" ? weeklyColor : ""
-        if (!(provider.display && provider.display.customAccent) && /^#[0-9a-fA-F]{6}$/.test(
-                    custom))
-            return custom
         let hueOffset = kind === "session" ? 0 : kind === "weekly" ? 0.17 : 0.34
         if (kind !== "session" && kind !== "weekly") {
             for (let i = 0; i < kind.length; ++i)

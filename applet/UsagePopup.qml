@@ -159,7 +159,9 @@ Item {
             Layout.fillWidth: true
             QQC2.ToolButton {
                 objectName: "configureAccounts"
-                icon.name: "configure"
+                icon.name: "configure-symbolic"
+                icon.width: Kirigami.Units.iconSizes.smallMedium
+                icon.height: Kirigami.Units.iconSizes.smallMedium
                 text: qsTr("Configure providers and accounts…")
                 display: QQC2.AbstractButton.IconOnly
                 onClicked: root.configureRequested()
@@ -169,6 +171,8 @@ Item {
             QQC2.ToolButton {
                 objectName: "clearQuotaHistory"
                 icon.name: "edit-clear-history"
+                icon.width: Kirigami.Units.iconSizes.smallMedium
+                icon.height: Kirigami.Units.iconSizes.smallMedium
                 text: qsTr("Clear quota history…")
                 display: QQC2.AbstractButton.IconOnly
                 visible: root.quotaHistory !== null
@@ -190,7 +194,10 @@ Item {
                 elide: Text.ElideRight
             }
             QQC2.ToolButton {
+                objectName: "refreshUsage"
                 icon.name: "view-refresh"
+                icon.width: Kirigami.Units.iconSizes.smallMedium
+                icon.height: Kirigami.Units.iconSizes.smallMedium
                 text: qsTr("Refresh")
                 display: QQC2.AbstractButton.IconOnly
                 enabled: !root.busy

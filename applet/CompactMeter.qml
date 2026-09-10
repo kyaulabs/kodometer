@@ -13,8 +13,6 @@ Item {
     property bool vertical: false
     property bool systemAccent: false
     property color accentColor: palette.accentColor
-    property string sessionColor
-    property string weeklyColor
     property var providers: []
     property bool toolTipsEnabled: true
     property int toolTipLocation: PlasmaCore.Types.Floating
@@ -129,8 +127,6 @@ Item {
             height: width
             x: root.vertical ? (root.width - width) / 2 : index * (width + root.ringSpacing)
             y: root.vertical ? index * (height + root.ringSpacing) : (root.height - height) / 2
-            sessionColor: root.sessionColor
-            weeklyColor: root.weeklyColor
             toolTipsEnabled: root.toolTipsEnabled
             toolTipLocation: root.toolTipLocation
         }

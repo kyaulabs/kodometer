@@ -51,11 +51,11 @@
             <default>false</default>
         </entry>
         <entry name="panelSessionColor" type="String">
-            <label>Session donut RGB color; empty uses the provider color</label>
+            <label>Legacy session donut color; retained but no longer applied</label>
             <default></default>
         </entry>
         <entry name="panelWeeklyColor" type="String">
-            <label>Weekly donut RGB color; empty uses a provider-based window color</label>
+            <label>Legacy weekly donut color; retained but no longer applied</label>
             <default></default>
         </entry>
         <entry name="quotaNotifications" type="Bool">

@@ -100,6 +100,43 @@ TestCase {
         }
     }
 
+    function test_sparkToggleOverridesLegacyPerWindowHiding() {
+        const model = createTemporaryObject(presentationComponent, this, {
+                                                hiddenWindows: ["codex/model-spark",
+                                                    "codex/model-spark-weekly", "codex/weekly"],
+                                                providers: [
+                                                    {
+                                                        id: "codex",
+                                                        windows: [
+                                                            {
+                                                                kind: "session"
+                                                            },
+                                                            {
+                                                                kind: "weekly"
+                                                            },
+                                                            {
+                                                                kind: "model-spark"
+                                                            },
+                                                            {
+                                                                kind: "model-spark-weekly"
+                                                            },
+                                                            {
+                                                                kind: "model-spark-idle",
+                                                                idle: true
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            })
+        compare(model.displayedProviders[0].windows.length, 1)
+        model.showSpark = true
+        compare(model.displayedProviders[0].windows.length, 3)
+        model.showIdleWindows = true
+        compare(model.displayedProviders[0].windows.length, 4)
+        model.showSpark = false
+        compare(model.displayedProviders[0].windows.length, 1)
+    }
+
     function test_filtersWithoutMutatingSnapshots() {
         const source = [
                   {

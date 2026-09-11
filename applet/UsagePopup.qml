@@ -57,7 +57,12 @@ Item {
         }
 
         Image {
+            id: wordmark
             objectName: "headerWordmark"
+            // The supplied SVG has 32 units above its ink and 43 below (of 300).
+            transform: Translate {
+                y: wordmark.paintedHeight * 11 / 600
+            }
             Layout.topMargin: -Kirigami.Units.smallSpacing
             Layout.bottomMargin: Kirigami.Units.smallSpacing
             Layout.alignment: Qt.AlignHCenter

@@ -65,7 +65,11 @@ TestCase {
         verify(!chart.connects(null, [400, 60, 1000]))
         verify(!chart.connects([100, 65, 1000], [400, 100, 1000]))
         verify(!chart.connects([100, 65, 1000], [400, 60, 2000]))
-        verify(!chart.connects([100, 65, 1000], [2000, 60, 1000]))
+        verify(chart.connects([100, 65, 1000], [2000, 60, 1000]))
+        verify(chart.connects([100, 65, 1000], [2000, 65, 1000]))
+        verify(chart.connects([100, 65, 0], [2000000, 65, 0]))
+        verify(!chart.connects([100, 65, 1000], [2000, 65, 2000]))
+        verify(!chart.connects([100, 65, 0], [2000, 100, 0]))
         chart.windows = []
         compare(chart.visible, false)
         compare(chart.points.length, 0)

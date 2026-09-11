@@ -23,8 +23,7 @@ ColumnLayout {
                                                    []
 
     function connects(previous, point) {
-        return previous !== null && point[0] - previous[0] <= 900 && point[2] === previous[2]
-                && point[1] <= previous[1]
+        return previous !== null && point[2] === previous[2] && point[1] <= previous[1]
     }
 
     visible: windows.length > 0
@@ -163,7 +162,7 @@ ColumnLayout {
     QQC2.Label {
         Layout.fillWidth: true
         text: root.points.length ? qsTr(
-                                       "Observed remaining quota · gaps are not zero. Resets start a new line.") :
+                                       "Observed remaining quota · lines connect observations. Resets start a new line.") :
                                    qsTr("No observations in this range. History builds from successful refreshes, not past activity.")
         wrapMode: Text.WordWrap
         font: Kirigami.Theme.smallFont

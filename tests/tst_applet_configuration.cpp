@@ -212,7 +212,15 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(tabs);
         const qreal above = wordmark->mapToItem(item, QPointF{}).y();
         const qreal below = tabs->mapToItem(item, QPointF{}).y() - above - wordmark->height();
-        QVERIFY(qAbs(above - below) <= 2);
+        // Both supplied SVGs have artwork at y=32..257 in a 300-high canvas.
+        const qreal paintedHeight = wordmark->property("paintedHeight").toReal();
+        const qreal letterbox = (wordmark->height() - paintedHeight) / 2;
+        const qreal visibleAbove = above + letterbox + paintedHeight * 32 / 300;
+        const qreal visibleBelow = below + letterbox + paintedHeight * 43 / 300;
+        QVERIFY2(qAbs(visibleAbove - visibleBelow) <= 0.1,
+                 qPrintable(QStringLiteral("Visible logo padding: above %1, below %2")
+                                .arg(visibleAbove)
+                                .arg(visibleBelow)));
 
         connect(item, &QQuickItem::implicitHeightChanged, &window, [&] {
             item->setHeight(item->implicitHeight());

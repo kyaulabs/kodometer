@@ -22,9 +22,35 @@ ColumnLayout {
                                                                                          <= endTime) :
                                                    []
 
-    function connects(previous, point) {
-        return previous !== null && point[0] - previous[0] <= 900 && point[2] === previous[2]
-                && point[1] <= previous[1]
+    readonly property real startTime: endTime - rangeDays * 86400
+    readonly property var observations: selectedSeries ? selectedSeries.points : []
+    readonly property var plotPoints: {
+        const result = []
+        let value = valueAt(startTime)
+        if (value !== null)
+            result.push([startTime, value])
+        for (const point of points) {
+            if (value !== null)
+                result.push([point[0], value])
+            result.push([point[0], point[1]])
+            value = point[1]
+        }
+        if (value !== null)
+            result.push([endTime, value])
+        return result
+    }
+    readonly property real hoverTime: startTime + pointer.mouseX / chart.width * rangeDays * 86400
+    readonly property var hoverValue: pointer.containsMouse ? valueAt(hoverTime) : null
+
+    // Carry the last observation only in the view, never in the persisted history.
+    function valueAt(time) {
+        let value = null
+        for (const point of observations) {
+            if (point[0] > time)
+                break
+            value = point[1]
+        }
+        return value
     }
 
     visible: windows.length > 0
@@ -58,7 +84,7 @@ ColumnLayout {
         if (!windows.some(windowData => windowData.kind === selectedKind))
             selectedKind = windows.length ? String(windows[0].kind) : ""
     }
-    onPointsChanged: chart.requestPaint()
+    onPlotPointsChanged: chart.requestPaint()
     onAccentColorChanged: chart.requestPaint()
 
     RowLayout {
@@ -94,12 +120,50 @@ ColumnLayout {
             Layout.preferredHeight: 100
             Accessible.role: Accessible.Graphic
             Accessible.name: qsTr("Observed remaining quota")
-            Accessible.description: root.points.length ? qsTr(
-                                                             "%1 observations; latest %2% remaining").arg(
-                                                             root.points.length).arg(
-                                                             root.points[root.points.length
-                                                                         - 1][1]) : qsTr(
-                                                             "No observations in this range")
+            Accessible.description: root.plotPoints.length ? qsTr(
+                                                                 "%1 observations; latest %2% remaining").arg(
+                                                                 root.points.length).arg(
+                                                                 root.plotPoints[root.plotPoints.length
+                                                                                 - 1][1]) : qsTr(
+                                                                 "No observations in this range")
+            MouseArea {
+                id: pointer
+                anchors.fill: parent
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+            }
+            Rectangle {
+                objectName: "quotaHistoryCursor"
+                visible: root.hoverValue !== null
+                x: Math.min(chart.width - width, Math.max(0, pointer.mouseX))
+                width: 1
+                height: chart.height
+                color: Qt.alpha(root.accentColor, 0.5)
+            }
+            Rectangle {
+                visible: root.hoverValue !== null
+                x: pointer.mouseX - width / 2
+                y: 1 + (100 - Number(root.hoverValue)) / 100 * (chart.height - 2) - height / 2
+                width: 6
+                height: width
+                radius: width / 2
+                color: root.accentColor
+            }
+            QQC2.ToolTip {
+                objectName: "quotaHistoryTooltip"
+                visible: root.hoverValue !== null
+                x: Math.max(0, Math.min(chart.width - implicitWidth, pointer.mouseX - implicitWidth
+                                        / 2))
+                y: -implicitHeight - 4
+                text: qsTr("%1% remaining · %2\nLast observed value").arg(root.hoverValue === null
+                                                                          ? "" : Number(
+                                                                                root.hoverValue).toLocaleString(
+                                                                                Qt.locale(), 'f',
+                                                                                1).replace(
+                                                                                /([.,]0)$/, "")).arg(
+                          new Date(root.hoverTime * 1000).toLocaleString(Qt.locale(),
+                                                                         "MMM d hh:mm"))
+            }
             onWidthChanged: requestPaint()
             onHeightChanged: requestPaint()
             onPaint: {
@@ -114,33 +178,27 @@ ColumnLayout {
                     ctx.lineTo(width, y)
                     ctx.stroke()
                 }
-                const start = root.endTime - root.rangeDays * 86400
-                let previous = null
-                for (const point of root.points) {
-                    const x = (point[0] - start) / (root.rangeDays * 86400) * width
+                if (!root.plotPoints.length)
+                    return
+                const xAt = time => (time - root.startTime) / (root.rangeDays * 86400) * width
+                ctx.beginPath()
+                for (let i = 0; i < root.plotPoints.length; ++i) {
+                    const point = root.plotPoints[i]
+                    const x = xAt(point[0])
                     const y = 1 + (100 - point[1]) / 100 * (height - 2)
-                    ctx.strokeStyle = root.accentColor
-                    ctx.fillStyle = root.accentColor
-                    ctx.lineWidth = 1.5
-                    if (root.connects(previous, point)) {
-                        const px = (previous[0] - start) / (root.rangeDays * 86400) * width
-                        const py = 1 + (100 - previous[1]) / 100 * (height - 2)
-                        ctx.beginPath()
-                        ctx.moveTo(px, py)
+                    if (i === 0)
+                        ctx.moveTo(x, y)
+                    else
                         ctx.lineTo(x, y)
-                        ctx.stroke()
-                        ctx.fillStyle = Qt.alpha(root.accentColor, 0.06)
-                        ctx.lineTo(x, height)
-                        ctx.lineTo(px, height)
-                        ctx.closePath()
-                        ctx.fill()
-                    } else {
-                        ctx.beginPath()
-                        ctx.arc(x, y, 1.5, 0, 2 * Math.PI)
-                        ctx.fill()
-                    }
-                    previous = point
                 }
+                ctx.strokeStyle = root.accentColor
+                ctx.lineWidth = 1.5
+                ctx.stroke()
+                ctx.lineTo(width, height)
+                ctx.lineTo(xAt(root.plotPoints[0][0]), height)
+                ctx.closePath()
+                ctx.fillStyle = Qt.alpha(root.accentColor, 0.06)
+                ctx.fill()
             }
         }
     }
@@ -162,9 +220,9 @@ ColumnLayout {
     }
     QQC2.Label {
         Layout.fillWidth: true
-        text: root.points.length ? qsTr(
-                                       "Observed remaining quota · gaps are not zero. Resets start a new line.") :
-                                   qsTr("No observations in this range. History builds from successful refreshes, not past activity.")
+        text: root.plotPoints.length ? qsTr(
+                                           "Observed remaining quota · holds the last value between refreshes. Resets are vertical steps.") :
+                                       qsTr("No observations in this range. History builds from successful refreshes, not past activity.")
         wrapMode: Text.WordWrap
         font: Kirigami.Theme.smallFont
         color: Kirigami.Theme.disabledTextColor

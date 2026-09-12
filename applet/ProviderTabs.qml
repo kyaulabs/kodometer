@@ -75,6 +75,8 @@ Item {
             required property var modelData
             width: Kirigami.Units.gridUnit * 4
             height: tabList.height
+            topPadding: Kirigami.Units.smallSpacing
+            bottomPadding: topPadding
             checked: index === root.selectedIndex
             palette.highlight: button.modelData.overview ? root.overviewAccentColor :
                                                            Kirigami.Theme.highlightColor
@@ -94,7 +96,7 @@ Item {
             contentItem: Item {
                 Column {
                     objectName: "provider-tab-content-" + button.index
-                    anchors.centerIn: parent
+                    y: (parent.height - height) / 2
                     width: parent.width
                     spacing: 2
 

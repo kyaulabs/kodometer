@@ -57,7 +57,12 @@ Item {
         }
 
         Image {
+            id: wordmark
             objectName: "headerWordmark"
+            // The supplied SVG has 32 units above its ink and 43 below (of 300).
+            transform: Translate {
+                y: wordmark.paintedHeight * 11 / 600
+            }
             Layout.topMargin: -Kirigami.Units.smallSpacing
             Layout.bottomMargin: Kirigami.Units.smallSpacing
             Layout.alignment: Qt.AlignHCenter
@@ -160,8 +165,8 @@ Item {
             QQC2.ToolButton {
                 objectName: "configureAccounts"
                 icon.name: "configure-symbolic"
-                icon.width: Kirigami.Units.iconSizes.smallMedium
-                icon.height: Kirigami.Units.iconSizes.smallMedium
+                icon.width: Kirigami.Units.iconSizes.smallMedium - 2
+                icon.height: Kirigami.Units.iconSizes.smallMedium - 2
                 text: qsTr("Configure providers and accounts…")
                 display: QQC2.AbstractButton.IconOnly
                 onClicked: root.configureRequested()

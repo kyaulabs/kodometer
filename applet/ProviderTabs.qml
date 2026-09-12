@@ -96,7 +96,7 @@ Item {
             contentItem: Item {
                 Column {
                     objectName: "provider-tab-content-" + button.index
-                    anchors.centerIn: parent
+                    y: (parent.height - height) / 2
                     width: parent.width
                     spacing: 2
 

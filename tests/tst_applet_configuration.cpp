@@ -216,11 +216,24 @@ class AppletConfigurationTest final : public QObject
                 findVisualItem(tabs, QStringLiteral("provider-tab-content-%1").arg(index));
             QVERIFY(tab);
             QVERIFY(content);
-            const qreal top = content->mapToItem(tab, QPointF{}).y();
-            const qreal bottom = tab->height() - top - content->height();
-            QVERIFY2(
-                qAbs(top - bottom) <= 0.1,
-                qPrintable(QStringLiteral("Tab padding: top %1, bottom %2").arg(top).arg(bottom)));
+            const qreal originalHeight = tab->height();
+            for (const qreal height : {originalHeight, originalHeight + 1}) {
+                tab->setHeight(height);
+                QTest::qWait(10);
+                const qreal top = content->mapToItem(tab, QPointF{}).y();
+                const qreal bottom = tab->height() - top - content->height();
+                QVERIFY2(qAbs(top - bottom) <= 0.1,
+                         qPrintable(QStringLiteral("Tab padding: top %1, bottom %2, height %3, "
+                                                   "parent y/h %4/%5, padding %6/%7")
+                                        .arg(top)
+                                        .arg(bottom)
+                                        .arg(tab->height())
+                                        .arg(content->parentItem()->y())
+                                        .arg(content->parentItem()->height())
+                                        .arg(tab->property("topPadding").toReal())
+                                        .arg(tab->property("bottomPadding").toReal())));
+            }
+            tab->setHeight(originalHeight);
         }
         const qreal above = wordmark->mapToItem(item, QPointF{}).y();
         const qreal below = tabs->mapToItem(item, QPointF{}).y() - above - wordmark->height();

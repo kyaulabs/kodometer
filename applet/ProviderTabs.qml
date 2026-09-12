@@ -75,6 +75,8 @@ Item {
             required property var modelData
             width: Kirigami.Units.gridUnit * 4
             height: tabList.height
+            topPadding: Kirigami.Units.smallSpacing
+            bottomPadding: topPadding
             checked: index === root.selectedIndex
             palette.highlight: button.modelData.overview ? root.overviewAccentColor :
                                                            Kirigami.Theme.highlightColor

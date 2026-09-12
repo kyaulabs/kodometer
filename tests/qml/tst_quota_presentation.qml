@@ -21,7 +21,7 @@ TestCase {
         }
     }
 
-    function test_historyRangesSelectionAndResetGaps() {
+    function test_historyRangesAndSelection() {
         const chart = createTemporaryObject(historyComponent, this, {
                                                 endTime: 3000000,
                                                 windows: [
@@ -61,18 +61,75 @@ TestCase {
                     }
                 ]
         compare(chart.selectedKind, "session")
-        verify(chart.connects([100, 65, 1000], [400, 60, 1000]))
-        verify(!chart.connects(null, [400, 60, 1000]))
-        verify(!chart.connects([100, 65, 1000], [400, 100, 1000]))
-        verify(!chart.connects([100, 65, 1000], [400, 60, 2000]))
-        verify(chart.connects([100, 65, 1000], [2000, 60, 1000]))
-        verify(chart.connects([100, 65, 1000], [2000, 65, 1000]))
-        verify(chart.connects([100, 65, 0], [2000000, 65, 0]))
-        verify(!chart.connects([100, 65, 1000], [2000, 65, 2000]))
-        verify(!chart.connects([100, 65, 0], [2000, 100, 0]))
+        compare(chart.valueAt(2000000), 80)
+        compare(chart.valueAt(2950000), 70)
         chart.windows = []
         compare(chart.visible, false)
         compare(chart.points.length, 0)
+    }
+
+    function test_historyCarriesLastObservationAndHover() {
+        const chart = createTemporaryObject(historyComponent, this, {
+                                                endTime: 100000,
+                                                windows: [
+                                                    {
+                                                        kind: "session"
+                                                    }
+                                                ],
+                                                series: [
+                                                    {
+                                                        kind: "session",
+                                                        points: [[20000, 80, 0], [50000, 60, 0], [80000,
+                                                                                                  100, 90000]]
+                                                    }
+                                                ]
+                                            })
+        verify(chart)
+        compare(chart.valueAt(19000), null)
+        compare(chart.valueAt(20000), 80)
+        compare(chart.valueAt(49999), 80)
+        compare(chart.valueAt(50000), 60)
+        compare(chart.valueAt(79999), 60)
+        compare(chart.valueAt(80000), 100)
+        compare(chart.valueAt(100000), 100)
+        compare(chart.plotPoints, [[20000, 80], [50000, 80], [50000, 60], [80000, 60], [80000, 100],
+                                   [100000, 100]])
+        const plot = findChild(chart, "quotaHistoryPlot")
+        const marker = findChild(chart, "quotaHistoryCursor")
+        tryCompare(plot, "available", true)
+        plot.requestPaint()
+        wait(100)
+        waitForRendering(plot)
+        const pixels = grabImage(plot)
+        // Between grid lanes: no fill before data, continuous fill after it.
+        const emptyColor = pixels.pixel(0, 85).toString()
+        for (let x = Math.ceil(plot.width * (20000 - 13600) / 86400) + 1; x < Math.floor(
+                 plot.width); ++x)
+            verify(pixels.pixel(x, 85).toString() !== emptyColor, "Missing chart fill at x=" + x)
+        mouseMove(plot, plot.width * (60000 - 13600) / 86400, 40)
+        tryCompare(marker, "visible", true)
+        compare(chart.hoverValue, 60)
+        fuzzyCompare(marker.x, plot.width * (60000 - 13600) / 86400, 1)
+        mouseMove(this, 399, 299)
+        tryCompare(marker, "visible", false)
+        mouseMove(plot, plot.width * (60000 - 13600) / 86400, 40)
+        tryCompare(marker, "visible", true)
+        verify(findChild(chart, "quotaHistoryTooltip").text.includes("60%"))
+        mouseMove(plot, 0, 40)
+        tryCompare(marker, "visible", false)
+        chart.endTime = 140000
+        compare(chart.plotPoints[0], [53600, 60])
+        chart.series = [
+                    {
+                        kind: "session",
+                        points: [[20000, 80, 0]]
+                    }
+                ]
+        compare(chart.plotPoints, [[53600, 80], [140000, 80]])
+        chart.series = []
+        compare(chart.plotPoints.length, 0)
+        compare(chart.valueAt(90000), null)
+        compare(chart.hoverValue, null)
     }
 
     function test_providerColorsAreValidatedAndDoNotMutateSnapshots() {

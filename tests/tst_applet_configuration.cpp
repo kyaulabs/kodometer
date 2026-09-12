@@ -210,6 +210,18 @@ class AppletConfigurationTest final : public QObject
         auto *tabs = findVisualItem(item, "popupProviderTabs");
         QVERIFY(wordmark);
         QVERIFY(tabs);
+        for (int index = 0; index < 4; ++index) {
+            auto *tab = findVisualItem(tabs, QStringLiteral("provider-tab-%1").arg(index));
+            auto *content =
+                findVisualItem(tabs, QStringLiteral("provider-tab-content-%1").arg(index));
+            QVERIFY(tab);
+            QVERIFY(content);
+            const qreal top = content->mapToItem(tab, QPointF{}).y();
+            const qreal bottom = tab->height() - top - content->height();
+            QVERIFY2(
+                qAbs(top - bottom) <= 0.1,
+                qPrintable(QStringLiteral("Tab padding: top %1, bottom %2").arg(top).arg(bottom)));
+        }
         const qreal above = wordmark->mapToItem(item, QPointF{}).y();
         const qreal below = tabs->mapToItem(item, QPointF{}).y() - above - wordmark->height();
         // Both supplied SVGs have artwork at y=32..257 in a 300-high canvas.
@@ -238,10 +250,10 @@ class AppletConfigurationTest final : public QObject
             QVERIFY(refresh);
             QCOMPARE(QQmlProperty::read(settings, "icon.name").toString(),
                      QStringLiteral("configure-symbolic"));
-            QCOMPARE(QQmlProperty::read(settings, "icon.width"),
-                     QQmlProperty::read(refresh, "icon.width"));
-            QCOMPARE(QQmlProperty::read(settings, "icon.height"),
-                     QQmlProperty::read(refresh, "icon.height"));
+            QCOMPARE(QQmlProperty::read(settings, "icon.width").toInt(),
+                     QQmlProperty::read(refresh, "icon.width").toInt() - 2);
+            QCOMPARE(QQmlProperty::read(settings, "icon.height").toInt(),
+                     QQmlProperty::read(refresh, "icon.height").toInt() - 2);
             const qreal footerBottom = footer->mapToItem(item, QPointF(0, footer->height())).y();
             QVERIFY2(footerBottom <= item->height(),
                      qPrintable(QStringLiteral("%1: footer %2, popup %3, preferred %4")

@@ -165,8 +165,8 @@ Item {
             QQC2.ToolButton {
                 objectName: "configureAccounts"
                 icon.name: "configure-symbolic"
-                icon.width: Kirigami.Units.iconSizes.smallMedium
-                icon.height: Kirigami.Units.iconSizes.smallMedium
+                icon.width: Kirigami.Units.iconSizes.smallMedium - 2
+                icon.height: icon.width
                 text: qsTr("Configure providers and accounts…")
                 display: QQC2.AbstractButton.IconOnly
                 onClicked: root.configureRequested()

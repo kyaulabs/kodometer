@@ -25,5 +25,17 @@ check() {
 }
 
 package() {
+    # Arch's libplasma does not provide a SONAME dependency. Keep binary packages
+    # within their build series; the source recipe still accepts Plasma 6.4+.
+    local plasma_version plasma_major plasma_minor
+    plasma_version="$(pacman -Q libplasma)" || return
+    [[ "$plasma_version" =~ ^libplasma\ ([0-9]+)\.([0-9]+)\.[0-9]+- ]] || {
+        printf 'packaging: cannot determine libplasma build series\n' >&2
+        return 1
+    }
+    plasma_major="${BASH_REMATCH[1]}"
+    plasma_minor="${BASH_REMATCH[2]}"
+    depends=("${depends[@]/libplasma>=6.4/libplasma>=${plasma_major}.${plasma_minor}}"
+             "libplasma<${plasma_major}.$((plasma_minor + 1))")
     DESTDIR="${pkgdir}" cmake --install build
 }

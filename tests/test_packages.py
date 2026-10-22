@@ -114,6 +114,50 @@ class PackageTest(unittest.TestCase):
         result = subprocess.run(["bash", "-n", "PKGBUILD"], cwd=self.directory, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_arch_binary_requires_its_build_plasma_series(self):
+        recipe = self.directory / "PKGBUILD"
+        recipe.write_text(self.metadata.render_pkgbuild("1.2.3", "a" * 64))
+        script = '''set -e
+source "$1"
+pacman() {
+    [[ "$*" == '-Q libplasma' ]] || return 99
+    printf '%s\\n' "$PLASMA_PACKAGE"
+}
+cmake() { :; }
+package
+printf '%s\\n' "${depends[@]}"
+'''
+        for package_version, lower, upper in [
+            ("6.7.5-1", "6.7", "6.8"),
+            ("6.8.1-1", "6.8", "6.9"),
+        ]:
+            with self.subTest(package_version=package_version):
+                environment = dict(os.environ, PLASMA_PACKAGE=f"libplasma {package_version}", pkgdir=str(self.directory))
+                result = subprocess.run(["bash", "-c", script, "bash", str(recipe)],
+                                        env=environment, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                plasma_dependencies = [line for line in result.stdout.splitlines() if line.startswith("libplasma")]
+                self.assertCountEqual(plasma_dependencies, [f"libplasma>={lower}", f"libplasma<{upper}"])
+
+    def test_arch_binary_rejects_unknown_build_plasma_version(self):
+        recipe = self.directory / "PKGBUILD"
+        recipe.write_text(self.metadata.render_pkgbuild("1.2.3", "a" * 64))
+        script = '''set -e
+source "$1"
+pacman() {
+    printf '%s\\n' "$PLASMA_PACKAGE"
+    return "$PLASMA_QUERY_RESULT"
+}
+cmake() { :; }
+package
+'''
+        for output, status in [("", "1"), ("libplasma unknown", "0")]:
+            with self.subTest(output=output, status=status):
+                environment = dict(os.environ, PLASMA_PACKAGE=output, PLASMA_QUERY_RESULT=status, pkgdir=str(self.directory))
+                result = subprocess.run(["bash", "-c", script, "bash", str(recipe)],
+                                        env=environment, capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+
     def test_aur_bundle_is_verified_before_extracting(self):
         self.fill()
         source = self.directory / "kodometer-1.2.3-source.tar.gz"

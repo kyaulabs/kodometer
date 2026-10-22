@@ -195,7 +195,7 @@ Do not keep both local and system copies installed; plugin search order can load
 
 ### Release archives and upgrades
 
-Release archives contain system-relative paths and are built in rolling Arch Linux CI. They are not portable across arbitrary Qt, KDE Frameworks, libplasma, or glibc versions. Use a matching native package on supported Ubuntu/Fedora releases, or build from source against the distribution's installed development packages. Dependencies are not bundled.
+Release archives contain system-relative paths and are built in rolling Arch Linux CI. They are not portable across arbitrary Qt, KDE Frameworks, libplasma, or glibc versions. Use a matching native package on supported Ubuntu/Fedora releases, or build from source against the distribution's installed development packages. Dependencies are not bundled. The Plasma 6.4 minimum describes source compatibility, not a promise that one binary works across Plasma library ABI changes. In particular, Plasma 6.8 provides `libPlasma.so.8`; an older Kodometer binary requiring `libPlasma.so.7` must be rebuilt or replaced with a matching package. Never symlink different library ABI versions together.
 
 Download the archive and its checksum together from the same GitHub release. Inspect the archive before installing it for all users:
 

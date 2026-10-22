@@ -13,4 +13,6 @@ export XDG_DATA_HOME="$work/data"
 export XDG_CACHE_HOME="$work/cache"
 export XDG_RUNTIME_DIR="$work/runtime"
 export QT_QPA_PLATFORM=offscreen
+# Qt must not activate desktop portals or leave a document-portal mount behind.
+export QT_NO_XDG_DESKTOP_PORTAL=1
 dbus-run-session -- "$@"

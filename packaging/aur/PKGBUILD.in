@@ -24,7 +24,9 @@ check() {
     QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
 }
 
-package() {
+_set_binary_dependencies() {
+    # Keep this outside package(): makepkg statically extracts its assignments
+    # for .SRCINFO, where build-only version variables would be unset.
     # Arch's libplasma does not provide a SONAME dependency. Keep binary packages
     # within their build series; the source recipe still accepts Plasma 6.4+.
     local plasma_version plasma_major plasma_minor
@@ -37,5 +39,9 @@ package() {
     plasma_minor="${BASH_REMATCH[2]}"
     depends=("${depends[@]/libplasma>=6.4/libplasma>=${plasma_major}.${plasma_minor}}"
              "libplasma<${plasma_major}.$((plasma_minor + 1))")
+}
+
+package() {
+    _set_binary_dependencies || return
     DESTDIR="${pkgdir}" cmake --install build
 }

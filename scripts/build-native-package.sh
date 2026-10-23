@@ -32,6 +32,11 @@ if [[ "$target" == arch ]]; then
     (
         cd "$work"
         "${builder[@]}" makepkg --printsrcinfo > .SRCINFO
+        source_plasma_dependency="$(awk '$1 == "depends" && $3 ~ /^libplasma/ { print $3 }' .SRCINFO)"
+        [[ "$source_plasma_dependency" == 'libplasma>=6.4' ]] || {
+            echo 'packaging: source metadata must retain only libplasma>=6.4' >&2
+            exit 1
+        }
         "${builder[@]}" env CMAKE_BUILD_PARALLEL_LEVEL="$CMAKE_BUILD_PARALLEL_LEVEL" \
             SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software makepkg --cleanbuild --noconfirm
     )

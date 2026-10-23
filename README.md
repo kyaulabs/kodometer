@@ -14,7 +14,7 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 
 ## Status
 
-Kodometer targets KDE Plasma 6.4 and newer. Version 0.6.0 adds hover inspection to continuous quota-history charts, balances provider-tab padding, shrinks the settings icon, and centers the visible header wordmark. Charts hold the last observed percentage through gaps without adding stored samples. The neutral Overview accent, single Spark toggle, and provider-only chart colors from 0.5.1 remain. Popup pages remain content-sized, account selection lives in settings, and provider links sit below usage/history. Spark is hidden by default, and popup bars fill with remaining quota unless configured otherwise. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
+Kodometer targets KDE Plasma 6.4 and newer. Version 0.6.1 rebuilds native packages for the Plasma 6.8 library ABI and bounds Arch binaries to their build's Plasma minor series. Source builds still support older compatible Plasma releases; one binary does not span different library ABIs. The hover-inspectable charts and balanced popup controls from 0.6.0 remain. Charts hold the last observed percentage through gaps without adding stored samples. The neutral Overview accent, single Spark toggle, and provider-only chart colors from 0.5.1 remain. Popup pages remain content-sized, account selection lives in settings, and provider links sit below usage/history. Spark is hidden by default, and popup bars fill with remaining quota unless configured otherwise. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
 
 - a compiled Plasma 6 applet for Wayland and X11;
 - native Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
@@ -195,7 +195,7 @@ Do not keep both local and system copies installed; plugin search order can load
 
 ### Release archives and upgrades
 
-Release archives contain system-relative paths and are built in rolling Arch Linux CI. They are not portable across arbitrary Qt, KDE Frameworks, libplasma, or glibc versions. Use a matching native package on supported Ubuntu/Fedora releases, or build from source against the distribution's installed development packages. Dependencies are not bundled.
+Release archives contain system-relative paths and are built in rolling Arch Linux CI. They are not portable across arbitrary Qt, KDE Frameworks, libplasma, or glibc versions. Use a matching native package on supported Ubuntu/Fedora releases, or build from source against the distribution's installed development packages. Dependencies are not bundled. The Plasma 6.4 minimum describes source compatibility, not a promise that one binary works across Plasma library ABI changes. In particular, Plasma 6.8 provides `libPlasma.so.8`; an older Kodometer binary requiring `libPlasma.so.7` must be rebuilt or replaced with a matching package. Never symlink different library ABI versions together.
 
 Download the archive and its checksum together from the same GitHub release. Inspect the archive before installing it for all users:
 
@@ -356,7 +356,7 @@ Development follows Git Flow and Conventional Commits.
 5. The workflow opens or reuses a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret. Published assets are never replaced on retry.
 6. When explicitly enabled and configured, a separate job updates AUR recipes with a GPG-signed commit after GitHub publication. A failed AUR update can be retried without replacing GitHub assets.
 
-See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.6.0 overview](docs/releases/0.6.0.md) for the latest features, packages, and compatibility limits.
+See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.6.1 overview](docs/releases/0.6.1.md) for the latest features, packages, and compatibility limits.
 
 ## Security and privacy
 

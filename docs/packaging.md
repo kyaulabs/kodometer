@@ -39,13 +39,17 @@ Log out of Plasma before replacing a loaded plugin; install from a TTY or SSH se
 
 Package managers resolve runtime dependencies. Ubuntu packages use native ELF dependency scanning; Fedora packages retain RPM's automatic runtime requirements. QML imports, Plasma, and the wallet service also have explicit dependencies. No Qt, KDE, or glibc libraries are bundled or copied from Arch into DEB/RPM files.
 
+Plasma's source-version minimum is not a binary ABI guarantee. Plasma 6.8 changed the library from `libPlasma.so.7` to `libPlasma.so.8`. A plugin built for one cannot load with only the other installed, even if Plasma also reports a misleading missing-metadata error. Install a matching build or rebuild from source; do not symlink the two libraries or reset credentials and widget preferences.
+
+Starting with 0.6.1, Arch binary packages require the Plasma minor series used to build them, such as `libplasma>=6.8` and `libplasma<6.9`. Arch's libplasma package does not expose a SONAME dependency, so this conservative bound prevents silent breakage on a minor-series upgrade while allowing patch updates. Upgrade Kodometer alongside Plasma, or rebuild the source recipe for the new series. This is not an automatic rebuild hook. The legacy tar archive has no package-manager dependency protection.
+
 Uninstall with your package manager. Packages contain no OAuth files, wallet entries, or widget preferences, and have no scripts that delete them. There is no hosted APT/DNF repository or automatic desktop updater. DEB/RPM files and source tags are not independently signed by this workflow; checksums detect corruption, not publisher identity. Do not weaken your system's package-signature policy to install an untrusted file.
 
 ## AUR source package
 
 Each release includes `kodometer-X.Y.Z-aur.tar.gz` with `PKGBUILD` and `.SRCINFO`, and `kodometer-X.Y.Z-source.tar.gz` with the exact build revision. The recipe downloads that fixed release source archive and checks its SHA-256 digest. It does not follow a Git branch or use `SKIP` checksums.
 
-After verifying the AUR bundle's `.sha256` file, extract it into a new directory and review `PKGBUILD`. Run `makepkg -si` as a normal user on Arch. It builds the applet, runs the native tests, and installs the package. You can place the matching source archive beside `PKGBUILD` to reuse the download; `makepkg` still checks its digest.
+After verifying the AUR bundle's `.sha256` file, extract it into a new directory and review `PKGBUILD`. Run `makepkg -si` as a normal user on Arch. It builds the applet against your installed Plasma libraries, runs the native tests, and installs the package. The source recipe retains Plasma 6.4+ support, including older `libPlasma.so.7` systems and newer `libPlasma.so.8` systems; it does not install a single cross-ABI binary. Its resulting binary package is restricted to the Plasma minor series used for that build. You can place the matching source archive beside `PKGBUILD` to reuse the download; `makepkg` still checks its digest.
 
 Recipe generation does not require an AUR account. Publishing those recipes to `aur.archlinux.org/kodometer.git` does require package ownership and dedicated automation credentials. It is disabled until configured; see [AUR publication setup](releasing.md#aur-publication-setup). Do not assume the AUR entry exists merely because a release contains recipes.
 

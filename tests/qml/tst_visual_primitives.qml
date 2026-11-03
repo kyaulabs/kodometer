@@ -68,7 +68,7 @@ TestCase {
         meter.donutCharts = true
         meter.providers = [
                     {
-                        id: "codex",
+                        id: "openai",
                         windows: [
                             {
                                 kind: "session",
@@ -86,7 +86,7 @@ TestCase {
                         ]
                     }
                 ]
-        const session = findChild(meter, "provider-meter-codex")
+        const session = findChild(meter, "provider-meter-openai")
         const weekly = findChild(meter, "provider-meter-kimi")
         verify(session)
         verify(weekly)
@@ -110,7 +110,7 @@ TestCase {
         meter.weeklyRemaining = Infinity
         compare(meter.weeklyFillWidth, 0)
         meter.donutCharts = false
-        compare(findChild(meter, "provider-meter-codex"), null)
+        compare(findChild(meter, "provider-meter-openai"), null)
     }
 
     function test_donutColorsFollowProvider() {
@@ -118,7 +118,7 @@ TestCase {
                                                 donutCharts: true,
                                                 providers: [
                                                     {
-                                                        id: "codex",
+                                                        id: "openai",
                                                         display: {
                                                             accentColor: "#778899"
                                                         },
@@ -135,23 +135,23 @@ TestCase {
                                                     }
                                                 ]
                                             })
-        const provider = findChild(meter, "provider-meter-codex")
-        const session = findChild(meter, "quota-ring-codex-session")
-        const weekly = findChild(meter, "quota-ring-codex-weekly")
+        const provider = findChild(meter, "provider-meter-openai")
+        const session = findChild(meter, "quota-ring-openai-session")
+        const weekly = findChild(meter, "quota-ring-openai-weekly")
         compare(session.accentColor, provider.accentColor)
         verify(weekly.accentColor.toString() !== session.accentColor.toString())
         const windows = meter.providers[0].windows
         meter.providers = [
                     {
-                        id: "codex",
+                        id: "openai",
                         display: {
                             accentColor: "#112233"
                         },
                         windows: windows
                     }
                 ]
-        const updatedSession = findChild(meter, "quota-ring-codex-session")
-        const updatedWeekly = findChild(meter, "quota-ring-codex-weekly")
+        const updatedSession = findChild(meter, "quota-ring-openai-session")
+        const updatedWeekly = findChild(meter, "quota-ring-openai-weekly")
         compare(updatedSession.accentColor, "#112233")
         verify(updatedWeekly.accentColor.toString() !== updatedSession.accentColor.toString())
         compare(meter.barColor("session"), "#112233")
@@ -167,7 +167,7 @@ TestCase {
                                                 donutCharts: true,
                                                 providers: [
                                                     {
-                                                        id: "codex",
+                                                        id: "openai",
                                                         windows: [
                                                             {
                                                                 kind: "session",
@@ -194,7 +194,7 @@ TestCase {
         // The click target overlays the meter in the applet, but must not eat hover events.
         const overlay = Qt.createQmlObject('import QtQuick; MouseArea { anchors.fill: parent }',
                                            meter)
-        const session = findChild(meter, "provider-tooltip-codex")
+        const session = findChild(meter, "provider-tooltip-openai")
         const weekly = findChild(meter, "provider-tooltip-kimi")
         verify(session.subText.includes("90.0% remaining"))
         verify(session.subText.includes("75.0% remaining"))
@@ -220,7 +220,7 @@ TestCase {
         compare(weekly.active, false)
         meter.toolTipsEnabled = true
         meter.donutCharts = false
-        compare(findChild(meter, "provider-tooltip-codex"), null)
+        compare(findChild(meter, "provider-tooltip-openai"), null)
         compare(findChild(meter, "provider-tooltip-kimi"), null)
         mouseMove(this, 1, 1)
         overlay.destroy()
@@ -241,13 +241,13 @@ TestCase {
                          })
         meter.providers = [
                     {
-                        id: "codex",
+                        id: "openai",
                         windows: windows
                     }
                 ]
         compare(meter.providerCount, 1)
         compare(findChild(meter, "emptyQuotaMeter").visible, false)
-        const inner = findChild(meter, "quota-ring-codex-model-19")
+        const inner = findChild(meter, "quota-ring-openai-model-19")
         verify(inner)
         verify(inner.width > 0)
         verify(inner.strokeWidth > 0)
@@ -257,8 +257,8 @@ TestCase {
         const tabs = createTemporaryObject(providerTabsComponent, this, {
                                                providers: [
                                                    {
-                                                       id: "codex",
-                                                       name: "Codex"
+                                                       id: "openai",
+                                                       name: "OpenAI"
                                                    },
                                                    {
                                                        id: "claude",
@@ -289,8 +289,8 @@ TestCase {
         const tabs = createTemporaryObject(providerTabsComponent, this, {
                                                providers: [
                                                    {
-                                                       id: "codex",
-                                                       name: "Codex"
+                                                       id: "openai",
+                                                       name: "OpenAI"
                                                    }
                                                ]
                                            })
@@ -308,8 +308,8 @@ TestCase {
         const tabs = createTemporaryObject(providerTabsComponent, this, {
                                                providers: [
                                                    {
-                                                       id: "codex",
-                                                       name: "Codex"
+                                                       id: "openai",
+                                                       name: "OpenAI"
                                                    }
                                                ],
                                                overviewVisible: false
@@ -322,7 +322,7 @@ TestCase {
                                                                 signalName: "providerSelected"
                                                             })
         tabs.activateTab(0)
-        compare(providerSpy.signalArguments[0][0], "codex")
+        compare(providerSpy.signalArguments[0][0], "openai")
         tabs.activateTab(-1)
         tabs.activateTab(4)
         compare(providerSpy.count, 1)

@@ -69,9 +69,13 @@ QStringList CredentialStore::supportedKeys()
 {
     // GCOVR_EXCL_BR_START -- Qt container allocation branches
     return {
-        QStringLiteral("DEEPSEEK_API_KEY"),       QStringLiteral("KIMI_CODE_API_KEY"),
-        QStringLiteral("OPENROUTER_API_KEY"),     QStringLiteral("OPENROUTER_MANAGEMENT_API_KEY"),
-        QStringLiteral("XAI_MANAGEMENT_API_KEY"), QStringLiteral("Z_AI_API_KEY"),
+        QStringLiteral("OPENAI_ADMIN_KEY"),
+        QStringLiteral("DEEPSEEK_API_KEY"),
+        QStringLiteral("KIMI_CODE_API_KEY"),
+        QStringLiteral("OPENROUTER_API_KEY"),
+        QStringLiteral("OPENROUTER_MANAGEMENT_API_KEY"),
+        QStringLiteral("XAI_MANAGEMENT_API_KEY"),
+        QStringLiteral("Z_AI_API_KEY"),
     };
     // GCOVR_EXCL_BR_STOP
 }

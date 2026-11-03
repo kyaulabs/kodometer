@@ -7,11 +7,11 @@ Item {
     id: root
 
     property string providerId
-    readonly property bool knownProvider: ["codex", "claude", "deepseek", "gemini", "kimi",
+    readonly property bool knownProvider: ["openai", "claude", "deepseek", "gemini", "kimi",
         "openrouter", "xai", "zai"].includes(providerId)
     // The supplied white OpenAI and lime OpenRouter marks need a dark backing
     // even on light desktops. Other assets retain their original colors/tiles.
-    readonly property bool needsBacking: providerId === "codex" || providerId === "openrouter"
+    readonly property bool needsBacking: providerId === "openai" || providerId === "openrouter"
     readonly property url iconSource: knownProvider ? Qt.resolvedUrl("assets/providers/"
                                                                      + providerId + ".svg") : ""
     readonly property alias status: artwork.status

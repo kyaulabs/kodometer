@@ -1,12 +1,12 @@
-#include <kodometer/codex_usage_parser.hpp>
+#include <kodometer/openai_usage_parser.hpp>
 
 #include <QTimeZone>
 #include <QtTest>
 
-using Kodometer::CodexCredentials;
-using Kodometer::CodexUsageParser;
+using Kodometer::OpenAICredentials;
+using Kodometer::OpenAIUsageParser;
 
-class CodexUsageParserTest final : public QObject
+class OpenAIUsageParserTest final : public QObject
 {
     Q_OBJECT
 
@@ -21,7 +21,7 @@ class CodexUsageParserTest final : public QObject
     void formatsPlanNames();
 };
 
-void CodexUsageParserTest::mapsUsageResponse()
+void OpenAIUsageParserTest::mapsUsageResponse()
 {
     const QByteArray payload = R"({
         "account_id": "response-account",
@@ -39,7 +39,7 @@ void CodexUsageParserTest::mapsUsageResponse()
             }
         },
         "additional_rate_limits": [{
-            "limit_name": "GPT-5.3-Codex-Spark",
+            "limit_name": "GPT-5.3-OpenAI-Spark",
             "metered_feature": "spark",
             "rate_limit": {
                 "primary_window": {
@@ -55,23 +55,23 @@ void CodexUsageParserTest::mapsUsageResponse()
             "balance": "112.45"
         }
     })";
-    CodexCredentials credentials;
+    OpenAICredentials credentials;
     credentials.accountId = QStringLiteral("credential-account");
     credentials.email = QStringLiteral("person@example.com");
     const QDateTime now =
         QDateTime::fromString(QStringLiteral("2026-09-04T04:00:00Z"), Qt::ISODate);
     QString error;
 
-    const auto provider = CodexUsageParser::parse(payload, credentials, now, &error);
+    const auto provider = OpenAIUsageParser::parse(payload, credentials, now, &error);
 
     QVERIFY2(provider.has_value(), qPrintable(error));
-    QCOMPARE(provider->value(QStringLiteral("id")).toString(), QStringLiteral("codex"));
+    QCOMPARE(provider->value(QStringLiteral("id")).toString(), QStringLiteral("openai"));
     QCOMPARE(provider->value(QStringLiteral("display"))
                  .toMap()
                  .value(QStringLiteral("accentColor"))
                  .toString(),
              QStringLiteral("#A28BE0"));
-    QCOMPARE(provider->value(QStringLiteral("name")).toString(), QStringLiteral("Codex"));
+    QCOMPARE(provider->value(QStringLiteral("name")).toString(), QStringLiteral("OpenAI"));
     QCOMPARE(provider->value(QStringLiteral("source")).toString(), QStringLiteral("oauth"));
     QCOMPARE(provider->value(QStringLiteral("updatedAt")).toString(),
              QStringLiteral("2026-09-04T04:00:00.000Z"));
@@ -96,14 +96,14 @@ void CodexUsageParserTest::mapsUsageResponse()
     QCOMPARE(windows.at(2).toMap().value(QStringLiteral("kind")).toString(),
              QStringLiteral("model-spark"));
     QCOMPARE(windows.at(2).toMap().value(QStringLiteral("label")).toString(),
-             QStringLiteral("GPT-5.3-Codex-Spark"));
+             QStringLiteral("GPT-5.3-OpenAI-Spark"));
 
     const QVariantMap credits = provider->value(QStringLiteral("credits")).toMap();
     QCOMPARE(credits.value(QStringLiteral("remaining")).toDouble(), 112.45);
     QCOMPARE(credits.value(QStringLiteral("unit")).toString(), QStringLiteral("credits"));
 }
 
-void CodexUsageParserTest::toleratesOptionalAndMalformedWindows()
+void OpenAIUsageParserTest::toleratesOptionalAndMalformedWindows()
 {
     const QByteArray payload = R"({
         "plan_type": "future_plan",
@@ -118,13 +118,13 @@ void CodexUsageParserTest::toleratesOptionalAndMalformedWindows()
         ],
         "credits": {"has_credits": true, "unlimited": true}
     })";
-    CodexCredentials credentials;
+    OpenAICredentials credentials;
     credentials.apiKey = true;
     credentials.accountId = QStringLiteral("fallback-account");
     const QDateTime now = QDateTime::fromSecsSinceEpoch(1'700'000'000, QTimeZone::UTC);
     QString error;
 
-    const auto provider = CodexUsageParser::parse(payload, credentials, now, &error);
+    const auto provider = OpenAIUsageParser::parse(payload, credentials, now, &error);
 
     QVERIFY2(provider.has_value(), qPrintable(error));
     QCOMPARE(provider->value(QStringLiteral("source")).toString(), QStringLiteral("api-key"));
@@ -137,7 +137,7 @@ void CodexUsageParserTest::toleratesOptionalAndMalformedWindows()
     QVERIFY(!identity.contains(QStringLiteral("accountEmail")));
 }
 
-void CodexUsageParserTest::mapsAdditionalWindowFallbacks()
+void OpenAIUsageParserTest::mapsAdditionalWindowFallbacks()
 {
     const QByteArray payload = R"({
         "rate_limit": {
@@ -172,11 +172,11 @@ void CodexUsageParserTest::mapsAdditionalWindowFallbacks()
         ],
         "credits": {"has_credits": true, "unlimited": false}
     })";
-    CodexCredentials credentials;
+    OpenAICredentials credentials;
     QString error;
 
     const auto provider =
-        CodexUsageParser::parse(payload, credentials, QDateTime::currentDateTimeUtc(), &error);
+        OpenAIUsageParser::parse(payload, credentials, QDateTime::currentDateTimeUtc(), &error);
 
     QVERIFY2(provider.has_value(), qPrintable(error));
     const QVariantList windows = provider->value(QStringLiteral("windows")).toList();
@@ -189,20 +189,20 @@ void CodexUsageParserTest::mapsAdditionalWindowFallbacks()
     QVERIFY(provider->value(QStringLiteral("credits")).isNull());
 }
 
-void CodexUsageParserTest::rejectsInvalidResponses()
+void OpenAIUsageParserTest::rejectsInvalidResponses()
 {
-    CodexCredentials credentials;
+    OpenAICredentials credentials;
     QString error;
 
-    QVERIFY(!CodexUsageParser::parse("{", credentials, QDateTime::currentDateTimeUtc(), &error));
-    QCOMPARE(error, QStringLiteral("Codex usage API returned invalid JSON"));
+    QVERIFY(!OpenAIUsageParser::parse("{", credentials, QDateTime::currentDateTimeUtc(), &error));
+    QCOMPARE(error, QStringLiteral("OpenAI usage API returned invalid JSON"));
 
-    QVERIFY(!CodexUsageParser::parse("[]", credentials, QDateTime::currentDateTimeUtc(), &error));
-    QCOMPARE(error, QStringLiteral("Codex usage API returned an invalid object"));
-    QVERIFY(!CodexUsageParser::parse("{", credentials, QDateTime::currentDateTimeUtc(), nullptr));
+    QVERIFY(!OpenAIUsageParser::parse("[]", credentials, QDateTime::currentDateTimeUtc(), &error));
+    QCOMPARE(error, QStringLiteral("OpenAI usage API returned an invalid object"));
+    QVERIFY(!OpenAIUsageParser::parse("{", credentials, QDateTime::currentDateTimeUtc(), nullptr));
 }
 
-void CodexUsageParserTest::mapsBankedResets_data()
+void OpenAIUsageParserTest::mapsBankedResets_data()
 {
     QTest::addColumn<QByteArray>("metadata");
     QTest::addColumn<QVariant>("expected");
@@ -218,14 +218,14 @@ void CodexUsageParserTest::mapsBankedResets_data()
     }
 }
 
-void CodexUsageParserTest::mapsBankedResets()
+void OpenAIUsageParserTest::mapsBankedResets()
 {
     QFETCH(QByteArray, metadata);
     QFETCH(QVariant, expected);
     const QByteArray payload =
         R"({"plan_type":"pro","rate_limit":{"primary_window":{"used_percent":25,"reset_at":1800000000,"limit_window_seconds":18000}},"rate_limit_reset_credits":)" +
         metadata + '}';
-    const auto provider = CodexUsageParser::parse(payload, {}, QDateTime::currentDateTimeUtc());
+    const auto provider = OpenAIUsageParser::parse(payload, {}, QDateTime::currentDateTimeUtc());
     QVERIFY(provider);
     QCOMPARE(provider->value(QStringLiteral("bankedResets")), expected);
     QCOMPARE(provider->value(QStringLiteral("windows")).toList().size(), 1);
@@ -233,7 +233,7 @@ void CodexUsageParserTest::mapsBankedResets()
              QStringLiteral("Pro"));
 }
 
-void CodexUsageParserTest::formatsPlanNames_data()
+void OpenAIUsageParserTest::formatsPlanNames_data()
 {
     QTest::addColumn<QString>("input");
     QTest::addColumn<QString>("expected");
@@ -251,13 +251,13 @@ void CodexUsageParserTest::formatsPlanNames_data()
     QTest::newRow("empty") << QString() << QString();
 }
 
-void CodexUsageParserTest::formatsPlanNames()
+void OpenAIUsageParserTest::formatsPlanNames()
 {
     QFETCH(QString, input);
     QFETCH(QString, expected);
-    QCOMPARE(CodexUsageParser::formatPlan(input), expected);
+    QCOMPARE(OpenAIUsageParser::formatPlan(input), expected);
 }
 
-QTEST_GUILESS_MAIN(CodexUsageParserTest)
+QTEST_GUILESS_MAIN(OpenAIUsageParserTest)
 
-#include "tst_codex_usage_parser.moc"
+#include "tst_openai_usage_parser.moc"

@@ -11,15 +11,15 @@
 namespace Kodometer {
 namespace {
 
-const QStringList ProviderIds{QStringLiteral("codex"), QStringLiteral("claude"),
+const QStringList ProviderIds{QStringLiteral("openai"), QStringLiteral("claude"),
                               QStringLiteral("gemini")};
 
 QString selectionKey(const QString &provider)
 {
     if (provider == QLatin1String("gemini"))
         return QStringLiteral("selectedGemini");
-    return provider == QLatin1String("codex") ? QStringLiteral("selectedCodex")
-                                              : QStringLiteral("selectedClaude");
+    return provider == QLatin1String("openai") ? QStringLiteral("selectedOpenAI")
+                                               : QStringLiteral("selectedClaude");
 }
 
 bool controlCharacters(const QString &text)
@@ -127,9 +127,19 @@ std::optional<QJsonObject> OAuthProfiles::parse(const QString &configuration)
     if (!document.isObject()) {
         return std::nullopt;
     }
-    const QJsonObject root = document.object();
-    const QStringList keys{QStringLiteral("version"),        QStringLiteral("codex"),
-                           QStringLiteral("claude"),         QStringLiteral("selectedCodex"),
+    QJsonObject root = document.object();
+    // Accept the former provider namespace only at the storage boundary.
+    for (const auto &pair :
+         {qMakePair(QStringLiteral("codex"), QStringLiteral("openai")),
+          qMakePair(QStringLiteral("selectedCodex"), QStringLiteral("selectedOpenAI"))}) {
+        if (root.contains(pair.first)) {
+            if (root.contains(pair.second))
+                return std::nullopt;
+            root.insert(pair.second, root.take(pair.first));
+        }
+    }
+    const QStringList keys{QStringLiteral("version"),        QStringLiteral("openai"),
+                           QStringLiteral("claude"),         QStringLiteral("selectedOpenAI"),
                            QStringLiteral("selectedClaude"), QStringLiteral("gemini"),
                            QStringLiteral("selectedGemini")};
     for (auto it = root.constBegin(); it != root.constEnd(); ++it) {
@@ -219,7 +229,7 @@ void OAuthProfiles::setConfiguration(const QString &configuration)
     setError(
         m_valid
             ? QString{}
-            : tr("OAuth profile configuration is invalid; Codex, Claude, and Gemini are paused. "
+            : tr("OAuth profile configuration is invalid; OpenAI, Claude, and Gemini are paused. "
                  "Restore Defaults or correct the profile settings."));
     for (const QString &provider : ProviderIds) {
         if (before.value(provider) != contextKey(provider)) {
@@ -246,7 +256,7 @@ bool OAuthProfiles::addProfile(const QString &provider, const QString &name,
                                const QString &directory)
 {
     if (!m_valid || !supportsProvider(provider)) {
-        setError(tr("Choose a valid Codex, Claude, or Gemini profile configuration."));
+        setError(tr("Choose a valid OpenAI, Claude, or Gemini profile configuration."));
         return false;
     }
     QJsonObject next = m_document;
@@ -263,7 +273,7 @@ bool OAuthProfiles::addProfile(const QString &provider, const QString &name,
 bool OAuthProfiles::selectProfile(const QString &provider, const QString &id)
 {
     if (!m_valid || !supportsProvider(provider)) {
-        setError(tr("Choose a valid Codex, Claude, or Gemini profile configuration."));
+        setError(tr("Choose a valid OpenAI, Claude, or Gemini profile configuration."));
         return false;
     }
     const QVariantList choices = entries(provider);
@@ -281,7 +291,7 @@ bool OAuthProfiles::selectProfile(const QString &provider, const QString &id)
 bool OAuthProfiles::removeProfile(const QString &provider, const QString &id)
 {
     if (!m_valid || !supportsProvider(provider) || id == QLatin1String("default")) {
-        setError(tr("Only named Codex, Claude, or Gemini profiles can be removed."));
+        setError(tr("Only named OpenAI, Claude, or Gemini profiles can be removed."));
         return false;
     }
     QJsonObject next = m_document;

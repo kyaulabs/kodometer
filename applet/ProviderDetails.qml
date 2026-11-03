@@ -15,6 +15,13 @@ PaginatedPage {
     property int clockTick: 0
     property bool showIdleWindows: false
     property bool fillRemaining: true
+    property bool openaiTabbed: true
+    property int openaiSection: 0
+    readonly property bool isOpenAI: providerId === "openai"
+    readonly property bool planVisible: !isOpenAI || !openaiTabbed || openaiSection === 0
+    readonly property bool apiVisible: isOpenAI && (!openaiTabbed || openaiSection === 1)
+    readonly property var apiData: provider.api || ({})
+    readonly property var apiCost: apiData.cost || ({})
     property var quotaHistory: null
     readonly property var historySeries: {
         if (!quotaHistory)
@@ -27,16 +34,16 @@ PaginatedPage {
     readonly property color accentColor: provider.display && provider.display.accentColor
                                          ? provider.display.accentColor :
                                            Kirigami.Theme.highlightColor
-    readonly property var windows: provider.windows ? provider.windows.filter(windowData
-                                                                              => root.showIdleWindows
-                                                                                 || !windowData.idle) :
-                                                      []
-    readonly property var identity: provider.identity || ({})
-    readonly property var statusData: provider.status || ({})
-    readonly property var credits: provider.credits || ({})
-    readonly property var cost: provider.cost || ({})
-    readonly property var detailSections: provider.details || []
-    readonly property var accounts: provider.accounts || []
+    readonly property var windows: planVisible && provider.windows ? provider.windows.filter(
+                                                                         windowData
+                                                                         => root.showIdleWindows ||
+                                                                            !windowData.idle) : []
+    readonly property var identity: planVisible ? provider.identity || ({}) : ({})
+    readonly property var statusData: planVisible ? provider.status || ({}) : ({})
+    readonly property var credits: planVisible ? provider.credits || ({}) : ({})
+    readonly property var cost: planVisible ? provider.cost || ({}) : ({})
+    readonly property var detailSections: planVisible ? provider.details || [] : []
+    readonly property var accounts: planVisible ? provider.accounts || [] : []
     readonly property string errorText: typeof provider.error === "string" ? provider.error : (
                                                                                  provider.error
                                                                                  && provider.error.message
@@ -108,6 +115,28 @@ PaginatedPage {
             }
         }
 
+        QQC2.TabBar {
+            objectName: "openaiServiceTabs"
+            Layout.fillWidth: true
+            visible: root.isOpenAI && root.openaiTabbed
+            currentIndex: root.openaiSection
+            onCurrentIndexChanged: root.openaiSection = currentIndex
+            QQC2.TabButton {
+                text: qsTr("Plan")
+            }
+            QQC2.TabButton {
+                text: qsTr("API")
+            }
+        }
+
+        QQC2.Label {
+            objectName: "openaiPlanUnavailable"
+            Layout.fillWidth: true
+            visible: root.isOpenAI && root.planVisible && Boolean(root.provider.apiOnly)
+            text: qsTr("No plan usage available. Configure a Codex login in OpenAI OAuth profiles.")
+            wrapMode: Text.WordWrap
+        }
+
         QQC2.Label {
             objectName: "pendingAccountUsage"
             Layout.fillWidth: true
@@ -120,7 +149,7 @@ PaginatedPage {
         QQC2.Label {
             objectName: "selectedOAuthProfile"
             Layout.fillWidth: true
-            visible: Boolean(root.provider.profileName)
+            visible: root.planVisible && Boolean(root.provider.profileName)
             text: qsTr("Profile: %1").arg(root.provider.profileName || "")
             textFormat: Text.PlainText
             wrapMode: Text.WordWrap
@@ -158,7 +187,7 @@ PaginatedPage {
         QQC2.Label {
             objectName: "bankedResets"
             Layout.fillWidth: true
-            visible: Number(root.provider.bankedResets || 0) >= 1
+            visible: root.planVisible && Number(root.provider.bankedResets || 0) >= 1
             text: qsTr("Banked resets: %1").arg(root.provider.bankedResets || 0)
             textFormat: Text.PlainText
             wrapMode: Text.WordWrap
@@ -299,8 +328,8 @@ PaginatedPage {
         QuotaHistoryChart {
             objectName: "quotaHistoryChart"
             Layout.fillWidth: true
-            visible: ["codex", "claude", "gemini", "kimi", "zai"].includes(String(
-                                                                               root.provider.id))
+            visible: ["openai", "claude", "gemini", "kimi", "zai"].includes(String(
+                                                                                root.provider.id))
             && windows.length > 0
             windows: root.windows.filter(windowData => windowData.kind !== "spend-limit")
             series: root.historySeries
@@ -309,6 +338,52 @@ PaginatedPage {
                 root.clockTick
                 root.historySeries
                 return Date.now() / 1000
+            }
+        }
+
+        ColumnLayout {
+            objectName: "openaiApiSection"
+            Layout.fillWidth: true
+            visible: root.apiVisible
+            spacing: Kirigami.Units.smallSpacing
+
+            QQC2.Label {
+                text: qsTr("OpenAI API Platform")
+                font.bold: true
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                visible: !root.apiData.configured
+                text: qsTr(
+                          "Store an organization Admin API key in Provider credentials to view spending. Plan credentials and ordinary API keys cannot provide organization costs.")
+                wrapMode: Text.WordWrap
+            }
+            QQC2.Label {
+                objectName: "openaiCreditBalance"
+                Layout.fillWidth: true
+                text: qsTr("Credit balance: unavailable through the supported public API")
+                wrapMode: Text.WordWrap
+            }
+            QQC2.Label {
+                objectName: "openaiMonthToDate"
+                visible: root.apiCost.monthToDateUSD !== undefined
+                text: qsTr("Month to date (reported): %1").arg(
+                          Private.PresentationFormatter.usdLabel(Number(root.apiCost.monthToDateUSD
+                                                                        || 0)))
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                visible: Boolean(root.apiData.configured)
+                text: qsTr(
+                          "Organization-wide reported spending, not subscription usage or prepaid credit deductions. Billing data may be delayed; missing days are unknown.")
+                color: Kirigami.Theme.disabledTextColor
+                wrapMode: Text.WordWrap
+            }
+            CostHistory {
+                objectName: "openaiApiHistory"
+                Layout.fillWidth: true
+                cost: root.apiCost
+                accentColor: root.accentColor
             }
         }
 
@@ -335,7 +410,7 @@ PaginatedPage {
 
         QQC2.Label {
             Layout.fillWidth: true
-            visible: Boolean(root.provider.source)
+            visible: root.planVisible && Boolean(root.provider.source)
             text: root.provider.source || ""
             horizontalAlignment: Text.AlignRight
             color: Kirigami.Theme.disabledTextColor

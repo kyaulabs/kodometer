@@ -16,9 +16,9 @@ class ProviderActionsTest final : public QObject
         QTest::addColumn<QString>("region");
         QTest::addColumn<QString>("dashboard");
         QTest::addColumn<QString>("documentation");
-        QTest::newRow("codex") << QStringLiteral("codex") << QString()
-                               << QStringLiteral("https://chatgpt.com/codex/settings/usage")
-                               << QStringLiteral("https://developers.openai.com/codex/");
+        QTest::newRow("openai") << QStringLiteral("openai") << QString()
+                                << QStringLiteral("https://chatgpt.com/codex/settings/usage")
+                                << QStringLiteral("https://developers.openai.com/codex/");
         QTest::newRow("claude") << QStringLiteral("claude") << QString()
                                 << QStringLiteral("https://claude.ai/settings/usage")
                                 << QStringLiteral("https://code.claude.com/docs/en/overview");
@@ -90,7 +90,7 @@ class ProviderActionsTest final : public QObject
             ++launches;
             return true;
         });
-        actions.setProviderId(QStringLiteral("codex"));
+        actions.setProviderId(QStringLiteral("openai"));
         for (const QString &id :
              {QString(), QStringLiteral("https://evil.test"), QStringLiteral("file:///tmp/run"),
               QStringLiteral("Dashboard"), QStringLiteral("dashboard?token=secret")}) {
@@ -117,8 +117,8 @@ class ProviderActionsTest final : public QObject
         ProviderActions actions([&accepted](const QUrl &) { return accepted; });
         QSignalSpy context(&actions, &ProviderActions::contextChanged);
         QSignalSpy errors(&actions, &ProviderActions::errorChanged);
-        actions.setProviderId(QStringLiteral("codex"));
-        actions.setProviderId(QStringLiteral("codex"));
+        actions.setProviderId(QStringLiteral("openai"));
+        actions.setProviderId(QStringLiteral("openai"));
         QCOMPARE(context.count(), 1);
         QVERIFY(!actions.open(QStringLiteral("dashboard")));
         QCOMPARE(actions.error(),
@@ -137,7 +137,7 @@ class ProviderActionsTest final : public QObject
         actions.setRegion(QStringLiteral("global"));
         QCOMPARE(context.count(), 3);
         ProviderActions missingOpener(ProviderActions::UrlOpener{});
-        missingOpener.setProviderId(QStringLiteral("codex"));
+        missingOpener.setProviderId(QStringLiteral("openai"));
         QVERIFY(!missingOpener.open(QStringLiteral("dashboard")));
     }
 
@@ -145,7 +145,7 @@ class ProviderActionsTest final : public QObject
     {
         QDesktopServices::setUrlHandler(QStringLiteral("https"), this, "recordUrl");
         ProviderActions actions;
-        actions.setProviderId(QStringLiteral("codex"));
+        actions.setProviderId(QStringLiteral("openai"));
         const bool accepted = actions.open(QStringLiteral("dashboard"));
         QDesktopServices::unsetUrlHandler(QStringLiteral("https"));
         QVERIFY(accepted);

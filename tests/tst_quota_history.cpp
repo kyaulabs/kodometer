@@ -79,7 +79,7 @@ class QuotaHistoryTest : public QObject
     }
     static QVariantList points(const QuotaHistory &history)
     {
-        const auto view = history.view("codex");
+        const auto view = history.view("openai");
         return view.isEmpty() ? QVariantList{} : view.first().toMap().value("points").toList();
     }
     static void writeFile(const QString &path, const QByteArray &bytes)
@@ -97,25 +97,25 @@ class QuotaHistoryTest : public QObject
         const auto now = QDateTime::fromSecsSinceEpoch(1800000000, QTimeZone::UTC);
         QVERIFY(!history.persistent());
         history.setPersistent(false);
-        history.observe("codex", "a", {"old"}, quota(), now);
-        history.observe("codex", "a", {"old", "new"}, quota(60), now.addSecs(600));
+        history.observe("openai", "a", {"old"}, quota(), now);
+        history.observe("openai", "a", {"old", "new"}, quota(60), now.addSecs(600));
         QCOMPARE(points(history).size(), 2);
-        history.observe("codex", "a", {"new"}, quota(55), now.addSecs(610));
+        history.observe("openai", "a", {"new"}, quota(55), now.addSecs(610));
         QCOMPARE(points(history).size(), 2);
         QCOMPARE(points(history).last().toList()[1].toDouble(), 55.0);
-        history.observe("codex", "a", {"new"}, quota(10), now.addSecs(609));
+        history.observe("openai", "a", {"new"}, quota(10), now.addSecs(609));
         QCOMPARE(points(history).last().toList()[1].toDouble(), 55.0);
-        history.observe("codex", "a", {"new"}, quota(50), now.addSecs(300));
+        history.observe("openai", "a", {"new"}, quota(50), now.addSecs(300));
         QCOMPARE(points(history).size(), 2);
-        history.observe("codex", "a", {"new"}, quota(40), now.addDays(31));
+        history.observe("openai", "a", {"new"}, quota(40), now.addDays(31));
         QCOMPARE(points(history).size(), 1);
-        history.observe("codex", "a", {"unrelated"}, quota(), now.addDays(31));
+        history.observe("openai", "a", {"unrelated"}, quota(), now.addDays(31));
         QCOMPARE(points(history).size(), 1);
         history.forgetProvider("missing");
         const int revision = history.revision();
-        history.forgetProvider("codex");
+        history.forgetProvider("openai");
         QTRY_VERIFY(history.revision() > revision);
-        QVERIFY(history.view("codex").isEmpty());
+        QVERIFY(history.view("openai").isEmpty());
         QVERIFY(history.clear());
         QVERIFY(history.error().isEmpty());
     }
@@ -140,14 +140,14 @@ class QuotaHistoryTest : public QObject
         history.setDirectory(dir.path());
         history.setPersistent(true);
         const auto now = QDateTime::currentDateTimeUtc();
-        history.observe("codex", "scope", {"key"}, quota(), now);
+        history.observe("openai", "scope", {"key"}, quota(), now);
         QVERIFY(history.error().isEmpty());
         QFile original(dir.filePath("history.json"));
         QVERIFY(original.open(QIODevice::ReadOnly));
         const QByteArray before = original.readAll();
         original.close();
         activeFault = static_cast<Fault>(fault);
-        history.observe("codex", "scope", {"key"}, quota(50), now.addSecs(600));
+        history.observe("openai", "scope", {"key"}, quota(50), now.addSecs(600));
         QVERIFY(!history.error().isEmpty());
         activeFault = Fault::None;
         QVERIFY(original.open(QIODevice::ReadOnly));
@@ -155,9 +155,44 @@ class QuotaHistoryTest : public QObject
         original.close();
         QCOMPARE(QDir(dir.path()).entryList(QDir::Files),
                  QStringList{QStringLiteral("history.json")});
-        history.observe("codex", "scope", {"key"}, quota(50), now.addSecs(600));
+        history.observe("openai", "scope", {"key"}, quota(50), now.addSecs(600));
         QVERIFY(history.error().isEmpty());
         QCOMPARE(points(history).size(), 2);
+    }
+
+    void migratesLegacyPartitionOnlyAfterMatchingRefresh()
+    {
+        QTemporaryDir dir;
+        QuotaHistory history;
+        history.setDirectory(dir.path());
+        history.setPersistent(true);
+        const auto now = QDateTime::currentDateTimeUtc();
+        history.observe("openai", "scope", {"key"}, quota(70), now.addSecs(-600));
+        QFile file(dir.filePath("history.json"));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        auto document = QJsonDocument::fromJson(file.readAll()).object();
+        file.close();
+        auto streams = document.value("streams").toObject();
+        QByteArray input("codex");
+        input.append('\0');
+        input.append("scope");
+        input.append('\0');
+        input.append("key");
+        const QString legacy = QString::fromLatin1(
+            QCryptographicHash::hash(input, QCryptographicHash::Sha256).toHex());
+        const auto saved = streams.begin().value();
+        streams = {{legacy, saved}};
+        document.insert("streams", streams);
+        writeFile(dir.filePath("history.json"), QJsonDocument(document).toJson());
+        QuotaHistory migrated;
+        migrated.setDirectory(dir.path());
+        migrated.setPersistent(true);
+        QVERIFY(migrated.view("openai").isEmpty());
+        migrated.observe("openai", "scope", {"other"}, quota(30), now);
+        QCOMPARE(points(migrated).size(), 1);
+        migrated.observe("openai", "scope", {"key"}, quota(60), now);
+        QVERIFY2(migrated.error().isEmpty(), qPrintable(migrated.error()));
+        QCOMPARE(points(migrated).size(), 2);
     }
 
     void boundsReadsEvenIfTheFileGrowsAfterStat()
@@ -169,9 +204,9 @@ class QuotaHistoryTest : public QObject
         history.setDirectory(dir.path());
         history.setPersistent(true);
         activeFault = Fault::GrowingFile;
-        history.observe("codex", "scope", {"key"}, quota());
+        history.observe("openai", "scope", {"key"}, quota());
         QVERIFY(!history.error().isEmpty());
-        QVERIFY(history.view("codex").isEmpty());
+        QVERIFY(history.view("openai").isEmpty());
     }
 
     void permitsReentrantClearWithoutRestoringData_data()
@@ -194,24 +229,24 @@ class QuotaHistoryTest : public QObject
         connect(
             &history, &QuotaHistory::changed, &history, [&] { cleared = history.clear(); },
             Qt::SingleShotConnection);
-        history.observe("codex", "scope", {"key"}, quota());
+        history.observe("openai", "scope", {"key"}, quota());
         QVERIFY(cleared);
         QVERIFY(history.error().isEmpty());
-        QVERIFY(history.view("codex").isEmpty());
+        QVERIFY(history.view("openai").isEmpty());
         QVERIFY(!QFile::exists(dir.filePath("history.json")));
     }
 
     void clearsAnOldIdentityEvenWithoutUsableObservations()
     {
         QuotaHistory history;
-        history.observe("codex", "scope", {"old-key"}, quota());
-        QCOMPARE(history.view("codex").size(), 1);
-        history.observe("codex", "scope", {"new-key"}, {});
-        QVERIFY(history.view("codex").isEmpty());
-        history.observe("codex", "scope", {"old-key"}, quota());
-        QCOMPARE(history.view("codex").size(), 1);
-        history.observe("codex", "scope", {}, quota());
-        QVERIFY(history.view("codex").isEmpty());
+        history.observe("openai", "scope", {"old-key"}, quota());
+        QCOMPARE(history.view("openai").size(), 1);
+        history.observe("openai", "scope", {"new-key"}, {});
+        QVERIFY(history.view("openai").isEmpty());
+        history.observe("openai", "scope", {"old-key"}, quota());
+        QCOMPARE(history.view("openai").size(), 1);
+        history.observe("openai", "scope", {}, quota());
+        QVERIFY(history.view("openai").isEmpty());
     }
 
     void mergesLinkedStreamsFromMultipleWidgets_data()
@@ -236,11 +271,11 @@ class QuotaHistoryTest : public QObject
         }
         const auto now = QDateTime::fromSecsSinceEpoch(
             QDateTime::currentSecsSinceEpoch() / 300 * 300, QTimeZone::UTC);
-        first.observe("codex", "scope", {"old"}, quota(65), now.addSecs(-1200));
-        second.observe("codex", "scope", {"new"}, quota(55), now.addSecs(-600));
-        first.observe("codex", "scope", {"old"}, quota(45), now.addSecs(-240));
-        second.observe("codex", "scope", {"new"}, quota(35), now.addSecs(offset));
-        first.observe("codex", "scope", {"old", "new"}, quota(25), now);
+        first.observe("openai", "scope", {"old"}, quota(65), now.addSecs(-1200));
+        second.observe("openai", "scope", {"new"}, quota(55), now.addSecs(-600));
+        first.observe("openai", "scope", {"old"}, quota(45), now.addSecs(-240));
+        second.observe("openai", "scope", {"new"}, quota(35), now.addSecs(offset));
+        first.observe("openai", "scope", {"old", "new"}, quota(25), now);
         QVERIFY(first.error().isEmpty());
         const auto rows = points(first);
         QCOMPARE(rows.size(), 4);
@@ -259,7 +294,7 @@ class QuotaHistoryTest : public QObject
             QuotaHistory history;
             history.setPersistent(true);
             history.setPersistent(true);
-            history.observe("codex", "a", {"key"}, quota());
+            history.observe("openai", "a", {"key"}, quota());
             QVERIFY2(history.error().isEmpty(), qPrintable(history.error()));
             QVERIFY(QFile::exists(dir.filePath("kodometer-quota-history/history.json")));
             history.setPersistent(false);
@@ -270,7 +305,7 @@ class QuotaHistoryTest : public QObject
         {
             QuotaHistory history;
             history.setPersistent(true);
-            history.observe("codex", "a", {"key"}, quota());
+            history.observe("openai", "a", {"key"}, quota());
             QVERIFY(!history.error().isEmpty());
         }
         if (original.isNull())
@@ -281,7 +316,7 @@ class QuotaHistoryTest : public QObject
         QuotaHistory readonly;
         readonly.setDirectory(QStringLiteral("/proc/self/fd"));
         readonly.setPersistent(true);
-        readonly.observe("codex", "a", {"key"}, quota());
+        readonly.observe("openai", "a", {"key"}, quota());
         QCOMPARE(readonly.error(),
                  QStringLiteral("Quota history could not be saved. Usage is unaffected."));
         QCOMPARE(points(readonly).size(), 1);
@@ -292,9 +327,9 @@ class QuotaHistoryTest : public QObject
         const auto now = QDateTime::currentDateTimeUtc();
         QuotaHistory memory;
         for (int i = 0; i < 65; ++i)
-            memory.observe("codex", QByteArray::number(i), {"key"}, quota(), now.addSecs(i));
+            memory.observe("openai", QByteArray::number(i), {"key"}, quota(), now.addSecs(i));
         QCOMPARE(points(memory).size(), 1);
-        memory.observe("codex", "0", {"key"}, quota(), now.addSecs(600));
+        memory.observe("openai", "0", {"key"}, quota(), now.addSecs(600));
         QCOMPARE(points(memory).size(), 1); // The oldest stream was evicted.
 
         QTemporaryDir dir;
@@ -308,7 +343,7 @@ class QuotaHistoryTest : public QObject
         QuotaHistory disk;
         disk.setDirectory(dir.path());
         disk.setPersistent(true);
-        disk.observe("codex", "a", {"key"}, quota(), now);
+        disk.observe("openai", "a", {"key"}, quota(), now);
         QVERIFY(disk.error().isEmpty());
         QFile file(dir.filePath("history.json"));
         QVERIFY(file.open(QIODevice::ReadOnly));
@@ -343,7 +378,7 @@ class QuotaHistoryTest : public QObject
         QuotaHistory history;
         history.setDirectory(dir.path());
         history.setPersistent(true);
-        history.observe("codex", "a", {"key"}, quota(), now);
+        history.observe("openai", "a", {"key"}, quota(), now);
         QVERIFY2(history.error().isEmpty(), qPrintable(history.error()));
         QCOMPARE(points(history).size(), 1);
         streams.insert(QString(64, 'c'),
@@ -351,7 +386,7 @@ class QuotaHistoryTest : public QObject
         writeFile(dir.filePath("history.json"),
                   QJsonDocument(QJsonObject{{"version", 1}, {"streams", streams}})
                       .toJson(QJsonDocument::Compact));
-        history.observe("codex", "a", {"key"}, quota(), now);
+        history.observe("openai", "a", {"key"}, quota(), now);
         QVERIFY(!history.error().isEmpty());
     }
 
@@ -363,10 +398,10 @@ class QuotaHistoryTest : public QObject
         for (int i = 0; i < 32; ++i)
             windows.append(
                 QVariantMap{{"kind", QStringLiteral("model-%1").arg(i)}, {"remainingPercent", 50}});
-        history.observe("codex", "a", {"key"}, windows, now);
-        QCOMPARE(history.view("codex").size(), 32);
-        history.observe("codex", "a", {"key"}, quota(), now.addSecs(600));
-        QCOMPARE(history.view("codex").size(), 32);
+        history.observe("openai", "a", {"key"}, windows, now);
+        QCOMPARE(history.view("openai").size(), 32);
+        history.observe("openai", "a", {"key"}, quota(), now.addSecs(600));
+        QCOMPARE(history.view("openai").size(), 32);
     }
 
     void ignoresInvalidObservations()
@@ -374,36 +409,37 @@ class QuotaHistoryTest : public QObject
         QuotaHistory history;
         const auto now = QDateTime::currentDateTimeUtc();
         history.observe("deepseek", "a", {"key"}, quota(), now);
-        history.observe("codex", "a", {"key"},
+        history.observe("openai", "a", {"key"},
                         {QVariantMap{{"kind", true}, {"remainingPercent", 50}}}, now);
-        history.observe("codex", "a", {"key"},
+        history.observe("openai", "a", {"key"},
                         {QVariantMap{{"kind", "session\n"}, {"remainingPercent", 50}}}, now);
         history.observe("claude", "a", {"key"},
                         {QVariantMap{{"kind", "spend-limit"}, {"remainingPercent", 50}}}, now);
         QVERIFY(history.view("claude").isEmpty());
-        history.observe("codex", "a", {}, quota(), now);
-        history.observe("codex", "a", {""}, quota(), now);
-        history.observe("codex", "a", {"key"}, quota(), {});
-        history.observe("codex", "a", {"key"}, quota(), QDateTime::fromSecsSinceEpoch(0));
-        history.observe("codex", "a", {"key"}, QVariantList{quota().first(), quota().first()}, now);
+        history.observe("openai", "a", {}, quota(), now);
+        history.observe("openai", "a", {""}, quota(), now);
+        history.observe("openai", "a", {"key"}, quota(), {});
+        history.observe("openai", "a", {"key"}, quota(), QDateTime::fromSecsSinceEpoch(0));
+        history.observe("openai", "a", {"key"}, QVariantList{quota().first(), quota().first()},
+                        now);
         QVariantList tooMany;
         for (int i = 0; i < 33; ++i)
             tooMany.append(quota().first());
-        history.observe("codex", "a", {"key"}, tooMany, now);
+        history.observe("openai", "a", {"key"}, tooMany, now);
         for (const QVariant &value :
              {QVariant{}, QVariant("65"), QVariant(true), QVariant(-1.0), QVariant(101.0),
               QVariant(std::numeric_limits<double>::infinity()),
               QVariant(std::numeric_limits<double>::quiet_NaN())}) {
-            history.observe("codex", "a", {"key"},
+            history.observe("openai", "a", {"key"},
                             {QVariantMap{{"kind", "session"}, {"remainingPercent", value}}}, now);
         }
-        history.observe("codex", "a", {"key"},
+        history.observe("openai", "a", {"key"},
                         {QVariantMap{{"kind", "../private"}, {"remainingPercent", 50}}}, now);
         history.observe(
-            "codex", "a", {"key"},
+            "openai", "a", {"key"},
             {QVariantMap{{"kind", "session"}, {"idle", true}, {"remainingPercent", 50}}}, now);
-        QVERIFY(history.view("codex").isEmpty());
-        history.observe("codex", "a", {"key"},
+        QVERIFY(history.view("openai").isEmpty());
+        history.observe("openai", "a", {"key"},
                         {QVariantMap{{"kind", "session"},
                                      {"remainingPercent", 50},
                                      {"resetAt", now.addSecs(3600).toString(Qt::ISODate)}}},
@@ -472,9 +508,9 @@ class QuotaHistoryTest : public QObject
         QuotaHistory history;
         history.setDirectory(path);
         history.setPersistent(true);
-        history.observe("codex", "a", {"key"}, quota());
+        history.observe("openai", "a", {"key"}, quota());
         QVERIFY(!history.error().isEmpty());
-        QVERIFY(history.view("codex").isEmpty());
+        QVERIFY(history.view("openai").isEmpty());
         if (kind.startsWith("directory") || kind == "locked")
             QVERIFY(!history.clear());
         if (lock >= 0)
@@ -542,11 +578,11 @@ class QuotaHistoryTest : public QObject
         QuotaHistory history;
         history.setDirectory(dir.path());
         history.setPersistent(true);
-        history.observe("codex", "a", {"key"}, quota());
+        history.observe("openai", "a", {"key"}, quota());
         QVERIFY(!history.error().isEmpty());
-        QVERIFY(history.view("codex").isEmpty());
+        QVERIFY(history.view("openai").isEmpty());
         QVERIFY(history.clear());
-        history.observe("codex", "a", {"key"}, quota());
+        history.observe("openai", "a", {"key"}, quota());
         QCOMPARE(points(history).size(), 1);
     }
 
@@ -561,27 +597,27 @@ class QuotaHistoryTest : public QObject
             QuotaHistory history;
             history.setDirectory(path);
             history.setPersistent(true);
-            history.observe("codex", "profile-a", {"identity-a"}, windows, now);
-            QCOMPARE(history.view("codex").size(), 1);
-            QCOMPARE(history.view("codex").first().toMap().value("points").toList().size(), 1);
-            history.forgetProvider("codex");
-            QVERIFY(history.view("codex").isEmpty());
-            history.observe("codex", "profile-b", {"identity-b"}, windows, now);
-            QCOMPARE(history.view("codex").first().toMap().value("points").toList().size(), 1);
+            history.observe("openai", "profile-a", {"identity-a"}, windows, now);
+            QCOMPARE(history.view("openai").size(), 1);
+            QCOMPARE(history.view("openai").first().toMap().value("points").toList().size(), 1);
+            history.forgetProvider("openai");
+            QVERIFY(history.view("openai").isEmpty());
+            history.observe("openai", "profile-b", {"identity-b"}, windows, now);
+            QCOMPARE(history.view("openai").first().toMap().value("points").toList().size(), 1);
         }
         QuotaHistory restored;
         restored.setDirectory(path);
         restored.setPersistent(true);
-        QVERIFY(restored.view("codex").isEmpty());
-        restored.observe("codex", "profile-a", {"identity-a"}, windows, now.addSecs(600));
-        QCOMPARE(restored.view("codex").first().toMap().value("points").toList().size(), 2);
+        QVERIFY(restored.view("openai").isEmpty());
+        restored.observe("openai", "profile-a", {"identity-a"}, windows, now.addSecs(600));
+        QCOMPARE(restored.view("openai").first().toMap().value("points").toList().size(), 2);
         QFile file(path + "/history.json");
         QVERIFY(file.open(QIODevice::ReadOnly));
         const QByteArray bytes = file.readAll();
         QVERIFY(!bytes.contains("identity-a"));
         QVERIFY(!bytes.contains("profile-a"));
         QVERIFY(restored.clear());
-        QVERIFY(restored.view("codex").isEmpty());
+        QVERIFY(restored.view("openai").isEmpty());
     }
 };
 

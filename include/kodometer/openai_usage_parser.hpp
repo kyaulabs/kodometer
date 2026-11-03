@@ -1,6 +1,6 @@
 #pragma once
 
-#include <kodometer/codex_credentials.hpp>
+#include <kodometer/openai_credentials.hpp>
 
 #include <QDateTime>
 #include <QString>
@@ -10,17 +10,17 @@
 
 namespace Kodometer {
 
-class CodexUsageParser
+class OpenAIUsageParser
 {
   public:
     [[nodiscard]] static std::optional<QVariantMap> parse(const QByteArray &data,
-                                                          const CodexCredentials &credentials,
+                                                          const OpenAICredentials &credentials,
                                                           const QDateTime &updatedAt,
                                                           QString *error = nullptr);
     [[nodiscard]] static QString formatPlan(const QString &plan);
 
   private:
-    CodexUsageParser() = delete;
+    OpenAIUsageParser() = delete;
 };
 
 } // namespace Kodometer

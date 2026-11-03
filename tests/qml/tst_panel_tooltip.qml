@@ -21,7 +21,7 @@ TestCase {
         const summary = createTemporaryObject(summaryComponent, this, {
                                                   providers: [
                                                       {
-                                                          id: "codex",
+                                                          id: "openai",
                                                           windows: [window("session", 90), window(
                                                                   "weekly", 75)]
                                                       },
@@ -49,16 +49,16 @@ TestCase {
                                               })
         compare(summary.mainText, "Kodometer")
         compare(summary.subText,
-                "Codex: 75% weekly remaining\nKimi Code: 80% weekly remaining\nDeepSeek Balance: $1.00\nOpenRouter Balance: $2.00")
+                "OpenAI: 75% weekly remaining\nKimi Code: 80% weekly remaining\nDeepSeek Balance: $1.00\nOpenRouter Balance: $2.00")
         summary.donutCharts = true
         compare(summary.mainText, "")
         compare(summary.subText, "")
         summary.hoveredQuota = "session"
         compare(summary.mainText, "Kodometer — Session quota")
-        compare(summary.subText, "Codex: 90% session remaining\nKimi Code: 60% session remaining")
+        compare(summary.subText, "OpenAI: 90% session remaining\nKimi Code: 60% session remaining")
         summary.hoveredQuota = "weekly"
         compare(summary.mainText, "Kodometer — Weekly quota")
-        compare(summary.subText, "Codex: 75% weekly remaining\nKimi Code: 80% weekly remaining")
+        compare(summary.subText, "OpenAI: 75% weekly remaining\nKimi Code: 80% weekly remaining")
         summary.providers = []
         compare(summary.subText, "No weekly quota reported")
         summary.hoveredQuota = "session"
@@ -88,7 +88,7 @@ TestCase {
         const summary = createTemporaryObject(summaryComponent, this, {
                                                   providers: [
                                                       {
-                                                          id: "codex",
+                                                          id: "openai",
                                                           name: "<b>private</b>",
                                                           accountName: "private",
                                                           windows: [window("weekly", null), window(
@@ -140,7 +140,7 @@ TestCase {
                                                   ]
                                               })
         compare(summary.subText,
-                "Codex: 12.6% session remaining\nClaude: Not reported\nGemini: 30% quota remaining\nKimi Code: 0% weekly remaining\nDeepSeek Balance: 2.50 CNY\nxAI Balance: $0.00")
+                "OpenAI: 12.6% session remaining\nClaude: Not reported\nGemini: 30% quota remaining\nKimi Code: 0% weekly remaining\nDeepSeek Balance: 2.50 CNY\nxAI Balance: $0.00")
         summary.providers = [
                     {
                         id: "deepseek",
@@ -177,11 +177,11 @@ TestCase {
         compare(summary.subText, "DeepSeek Balance: $-1.25")
         summary.providers = [
                     {
-                        id: "codex",
+                        id: "openai",
                         windows: [window("weekly", 25), window("weekly", 15)]
                     }
                 ]
-        compare(summary.subText, "Codex: 15% weekly remaining")
+        compare(summary.subText, "OpenAI: 15% weekly remaining")
         summary.providers = []
         // Context invalidation must immediately remove the old values.
         compare(summary.subText, "No provider data")

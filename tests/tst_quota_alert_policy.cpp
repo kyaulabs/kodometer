@@ -26,7 +26,7 @@ class QuotaAlertPolicyTest final : public QObject
         QSignalSpy settings(&policy, &QuotaAlertPolicy::settingsChanged);
         QVERIFY(!policy.enabled());
         QCOMPARE(policy.thresholdPercent(), 10);
-        policy.observe(snapshot(QStringLiteral("codex"), 1));
+        policy.observe(snapshot(QStringLiteral("openai"), 1));
         QCOMPARE(alerts.count(), 0);
         policy.setEnabled(false);
         QCOMPARE(settings.count(), 0);
@@ -41,15 +41,15 @@ class QuotaAlertPolicyTest final : public QObject
         policy.setEnabled(true);
         QCOMPARE(settings.count(), 4);
         QCOMPARE(alerts.count(), 0); // Settings never replay cached results.
-        policy.observe(snapshot(QStringLiteral("codex"), 10.0));
+        policy.observe(snapshot(QStringLiteral("openai"), 10.0));
         QCOMPARE(alerts.count(), 1);
         policy.setEnabled(false);
-        policy.observe(snapshot(QStringLiteral("codex"), 0));
+        policy.observe(snapshot(QStringLiteral("openai"), 0));
         policy.setEnabled(true);
-        policy.observe(snapshot(QStringLiteral("codex"), 0));
+        policy.observe(snapshot(QStringLiteral("openai"), 0));
         QCOMPARE(alerts.count(), 2);
         policy.setThresholdPercent(20);
-        policy.observe(snapshot(QStringLiteral("codex"), 15));
+        policy.observe(snapshot(QStringLiteral("openai"), 15));
         QCOMPARE(alerts.count(), 3);
     }
 
@@ -58,15 +58,15 @@ class QuotaAlertPolicyTest final : public QObject
         QuotaAlertPolicy policy;
         policy.setEnabled(true);
         QSignalSpy alerts(&policy, &QuotaAlertPolicy::alertReady);
-        policy.observe(snapshot(QStringLiteral("codex"), 50));
-        policy.observe(snapshot(QStringLiteral("codex"), 10));
-        policy.observe(snapshot(QStringLiteral("codex"), 5));
-        policy.observe(snapshot(QStringLiteral("codex"), 0));
-        policy.observe(snapshot(QStringLiteral("codex"), 11));
-        policy.observe(snapshot(QStringLiteral("codex"), 10));
+        policy.observe(snapshot(QStringLiteral("openai"), 50));
+        policy.observe(snapshot(QStringLiteral("openai"), 10));
+        policy.observe(snapshot(QStringLiteral("openai"), 5));
+        policy.observe(snapshot(QStringLiteral("openai"), 0));
+        policy.observe(snapshot(QStringLiteral("openai"), 11));
+        policy.observe(snapshot(QStringLiteral("openai"), 10));
         QCOMPARE(alerts.count(), 1);
-        policy.observe(snapshot(QStringLiteral("codex"), 15));
-        policy.observe(snapshot(QStringLiteral("codex"), 9));
+        policy.observe(snapshot(QStringLiteral("openai"), 15));
+        policy.observe(snapshot(QStringLiteral("openai"), 9));
         QCOMPARE(alerts.count(), 2);
         policy.observe(snapshot(QStringLiteral("claude"), 8));
         QCOMPARE(alerts.count(), 3);
@@ -77,7 +77,7 @@ class QuotaAlertPolicyTest final : public QObject
         QuotaAlertPolicy policy;
         policy.setEnabled(true);
         QSignalSpy alerts(&policy, &QuotaAlertPolicy::alertReady);
-        QVariantMap provider = snapshot(QStringLiteral("codex"), 80);
+        QVariantMap provider = snapshot(QStringLiteral("openai"), 80);
         provider.insert(QStringLiteral("name"), QStringLiteral("secret@example.test"));
         QVariantList windows = provider.value(QStringLiteral("windows")).toList();
         windows.append(
@@ -88,7 +88,7 @@ class QuotaAlertPolicyTest final : public QObject
         provider.insert(QStringLiteral("windows"), windows);
         policy.observe(provider);
         QCOMPARE(alerts.count(), 1);
-        QCOMPARE(alerts.first().at(0).toString(), QStringLiteral("Codex quota is low"));
+        QCOMPARE(alerts.first().at(0).toString(), QStringLiteral("OpenAI quota is low"));
         QCOMPARE(alerts.first().at(1).toString(),
                  QStringLiteral("Most constrained quota: 8.3% remaining."));
     }
@@ -113,11 +113,11 @@ class QuotaAlertPolicyTest final : public QObject
         QuotaAlertPolicy policy;
         policy.setEnabled(true);
         QSignalSpy alerts(&policy, &QuotaAlertPolicy::alertReady);
-        policy.observe(snapshot(QStringLiteral("codex"), remaining));
+        policy.observe(snapshot(QStringLiteral("openai"), remaining));
         QCOMPARE(alerts.count(), 0);
-        policy.observe(snapshot(QStringLiteral("codex"), 5));
-        policy.observe(snapshot(QStringLiteral("codex"), remaining));
-        policy.observe(snapshot(QStringLiteral("codex"), 5));
+        policy.observe(snapshot(QStringLiteral("openai"), 5));
+        policy.observe(snapshot(QStringLiteral("openai"), remaining));
+        policy.observe(snapshot(QStringLiteral("openai"), 5));
         QCOMPARE(alerts.count(), 1); // Invalid data must not rearm an existing low episode.
     }
 
@@ -126,7 +126,7 @@ class QuotaAlertPolicyTest final : public QObject
         QuotaAlertPolicy policy;
         policy.setEnabled(true);
         QSignalSpy alerts(&policy, &QuotaAlertPolicy::alertReady);
-        policy.observe(snapshot(QStringLiteral("codex"), 0, true));
+        policy.observe(snapshot(QStringLiteral("openai"), 0, true));
         policy.observe({{QStringLiteral("id"), QStringLiteral("deepseek")},
                         {QStringLiteral("cost"), QVariantMap{{QStringLiteral("balance"), 0}}}});
         policy.observe(snapshot(QStringLiteral("unknown"), 0));
@@ -141,7 +141,7 @@ class QuotaAlertPolicyTest final : public QObject
             QuotaAlertPolicy policy;
             policy.setEnabled(true);
             QSignalSpy alerts(&policy, &QuotaAlertPolicy::alertReady);
-            policy.observe(snapshot(QStringLiteral("codex"), number));
+            policy.observe(snapshot(QStringLiteral("openai"), number));
             QCOMPARE(alerts.count(), 1);
         }
     }
@@ -151,15 +151,15 @@ class QuotaAlertPolicyTest final : public QObject
         QuotaAlertPolicy policy;
         policy.setEnabled(true);
         QSignalSpy alerts(&policy, &QuotaAlertPolicy::alertReady);
-        policy.observe(snapshot(QStringLiteral("codex"), 5));
-        QVariantMap provider = snapshot(QStringLiteral("codex"), 80);
+        policy.observe(snapshot(QStringLiteral("openai"), 5));
+        QVariantMap provider = snapshot(QStringLiteral("openai"), 80);
         QVariantList windows = provider.value(QStringLiteral("windows")).toList();
         windows.append(
             QVariantMap{{QStringLiteral("remainingPercent"), QStringLiteral("invalid")}});
         windows.append(QVariantMap{{QStringLiteral("remainingPercent"), 90}});
         provider.insert(QStringLiteral("windows"), windows);
         policy.observe(provider);
-        policy.observe(snapshot(QStringLiteral("codex"), 5));
+        policy.observe(snapshot(QStringLiteral("openai"), 5));
         QCOMPARE(alerts.count(), 1);
     }
 
@@ -168,13 +168,13 @@ class QuotaAlertPolicyTest final : public QObject
         QuotaAlertPolicy policy;
         policy.setEnabled(true);
         QSignalSpy alerts(&policy, &QuotaAlertPolicy::alertReady);
-        policy.observe(snapshot(QStringLiteral("codex"), 1));
+        policy.observe(snapshot(QStringLiteral("openai"), 1));
         policy.observe(snapshot(QStringLiteral("claude"), 1));
         policy.forgetProvider(QStringLiteral("unknown"));
-        policy.forgetProvider(QStringLiteral("codex"));
+        policy.forgetProvider(QStringLiteral("openai"));
         QCOMPARE(alerts.count(), 2);
         policy.observe(snapshot(QStringLiteral("claude"), 1));
-        policy.observe(snapshot(QStringLiteral("codex"), 1));
+        policy.observe(snapshot(QStringLiteral("openai"), 1));
         QCOMPARE(alerts.count(), 3);
     }
 
@@ -184,7 +184,7 @@ class QuotaAlertPolicyTest final : public QObject
         policy.setEnabled(true);
         QSignalSpy alerts(&policy, &QuotaAlertPolicy::alertReady);
         for (const QString &id :
-             {QStringLiteral("codex"), QStringLiteral("claude"), QStringLiteral("gemini"),
+             {QStringLiteral("openai"), QStringLiteral("claude"), QStringLiteral("gemini"),
               QStringLiteral("xai"), QStringLiteral("kimi"), QStringLiteral("deepseek"),
               QStringLiteral("zai"), QStringLiteral("openrouter")}) {
             policy.observe(snapshot(id, 0));

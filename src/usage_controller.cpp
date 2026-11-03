@@ -1,10 +1,11 @@
 #include <kodometer/usage_controller.hpp>
 
 #include <kodometer/claude_provider_adapter.hpp>
-#include <kodometer/codex_provider_adapter.hpp>
 #include <kodometer/deepseek_provider_adapter.hpp>
 #include <kodometer/gemini_provider_adapter.hpp>
 #include <kodometer/kimi_provider_adapter.hpp>
+#include <kodometer/openai_api_adapter.hpp>
+#include <kodometer/openai_provider_adapter.hpp>
 #include <kodometer/openrouter_provider_adapter.hpp>
 #include <kodometer/xai_provider_adapter.hpp>
 #include <kodometer/zai_provider_adapter.hpp>
@@ -19,8 +20,17 @@
 namespace Kodometer {
 namespace {
 
+QString publicProviderId(const QString &id)
+{
+    return id == QLatin1String("openai-api") ? QStringLiteral("openai") : id;
+}
+
 QString displayName(const QString &providerId)
 {
+    if (providerId == QLatin1String("openai"))
+        return QStringLiteral("OpenAI");
+    if (providerId == QLatin1String("openai-api"))
+        return QStringLiteral("OpenAI API");
     if (providerId.isEmpty()) {
         return QStringLiteral("Provider");
     }
@@ -33,10 +43,10 @@ QString displayName(const QString &providerId)
 
 // GCOVR_EXCL_START -- composition root has only Qt allocation branches
 UsageController::UsageController(QObject *parent)
-    : UsageController(QList<ProviderAdapter *>{new CodexProviderAdapter, new ClaudeProviderAdapter,
-                                               new GeminiProviderAdapter, new XaiProviderAdapter,
-                                               new KimiProviderAdapter, new DeepSeekProviderAdapter,
-                                               new ZaiProviderAdapter,
+    : UsageController(QList<ProviderAdapter *>{new OpenAIProviderAdapter, new OpenAIApiAdapter,
+                                               new ClaudeProviderAdapter, new GeminiProviderAdapter,
+                                               new XaiProviderAdapter, new KimiProviderAdapter,
+                                               new DeepSeekProviderAdapter, new ZaiProviderAdapter,
                                                new OpenRouterProviderAdapter},
                       parent)
 {}
@@ -349,7 +359,8 @@ QList<ProviderAdapter *> UsageController::enabledAdapters() const
         const bool profileAllowed = !OAuthProfiles::supportsProvider(id) || m_profiles.valid();
         const bool accountAllowed =
             m_accountSelections.value(id).isEmpty() || selectedAccountKey(id).has_value();
-        if (!m_disabledProviders.contains(id) && profileAllowed && accountAllowed) {
+        if (!m_disabledProviders.contains(publicProviderId(id)) && profileAllowed &&
+            accountAllowed) {
             enabled.append(adapter);
         }
     }
@@ -431,15 +442,17 @@ void UsageController::adapterSucceeded(ProviderAdapter *adapter, const QVariantM
     const QVariantList historyWindows = windowValue.toList();
     const auto historyScope =
         m_profiles.contextKey(id).toUtf8() + '\0' + m_accountSelections.value(id).toUtf8();
-    if (!m_disabledProviders.contains(id) && current) {
+    if (!m_disabledProviders.contains(publicProviderId(id)) && current) {
         m_history.prepareContext(id, historyScope, historyIdentities);
         m_providerSnapshots.insert(id, provider);
         m_anySuccess = true;
         rebuildProviders();
         // Presentation signals can synchronously change selection or disable the provider.
-        if (revision == m_profileRevisions.value(id) && !m_disabledProviders.contains(id)) {
+        if (revision == m_profileRevisions.value(id) &&
+            !m_disabledProviders.contains(publicProviderId(id))) {
             m_history.observe(id, historyScope, historyIdentities, historyWindows);
-            if (revision == m_profileRevisions.value(id) && !m_disabledProviders.contains(id))
+            if (revision == m_profileRevisions.value(id) &&
+                !m_disabledProviders.contains(publicProviderId(id)))
                 emit providerRefreshed(provider);
         }
     }
@@ -503,6 +516,36 @@ void UsageController::rebuildProviders()
                                 m_credentialStore->accounts()->name(id, accountId));
             }
             providers.append(provider);
+        }
+    }
+    // The Platform key is independent of the selected subscription credential folder.
+    QVariantMap api;
+    for (qsizetype index = providers.size(); index > 0; --index) {
+        const auto row = providers.at(index - 1).toMap();
+        if (row.value(QStringLiteral("id")) == QLatin1String("openai-api")) {
+            api = row;
+            providers.removeAt(index - 1);
+        }
+    }
+    if (!api.isEmpty()) {
+        qsizetype index = 0;
+        while (index < providers.size() &&
+               providers.at(index).toMap().value(QStringLiteral("id")) != QLatin1String("openai"))
+            ++index;
+        if (index == providers.size() && api.value(QStringLiteral("configured")).toBool()) {
+            providers.prepend(QVariantMap{
+                {QStringLiteral("id"), QStringLiteral("openai")},
+                {QStringLiteral("name"), QStringLiteral("OpenAI")},
+                {QStringLiteral("apiOnly"), true},
+                {QStringLiteral("display"),
+                 QVariantMap{{QStringLiteral("accentColor"), QStringLiteral("#A28BE0")}}}});
+            index = 0;
+        }
+        if (index < providers.size() &&
+            providers.at(index).toMap().value(QStringLiteral("id")) == QLatin1String("openai")) {
+            QVariantMap row = providers.at(index).toMap();
+            row.insert(QStringLiteral("api"), api);
+            providers[index] = row;
         }
     }
     if (m_providers == providers) {

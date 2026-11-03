@@ -10,7 +10,7 @@ if grep -E 'not found|undefined symbol' "$work/linkage"; then exit 1; fi
 mkdir -p "$work/home/.config" "$work/runtime"
 chmod 700 "$work/runtime"
 printf '[Wallet]\nEnabled=false\n' >"$work/home/.config/kwalletrc"
-printf '[Applets][4][Configuration][General]\nautoRefresh=false\ndisabledProviders=codex,claude,gemini,openrouter,xai,zai,kimi\ndeepseekAccountId=11111111-1111-4111-8111-111111111111\n' >"$work/home/.config/plasmawindowedrc"
+printf '[Applets][4][Configuration][General]\nautoRefresh=false\ndisabledProviders=openai,claude,gemini,openrouter,xai,zai,kimi\ndeepseekAccountId=11111111-1111-4111-8111-111111111111\n' >"$work/home/.config/plasmawindowedrc"
 plugin_dir="$(dirname "$(dirname "$(dirname "$plugin")")")"
 if ! env -i HOME="$work/home" XDG_CONFIG_HOME="$work/home/.config" XDG_CACHE_HOME="$work/home/.cache" \
     XDG_RUNTIME_DIR="$work/runtime" XDG_DATA_DIRS=/usr/share PATH=/usr/bin:/bin \

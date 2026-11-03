@@ -1,4 +1,4 @@
-#include <kodometer/codex_provider_adapter.hpp>
+#include <kodometer/openai_provider_adapter.hpp>
 
 #include <QFile>
 #include <QJsonDocument>
@@ -11,7 +11,7 @@
 #include <QTimeZone>
 #include <QtTest>
 
-using Kodometer::CodexProviderAdapter;
+using Kodometer::OpenAIProviderAdapter;
 
 namespace {
 
@@ -169,7 +169,7 @@ QByteArray usagePayload()
 
 } // namespace
 
-class CodexProviderAdapterTest final : public QObject
+class OpenAIProviderAdapterTest final : public QObject
 {
     Q_OBJECT
 
@@ -185,7 +185,7 @@ class CodexProviderAdapterTest final : public QObject
     void limitsResponseSize();
 };
 
-void CodexProviderAdapterTest::fetchesUsageWithExistingToken()
+void OpenAIProviderAdapterTest::fetchesUsageWithExistingToken()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -195,11 +195,11 @@ void CodexProviderAdapterTest::fetchesUsageWithExistingToken()
     HttpServer server;
     server.enqueue({200, usagePayload()});
     QNetworkAccessManager network;
-    CodexProviderAdapter adapter(&network);
+    OpenAIProviderAdapter adapter(&network);
     adapter.setCredentialPath(credentialPath);
     adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
     adapter.setTokenEndpoint(server.url(QStringLiteral("/token")));
-    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+    QSignalSpy finished(&adapter, &OpenAIProviderAdapter::refreshFinished);
 
     adapter.refresh();
 
@@ -212,12 +212,12 @@ void CodexProviderAdapterTest::fetchesUsageWithExistingToken()
              QByteArray("Bearer ") + accessToken.toUtf8());
     QCOMPARE(server.requests.first().headers.value("chatgpt-account-id"), QByteArray("account-1"));
     QCOMPARE(server.requests.first().headers.value("accept"), QByteArray("application/json"));
-    QCOMPARE(adapter.provider().value(QStringLiteral("id")).toString(), QStringLiteral("codex"));
+    QCOMPARE(adapter.provider().value(QStringLiteral("id")).toString(), QStringLiteral("openai"));
     QVERIFY(adapter.error().isEmpty());
     QVERIFY(!adapter.busy());
 }
 
-void CodexProviderAdapterTest::refreshesExpiringTokenBeforeUsage()
+void OpenAIProviderAdapterTest::refreshesExpiringTokenBeforeUsage()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -230,11 +230,11 @@ void CodexProviderAdapterTest::refreshesExpiringTokenBeforeUsage()
          R"({"access_token":"fresh-access","refresh_token":"fresh-refresh","id_token":"fresh-id"})"});
     server.enqueue({200, usagePayload()});
     QNetworkAccessManager network;
-    CodexProviderAdapter adapter(&network);
+    OpenAIProviderAdapter adapter(&network);
     adapter.setCredentialPath(credentialPath);
     adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
     adapter.setTokenEndpoint(server.url(QStringLiteral("/token")));
-    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+    QSignalSpy finished(&adapter, &OpenAIProviderAdapter::refreshFinished);
     QTemporaryDir other;
     QVERIFY(other.isValid());
     adapter.setProfileDirectory(directory.path());
@@ -281,7 +281,7 @@ void CodexProviderAdapterTest::refreshesExpiringTokenBeforeUsage()
              QByteArray("Bearer ") + otherToken.toUtf8());
 }
 
-void CodexProviderAdapterTest::retriesUnauthorizedUsageOnce()
+void OpenAIProviderAdapterTest::retriesUnauthorizedUsageOnce()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -293,11 +293,11 @@ void CodexProviderAdapterTest::retriesUnauthorizedUsageOnce()
     server.enqueue({200, R"({"access_token":"retry-access"})"});
     server.enqueue({200, usagePayload()});
     QNetworkAccessManager network;
-    CodexProviderAdapter adapter(&network);
+    OpenAIProviderAdapter adapter(&network);
     adapter.setCredentialPath(credentialPath);
     adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
     adapter.setTokenEndpoint(server.url(QStringLiteral("/token")));
-    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+    QSignalSpy finished(&adapter, &OpenAIProviderAdapter::refreshFinished);
 
     adapter.refresh();
 
@@ -309,7 +309,7 @@ void CodexProviderAdapterTest::retriesUnauthorizedUsageOnce()
     QCOMPARE(server.requests.at(2).path, QByteArray("/usage"));
 }
 
-void CodexProviderAdapterTest::supportsApiKeyWithoutAccount()
+void OpenAIProviderAdapterTest::supportsApiKeyWithoutAccount()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -323,10 +323,10 @@ void CodexProviderAdapterTest::supportsApiKeyWithoutAccount()
     HttpServer server;
     server.enqueue({200, usagePayload()});
     QNetworkAccessManager network;
-    CodexProviderAdapter adapter(&network);
+    OpenAIProviderAdapter adapter(&network);
     adapter.setCredentialPath(credentialPath);
     adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
-    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+    QSignalSpy finished(&adapter, &OpenAIProviderAdapter::refreshFinished);
 
     adapter.refresh();
 
@@ -337,19 +337,19 @@ void CodexProviderAdapterTest::supportsApiKeyWithoutAccount()
              QStringLiteral("api-key"));
 }
 
-void CodexProviderAdapterTest::reportsCredentialAndResponseFailures()
+void OpenAIProviderAdapterTest::reportsCredentialAndResponseFailures()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     QNetworkAccessManager network;
-    CodexProviderAdapter adapter(&network);
+    OpenAIProviderAdapter adapter(&network);
     adapter.setCredentialPath(directory.filePath(QStringLiteral("missing.json")));
-    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+    QSignalSpy finished(&adapter, &OpenAIProviderAdapter::refreshFinished);
 
     adapter.refresh();
     QCOMPARE(finished.count(), 1);
     QCOMPARE(finished.first().first().toBool(), false);
-    QCOMPARE(adapter.error(), QStringLiteral("Codex auth file was not found"));
+    QCOMPARE(adapter.error(), QStringLiteral("OpenAI auth file was not found"));
 
     const QString credentialPath = directory.filePath(QStringLiteral("auth.json"));
     QVERIFY(writeCredentials(credentialPath, jwt({{QStringLiteral("exp"), 2'000'000'000}})));
@@ -361,12 +361,12 @@ void CodexProviderAdapterTest::reportsCredentialAndResponseFailures()
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 2);
     QCOMPARE(finished.at(1).first().toBool(), false);
-    QCOMPARE(adapter.error(), QStringLiteral("Codex usage request failed with HTTP 500"));
+    QCOMPARE(adapter.error(), QStringLiteral("OpenAI usage request failed with HTTP 500"));
 
     server.enqueue({200, "{"});
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 3);
-    QCOMPARE(adapter.error(), QStringLiteral("Codex usage API returned invalid JSON"));
+    QCOMPARE(adapter.error(), QStringLiteral("OpenAI usage API returned invalid JSON"));
 
     server.enqueue({200, usagePayload()});
     adapter.refresh();
@@ -374,7 +374,7 @@ void CodexProviderAdapterTest::reportsCredentialAndResponseFailures()
     QVERIFY(adapter.error().isEmpty());
 }
 
-void CodexProviderAdapterTest::reportsTokenFailures()
+void OpenAIProviderAdapterTest::reportsTokenFailures()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -382,75 +382,75 @@ void CodexProviderAdapterTest::reportsTokenFailures()
     QVERIFY(writeCredentials(credentialPath, jwt({{QStringLiteral("exp"), 1}})));
     HttpServer server;
     QNetworkAccessManager network;
-    CodexProviderAdapter adapter(&network);
+    OpenAIProviderAdapter adapter(&network);
     adapter.setCredentialPath(credentialPath);
     adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
     adapter.setTokenEndpoint(server.url(QStringLiteral("/token")));
     adapter.setTimeoutMilliseconds(1000);
-    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+    QSignalSpy finished(&adapter, &OpenAIProviderAdapter::refreshFinished);
 
     server.enqueue({400, R"({"error":"invalid_grant"})"});
     adapter.refresh();
     QVERIFY(finished.wait());
-    QCOMPARE(adapter.error(), QStringLiteral("Codex token request failed with HTTP 400"));
+    QCOMPARE(adapter.error(), QStringLiteral("OpenAI token request failed with HTTP 400"));
 
     server.enqueue({200, "{"});
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 2);
-    QCOMPARE(adapter.error(), QStringLiteral("Codex token endpoint returned invalid JSON"));
+    QCOMPARE(adapter.error(), QStringLiteral("OpenAI token endpoint returned invalid JSON"));
 
     server.enqueue({200, "{}", {}, false});
     adapter.setTimeoutMilliseconds(25);
     adapter.refresh();
     QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 3, 1000);
-    QCOMPARE(adapter.error(), QStringLiteral("Codex token request timed out"));
+    QCOMPARE(adapter.error(), QStringLiteral("OpenAI token request timed out"));
 
     adapter.setTimeoutMilliseconds(1000);
-    server.enqueue({200, QByteArray(CodexProviderAdapter::MaximumResponseSize + 1, 'x')});
+    server.enqueue({200, QByteArray(OpenAIProviderAdapter::MaximumResponseSize + 1, 'x')});
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 4);
-    QCOMPARE(adapter.error(), QStringLiteral("Codex token response exceeds the 1 MiB limit"));
+    QCOMPARE(adapter.error(), QStringLiteral("OpenAI token response exceeds the 1 MiB limit"));
 
     server.enqueue({200, R"({"access_token":"fresh"})"});
     server.enqueue({401, "{}"});
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 5);
-    QCOMPARE(adapter.error(), QStringLiteral("Codex usage request failed with HTTP 401"));
+    QCOMPARE(adapter.error(), QStringLiteral("OpenAI usage request failed with HTTP 401"));
 }
 
-void CodexProviderAdapterTest::reportsNetworkAndRedirectFailures()
+void OpenAIProviderAdapterTest::reportsNetworkAndRedirectFailures()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     const QString credentialPath = directory.filePath(QStringLiteral("auth.json"));
     QVERIFY(writeCredentials(credentialPath, jwt({{QStringLiteral("exp"), 2'000'000'000}})));
     QNetworkAccessManager network;
-    CodexProviderAdapter adapter(&network);
+    OpenAIProviderAdapter adapter(&network);
     adapter.setCredentialPath(credentialPath);
     adapter.setUsageEndpoint(QUrl(QStringLiteral("http://127.0.0.1:1/usage")));
-    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+    QSignalSpy finished(&adapter, &OpenAIProviderAdapter::refreshFinished);
 
     adapter.refresh();
     QVERIFY(finished.wait());
     QVERIFY(
-        adapter.error().startsWith(QStringLiteral("Codex usage request failed: network error")));
+        adapter.error().startsWith(QStringLiteral("OpenAI usage request failed: network error")));
 
     HttpServer server;
     server.enqueue({302, "", {{QByteArray("Location"), QByteArray("/elsewhere")}}});
     adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 2);
-    QCOMPARE(adapter.error(), QStringLiteral("Codex usage request failed with HTTP 302"));
+    QCOMPARE(adapter.error(), QStringLiteral("OpenAI usage request failed with HTTP 302"));
 
     QVERIFY(writeCredentials(credentialPath, jwt({{QStringLiteral("exp"), 1}})));
     adapter.setTokenEndpoint(QUrl(QStringLiteral("http://127.0.0.1:1/token")));
     adapter.refresh();
     QTRY_COMPARE(finished.count(), 3);
     QVERIFY(
-        adapter.error().startsWith(QStringLiteral("Codex token request failed: network error")));
+        adapter.error().startsWith(QStringLiteral("OpenAI token request failed: network error")));
 }
 
-void CodexProviderAdapterTest::rejectsConcurrentRefreshAndTimesOut()
+void OpenAIProviderAdapterTest::rejectsConcurrentRefreshAndTimesOut()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -459,11 +459,11 @@ void CodexProviderAdapterTest::rejectsConcurrentRefreshAndTimesOut()
     HttpServer server;
     server.enqueue({200, "{}", {}, false});
     QNetworkAccessManager network;
-    CodexProviderAdapter adapter(&network);
+    OpenAIProviderAdapter adapter(&network);
     adapter.setCredentialPath(credentialPath);
     adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
     adapter.setTimeoutMilliseconds(25);
-    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+    QSignalSpy finished(&adapter, &OpenAIProviderAdapter::refreshFinished);
 
     adapter.refresh();
     adapter.refresh();
@@ -472,30 +472,30 @@ void CodexProviderAdapterTest::rejectsConcurrentRefreshAndTimesOut()
     QCOMPARE(server.requests.size(), 1);
     QCOMPARE(finished.count(), 1);
     QCOMPARE(finished.first().first().toBool(), false);
-    QCOMPARE(adapter.error(), QStringLiteral("Codex usage request timed out"));
+    QCOMPARE(adapter.error(), QStringLiteral("OpenAI usage request timed out"));
 }
 
-void CodexProviderAdapterTest::limitsResponseSize()
+void OpenAIProviderAdapterTest::limitsResponseSize()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     const QString credentialPath = directory.filePath(QStringLiteral("auth.json"));
     QVERIFY(writeCredentials(credentialPath, jwt({{QStringLiteral("exp"), 2'000'000'000}})));
     HttpServer server;
-    server.enqueue({200, QByteArray(CodexProviderAdapter::MaximumResponseSize + 1, 'x')});
+    server.enqueue({200, QByteArray(OpenAIProviderAdapter::MaximumResponseSize + 1, 'x')});
     QNetworkAccessManager network;
-    CodexProviderAdapter adapter(&network);
+    OpenAIProviderAdapter adapter(&network);
     adapter.setCredentialPath(credentialPath);
     adapter.setUsageEndpoint(server.url(QStringLiteral("/usage")));
-    QSignalSpy finished(&adapter, &CodexProviderAdapter::refreshFinished);
+    QSignalSpy finished(&adapter, &OpenAIProviderAdapter::refreshFinished);
 
     adapter.refresh();
 
     QVERIFY(finished.wait());
     QCOMPARE(finished.first().first().toBool(), false);
-    QCOMPARE(adapter.error(), QStringLiteral("Codex usage response exceeds the 1 MiB limit"));
+    QCOMPARE(adapter.error(), QStringLiteral("OpenAI usage response exceeds the 1 MiB limit"));
 }
 
-QTEST_GUILESS_MAIN(CodexProviderAdapterTest)
+QTEST_GUILESS_MAIN(OpenAIProviderAdapterTest)
 
-#include "tst_codex_provider_adapter.moc"
+#include "tst_openai_provider_adapter.moc"

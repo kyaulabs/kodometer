@@ -1,6 +1,6 @@
-#include <kodometer/codex_provider_adapter.hpp>
+#include <kodometer/openai_provider_adapter.hpp>
 
-#include <kodometer/codex_usage_parser.hpp>
+#include <kodometer/openai_usage_parser.hpp>
 
 #include <QDir>
 #include <QJsonDocument>
@@ -24,7 +24,7 @@ QString defaultCredentialPath()
         environment.insert(QStringLiteral("CODEX_HOME"),
                            processEnvironment.value(QStringLiteral("CODEX_HOME")));
     }
-    return CodexCredentialStore::authenticationFilePath(environment);
+    return OpenAICredentialStore::authenticationFilePath(environment);
 }
 
 QNetworkRequest requestFor(const QUrl &endpoint)
@@ -46,7 +46,7 @@ QString tokenString(const QJsonObject &object, const QString &key, const QString
 } // namespace
 
 // GCOVR_EXCL_BR_START -- Qt ownership and allocation branches
-CodexProviderAdapter::CodexProviderAdapter(QNetworkAccessManager *network, QObject *parent)
+OpenAIProviderAdapter::OpenAIProviderAdapter(QNetworkAccessManager *network, QObject *parent)
     : ProviderAdapter(parent),
       m_network(network == nullptr ? new QNetworkAccessManager(this) : network),
       m_credentialPath(defaultCredentialPath()), m_defaultCredentialPath(m_credentialPath)
@@ -62,33 +62,33 @@ CodexProviderAdapter::CodexProviderAdapter(QNetworkAccessManager *network, QObje
     });
 }
 
-QString CodexProviderAdapter::providerId() const
+QString OpenAIProviderAdapter::providerId() const
 {
-    return QStringLiteral("codex");
+    return QStringLiteral("openai");
 }
 
-bool CodexProviderAdapter::busy() const noexcept
+bool OpenAIProviderAdapter::busy() const noexcept
 {
     return m_busy;
 }
 
-QString CodexProviderAdapter::error() const
+QString OpenAIProviderAdapter::error() const
 {
     return m_error;
 }
 
-QVariantMap CodexProviderAdapter::provider() const
+QVariantMap OpenAIProviderAdapter::provider() const
 {
     return m_provider;
 }
 
-void CodexProviderAdapter::setCredentialPath(const QString &path)
+void OpenAIProviderAdapter::setCredentialPath(const QString &path)
 {
     m_credentialPath = path;
     m_defaultCredentialPath = path;
 }
 
-void CodexProviderAdapter::setProfileDirectory(const QString &directory)
+void OpenAIProviderAdapter::setProfileDirectory(const QString &directory)
 {
     if (directory.isEmpty()) {
         m_credentialPath = m_defaultCredentialPath;
@@ -97,22 +97,22 @@ void CodexProviderAdapter::setProfileDirectory(const QString &directory)
     m_credentialPath = QDir(directory).filePath(QStringLiteral("auth.json"));
 }
 
-void CodexProviderAdapter::setUsageEndpoint(const QUrl &endpoint)
+void OpenAIProviderAdapter::setUsageEndpoint(const QUrl &endpoint)
 {
     m_usageEndpoint = endpoint;
 }
 
-void CodexProviderAdapter::setTokenEndpoint(const QUrl &endpoint)
+void OpenAIProviderAdapter::setTokenEndpoint(const QUrl &endpoint)
 {
     m_tokenEndpoint = endpoint;
 }
 
-void CodexProviderAdapter::setTimeoutMilliseconds(int milliseconds)
+void OpenAIProviderAdapter::setTimeoutMilliseconds(int milliseconds)
 {
     m_timeoutMilliseconds = std::max(milliseconds, 1);
 }
 
-void CodexProviderAdapter::refresh()
+void OpenAIProviderAdapter::refresh()
 {
     if (m_busy) {
         return;
@@ -123,7 +123,7 @@ void CodexProviderAdapter::refresh()
     m_refreshedDuringRequest = false;
     QString credentialError;
     m_requestCredentialPath = m_credentialPath;
-    const auto credentials = CodexCredentialStore::load(m_requestCredentialPath, &credentialError);
+    const auto credentials = OpenAICredentialStore::load(m_requestCredentialPath, &credentialError);
     if (!credentials) {
         completeFailure(credentialError);
         return;
@@ -143,7 +143,7 @@ void CodexProviderAdapter::refresh()
     }
 }
 
-void CodexProviderAdapter::requestUsage()
+void OpenAIProviderAdapter::requestUsage()
 {
     QNetworkRequest request = requestFor(m_usageEndpoint);
     request.setRawHeader("Authorization",
@@ -154,7 +154,7 @@ void CodexProviderAdapter::requestUsage()
     watchReply(m_network->get(request), RequestKind::Usage);
 }
 
-void CodexProviderAdapter::requestToken()
+void OpenAIProviderAdapter::requestToken()
 {
     m_refreshedDuringRequest = true;
     QNetworkRequest request = requestFor(m_tokenEndpoint);
@@ -171,19 +171,19 @@ void CodexProviderAdapter::requestToken()
                RequestKind::Token);
 }
 
-void CodexProviderAdapter::watchReply(QNetworkReply *reply, RequestKind kind)
+void OpenAIProviderAdapter::watchReply(QNetworkReply *reply, RequestKind kind)
 {
     m_reply = reply;
     m_requestKind = kind;
     m_responseData.clear();
     m_timedOut = false;
     m_responseTooLarge = false;
-    connect(reply, &QIODevice::readyRead, this, &CodexProviderAdapter::readReplyData);
-    connect(reply, &QNetworkReply::finished, this, &CodexProviderAdapter::finishReply);
+    connect(reply, &QIODevice::readyRead, this, &OpenAIProviderAdapter::readReplyData);
+    connect(reply, &QNetworkReply::finished, this, &OpenAIProviderAdapter::finishReply);
     m_timeout.start(m_timeoutMilliseconds);
 }
 
-void CodexProviderAdapter::readReplyData()
+void OpenAIProviderAdapter::readReplyData()
 {
     if (m_reply == nullptr || m_responseTooLarge) { // GCOVR_EXCL_BR_LINE
         return;
@@ -196,7 +196,7 @@ void CodexProviderAdapter::readReplyData()
     }
 }
 
-void CodexProviderAdapter::finishReply()
+void OpenAIProviderAdapter::finishReply()
 {
     if (m_reply == nullptr) { // GCOVR_EXCL_LINE -- only connected replies invoke this slot
         return;               // GCOVR_EXCL_LINE
@@ -215,16 +215,16 @@ void CodexProviderAdapter::finishReply()
     if (m_responseTooLarge) {
         // GCOVR_EXCL_BR_START -- QString allocation branches
         completeFailure(kind == RequestKind::Usage
-                            ? QStringLiteral("Codex usage response exceeds the 1 MiB limit")
-                            : QStringLiteral("Codex token response exceeds the 1 MiB limit"));
+                            ? QStringLiteral("OpenAI usage response exceeds the 1 MiB limit")
+                            : QStringLiteral("OpenAI token response exceeds the 1 MiB limit"));
         // GCOVR_EXCL_BR_STOP
         return;
     }
     if (m_timedOut) {
         // GCOVR_EXCL_BR_START -- QString allocation branches
         completeFailure(kind == RequestKind::Usage
-                            ? QStringLiteral("Codex usage request timed out")
-                            : QStringLiteral("Codex token request timed out"));
+                            ? QStringLiteral("OpenAI usage request timed out")
+                            : QStringLiteral("OpenAI token request timed out"));
         // GCOVR_EXCL_BR_STOP
         return;
     }
@@ -237,7 +237,7 @@ void CodexProviderAdapter::finishReply()
     }
 }
 
-void CodexProviderAdapter::finishUsage(int statusCode, QNetworkReply::NetworkError networkError)
+void OpenAIProviderAdapter::finishUsage(int statusCode, QNetworkReply::NetworkError networkError)
 {
     if ((statusCode == 401 || statusCode == 403) && !m_refreshedDuringRequest &&
         !m_credentials.apiKey && !m_credentials.refreshToken.isEmpty()) {
@@ -247,18 +247,18 @@ void CodexProviderAdapter::finishUsage(int statusCode, QNetworkReply::NetworkErr
     if (statusCode < 200 || statusCode >= 300) {
         if (statusCode > 0) {
             completeFailure(
-                QStringLiteral("Codex usage request failed with HTTP %1").arg(statusCode));
+                QStringLiteral("OpenAI usage request failed with HTTP %1").arg(statusCode));
         }
         else {
-            completeFailure(QStringLiteral("Codex usage request failed: network error %1")
+            completeFailure(QStringLiteral("OpenAI usage request failed: network error %1")
                                 .arg(static_cast<int>(networkError)));
         }
         return;
     }
 
     QString parseError;
-    const auto provider = CodexUsageParser::parse(m_responseData, m_credentials,
-                                                  QDateTime::currentDateTimeUtc(), &parseError);
+    const auto provider = OpenAIUsageParser::parse(m_responseData, m_credentials,
+                                                   QDateTime::currentDateTimeUtc(), &parseError);
     if (!provider) {
         completeFailure(parseError);
         return;
@@ -266,15 +266,15 @@ void CodexProviderAdapter::finishUsage(int statusCode, QNetworkReply::NetworkErr
     completeSuccess(*provider);
 }
 
-void CodexProviderAdapter::finishToken(int statusCode, QNetworkReply::NetworkError networkError)
+void OpenAIProviderAdapter::finishToken(int statusCode, QNetworkReply::NetworkError networkError)
 {
     if (statusCode < 200 || statusCode >= 300) {
         if (statusCode > 0) {
             completeFailure(
-                QStringLiteral("Codex token request failed with HTTP %1").arg(statusCode));
+                QStringLiteral("OpenAI token request failed with HTTP %1").arg(statusCode));
         }
         else {
-            completeFailure(QStringLiteral("Codex token request failed: network error %1")
+            completeFailure(QStringLiteral("OpenAI token request failed: network error %1")
                                 .arg(static_cast<int>(networkError)));
         }
         return;
@@ -284,7 +284,7 @@ void CodexProviderAdapter::finishToken(int statusCode, QNetworkReply::NetworkErr
     const QJsonDocument document = QJsonDocument::fromJson(m_responseData, &parseError);
     if (parseError.error != QJsonParseError::NoError ||
         !document.isObject()) { // GCOVR_EXCL_BR_LINE
-        completeFailure(QStringLiteral("Codex token endpoint returned invalid JSON"));
+        completeFailure(QStringLiteral("OpenAI token endpoint returned invalid JSON"));
         return;
     }
     const QJsonObject response = document.object();
@@ -297,13 +297,13 @@ void CodexProviderAdapter::finishToken(int statusCode, QNetworkReply::NetworkErr
     m_credentials.lastRefresh = QDateTime::currentDateTimeUtc();
 
     QString saveError;
-    if (!CodexCredentialStore::save(
+    if (!OpenAICredentialStore::save(
             m_requestCredentialPath, m_credentials,
             &saveError)) {          // GCOVR_EXCL_LINE -- credential path changed concurrently
         completeFailure(saveError); // GCOVR_EXCL_LINE
         return;                     // GCOVR_EXCL_LINE
     }
-    const auto reloaded = CodexCredentialStore::load(m_requestCredentialPath, &saveError);
+    const auto reloaded = OpenAICredentialStore::load(m_requestCredentialPath, &saveError);
     if (!reloaded) {                // GCOVR_EXCL_LINE -- atomic save was replaced concurrently
         completeFailure(saveError); // GCOVR_EXCL_LINE
         return;                     // GCOVR_EXCL_LINE
@@ -316,7 +316,7 @@ void CodexProviderAdapter::finishToken(int statusCode, QNetworkReply::NetworkErr
     requestUsage();
 }
 
-void CodexProviderAdapter::completeSuccess(const QVariantMap &provider)
+void OpenAIProviderAdapter::completeSuccess(const QVariantMap &provider)
 {
     m_provider = provider;
     emit providerChanged();
@@ -325,7 +325,7 @@ void CodexProviderAdapter::completeSuccess(const QVariantMap &provider)
     emit refreshFinished(true);
 }
 
-void CodexProviderAdapter::completeFailure(const QString &message)
+void OpenAIProviderAdapter::completeFailure(const QString &message)
 {
     setError(message);
     emit refreshFailed(message);
@@ -333,7 +333,7 @@ void CodexProviderAdapter::completeFailure(const QString &message)
     emit refreshFinished(false);
 }
 
-void CodexProviderAdapter::setBusy(bool busy)
+void OpenAIProviderAdapter::setBusy(bool busy)
 {
     if (m_busy == busy) { // GCOVR_EXCL_LINE -- callers only transition state
         return;           // GCOVR_EXCL_LINE
@@ -342,7 +342,7 @@ void CodexProviderAdapter::setBusy(bool busy)
     emit busyChanged();
 }
 
-void CodexProviderAdapter::setError(const QString &error)
+void OpenAIProviderAdapter::setError(const QString &error)
 {
     if (m_error == error) {
         return;

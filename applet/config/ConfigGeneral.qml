@@ -22,7 +22,8 @@ Kirigami.ScrollablePage {
     property alias cfg_autoRefresh: automatic.checked
     property alias cfg_refreshIntervalMinutes: refreshInterval.value
     property alias cfg_showIdleWindows: idleWindows.checked
-    property alias cfg_showCodexSpark: spark.checked
+    property alias cfg_showOpenAISpark: spark.checked
+    property alias cfg_openaiTabbed: openaiTabs.checked
     property alias cfg_quotaBarsRemaining: remainingBars.checked
     property var cfg_hiddenQuotaWindows: []
     property string cfg_quotaWindowCatalog: "[]"
@@ -35,7 +36,7 @@ Kirigami.ScrollablePage {
                                                                     === "string"
                                                                     && typeof entry.label
                                                                     === "string" && !
-                                                                    /^codex\/.*spark/i.test(
+                                                                    /^openai\/.*spark/i.test(
                                                                         entry.key)).slice(0, 128) :
                                             []
         } catch (error) {
@@ -60,7 +61,7 @@ Kirigami.ScrollablePage {
         }
     }
     readonly property var defaultColors: ({
-                                              codex: "#A28BE0",
+                                              openai: "#A28BE0",
                                               claude: "#D97757",
                                               gemini: "#4285F4",
                                               xai: "#8E8E93",
@@ -110,9 +111,16 @@ Kirigami.ScrollablePage {
         }
 
         QQC2.CheckBox {
+            id: openaiTabs
+            objectName: "openaiTabbed"
+            text: qsTr("Show OpenAI Plan and API in separate tabs")
+            checked: true
+        }
+
+        QQC2.CheckBox {
             id: spark
-            objectName: "showCodexSpark"
-            text: qsTr("Show Codex Spark quota")
+            objectName: "showOpenAISpark"
+            text: qsTr("Show OpenAI Spark quota")
         }
 
         QQC2.CheckBox {
@@ -150,7 +158,7 @@ Kirigami.ScrollablePage {
 
         QQC2.Label {
             text: qsTr(
-                      "Window switches apply to all quota displays, not notifications. Available windows appear after a successful refresh. The single Spark switch controls all Codex Spark windows; idle windows also require their display switch above.")
+                      "Window switches apply to all quota displays, not notifications. Available windows appear after a successful refresh. The single Spark switch controls all OpenAI Spark windows; idle windows also require their display switch above.")
             wrapMode: Text.WordWrap
             Kirigami.FormData.isSection: true
         }
@@ -193,8 +201,8 @@ Kirigami.ScrollablePage {
         Repeater {
             model: [
                 {
-                    "id": "codex",
-                    "name": "Codex"
+                    "id": "openai",
+                    "name": "OpenAI"
                 },
                 {
                     "id": "claude",

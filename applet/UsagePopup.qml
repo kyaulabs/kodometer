@@ -13,6 +13,7 @@ Item {
     property bool busy: false
     property bool showIdleWindows: false
     property bool fillRemaining: true
+    property bool openaiTabbed: true
     property int clockTick: 0
     property string generatedAt
     property string error
@@ -249,6 +250,7 @@ Item {
         ProviderDetails {
             maximumContentHeight: root.pageHeightLimit
             provider: root.navigation.selectedProvider
+            openaiTabbed: root.openaiTabbed
             switching: root.switching
             quotaHistory: root.quotaHistory
             loading: root.busy

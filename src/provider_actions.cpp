@@ -19,7 +19,7 @@ struct Destination
 
 // No URL is constructed from provider payloads, account identifiers, or credentials.
 constexpr std::array Destinations{
-    Destination{"codex", "", "https://chatgpt.com/codex/settings/usage",
+    Destination{"openai", "", "https://chatgpt.com/codex/settings/usage",
                 "https://developers.openai.com/codex/"},
     Destination{"claude", "", "https://claude.ai/settings/usage",
                 "https://code.claude.com/docs/en/overview"},

@@ -13,6 +13,10 @@ Kirigami.ScrollablePage {
 
     readonly property list<var> credentials: [
         {
+            "name": qsTr("OpenAI organization Admin API key"),
+            "key": "OPENAI_ADMIN_KEY"
+        },
+        {
             "name": qsTr("DeepSeek API key"),
             "key": "DEEPSEEK_API_KEY"
         },

@@ -13,7 +13,7 @@ QString providerName(const QString &id)
 {
     // Only these public names can reach the desktop; never use payload identity or labels.
     constexpr std::array names{
-        std::pair{"codex", "Codex"},    std::pair{"claude", "Claude"},
+        std::pair{"openai", "OpenAI"},  std::pair{"claude", "Claude"},
         std::pair{"gemini", "Gemini"},  std::pair{"xai", "xAI"},
         std::pair{"kimi", "Kimi Code"}, std::pair{"deepseek", "DeepSeek"},
         std::pair{"zai", "z.ai"},       std::pair{"openrouter", "OpenRouter"}};

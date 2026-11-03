@@ -1,4 +1,4 @@
-#include <kodometer/codex_credentials.hpp>
+#include <kodometer/openai_credentials.hpp>
 
 #include <QFile>
 #include <QFileInfo>
@@ -8,8 +8,8 @@
 #include <QTimeZone>
 #include <QtTest>
 
-using Kodometer::CodexCredentials;
-using Kodometer::CodexCredentialStore;
+using Kodometer::OpenAICredentials;
+using Kodometer::OpenAICredentialStore;
 
 namespace {
 
@@ -39,7 +39,7 @@ bool writePrivateFile(const QString &path, const QByteArray &contents)
 
 } // namespace
 
-class CodexCredentialsTest final : public QObject
+class OpenAICredentialsTest final : public QObject
 {
     Q_OBJECT
 
@@ -59,7 +59,7 @@ class CodexCredentialsTest final : public QObject
     void redactsIdentity();
 };
 
-void CodexCredentialsTest::parsesOAuthCredentials()
+void OpenAICredentialsTest::parsesOAuthCredentials()
 {
     const QString idToken = jwt({
         {QStringLiteral("email"), QStringLiteral("person@example.com")},
@@ -82,7 +82,7 @@ void CodexCredentialsTest::parsesOAuthCredentials()
     };
 
     QString error;
-    const auto credentials = CodexCredentialStore::parse(QJsonDocument(document).toJson(), &error);
+    const auto credentials = OpenAICredentialStore::parse(QJsonDocument(document).toJson(), &error);
 
     QVERIFY2(credentials.has_value(), qPrintable(error));
     QCOMPARE(credentials->accessToken, accessToken);
@@ -97,7 +97,7 @@ void CodexCredentialsTest::parsesOAuthCredentials()
     QVERIFY(!credentials->apiKey);
 }
 
-void CodexCredentialsTest::parsesCamelCaseCredentials()
+void OpenAICredentialsTest::parsesCamelCaseCredentials()
 {
     const QString accessToken = jwt({
         {QStringLiteral("https://api.openai.com/auth"),
@@ -112,7 +112,7 @@ void CodexCredentialsTest::parsesCamelCaseCredentials()
     };
 
     QString error;
-    const auto credentials = CodexCredentialStore::parse(QJsonDocument(document).toJson(), &error);
+    const auto credentials = OpenAICredentialStore::parse(QJsonDocument(document).toJson(), &error);
 
     QVERIFY2(credentials.has_value(), qPrintable(error));
     QCOMPARE(credentials->accountId, QStringLiteral("nested-account"));
@@ -120,12 +120,12 @@ void CodexCredentialsTest::parsesCamelCaseCredentials()
     QVERIFY(!credentials->expiresAt.isValid());
 }
 
-void CodexCredentialsTest::parsesApiKey()
+void OpenAICredentialsTest::parsesApiKey()
 {
     const QByteArray document = R"({"OPENAI_API_KEY":"  sk-example  ","unknown":true})";
     QString error;
 
-    const auto credentials = CodexCredentialStore::parse(document, &error);
+    const auto credentials = OpenAICredentialStore::parse(document, &error);
 
     QVERIFY2(credentials.has_value(), qPrintable(error));
     QCOMPARE(credentials->accessToken, QStringLiteral("sk-example"));
@@ -133,14 +133,14 @@ void CodexCredentialsTest::parsesApiKey()
     QVERIFY(credentials->apiKey);
 }
 
-void CodexCredentialsTest::parsesJwtFallbacks()
+void OpenAICredentialsTest::parsesJwtFallbacks()
 {
     const QString directToken = jwt({
         {QStringLiteral("chatgpt_account_id"), QStringLiteral("direct-account")},
         {QStringLiteral("email"), QStringLiteral("access@example.com")},
     });
     QString error;
-    auto credentials = CodexCredentialStore::parse(
+    auto credentials = OpenAICredentialStore::parse(
         QJsonDocument(
             QJsonObject{
                 {QStringLiteral("tokens"),
@@ -159,7 +159,7 @@ void CodexCredentialsTest::parsesJwtFallbacks()
                     QJsonObject{{QStringLiteral("id"), QStringLiteral("organization-account")}}}},
         {QStringLiteral("exp"), 12.5},
     });
-    credentials = CodexCredentialStore::parse(
+    credentials = OpenAICredentialStore::parse(
         QJsonDocument(
             QJsonObject{
                 {QStringLiteral("tokens"),
@@ -174,7 +174,7 @@ void CodexCredentialsTest::parsesJwtFallbacks()
     QVERIFY(!credentials->expiresAt.isValid());
 
     const QString distantToken = jwt({{QStringLiteral("exp"), 9'000'000'000'000.0}});
-    credentials = CodexCredentialStore::parse(
+    credentials = OpenAICredentialStore::parse(
         QJsonDocument(
             QJsonObject{
                 {QStringLiteral("tokens"),
@@ -187,32 +187,32 @@ void CodexCredentialsTest::parsesJwtFallbacks()
     QVERIFY(!credentials->expiresAt.isValid());
 }
 
-void CodexCredentialsTest::rejectsInvalidDocuments()
+void OpenAICredentialsTest::rejectsInvalidDocuments()
 {
     QString error;
-    QVERIFY(!CodexCredentialStore::parse({}, &error));
-    QCOMPARE(error, QStringLiteral("Codex auth file contains invalid JSON"));
+    QVERIFY(!OpenAICredentialStore::parse({}, &error));
+    QCOMPARE(error, QStringLiteral("OpenAI auth file contains invalid JSON"));
 
-    QVERIFY(!CodexCredentialStore::parse("[]", &error));
-    QCOMPARE(error, QStringLiteral("Codex auth file must contain a JSON object"));
+    QVERIFY(!OpenAICredentialStore::parse("[]", &error));
+    QCOMPARE(error, QStringLiteral("OpenAI auth file must contain a JSON object"));
 
-    QVERIFY(!CodexCredentialStore::parse(R"({"tokens":{"access_token":"only"}})", &error));
-    QCOMPARE(error, QStringLiteral("Codex auth file contains no usable credentials"));
+    QVERIFY(!OpenAICredentialStore::parse(R"({"tokens":{"access_token":"only"}})", &error));
+    QCOMPARE(error, QStringLiteral("OpenAI auth file contains no usable credentials"));
 
-    QVERIFY(!CodexCredentialStore::parse("{", nullptr));
+    QVERIFY(!OpenAICredentialStore::parse("{", nullptr));
 }
 
-void CodexCredentialsTest::resolvesCredentialPaths()
+void OpenAICredentialsTest::resolvesCredentialPaths()
 {
-    QCOMPARE(CodexCredentialStore::authenticationFilePath(
+    QCOMPARE(OpenAICredentialStore::authenticationFilePath(
                  {{QStringLiteral("CODEX_HOME"), QStringLiteral(" /tmp/custom-codex ")}},
                  QStringLiteral("/home/tester")),
              QStringLiteral("/tmp/custom-codex/auth.json"));
-    QCOMPARE(CodexCredentialStore::authenticationFilePath({}, QStringLiteral("/home/tester")),
+    QCOMPARE(OpenAICredentialStore::authenticationFilePath({}, QStringLiteral("/home/tester")),
              QStringLiteral("/home/tester/.codex/auth.json"));
 }
 
-void CodexCredentialsTest::loadsOnlyPrivateRegularFiles()
+void OpenAICredentialsTest::loadsOnlyPrivateRegularFiles()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -221,23 +221,23 @@ void CodexCredentialsTest::loadsOnlyPrivateRegularFiles()
                              R"({"tokens":{"access_token":"access","refresh_token":"refresh"}})"));
 
     QString error;
-    QVERIFY(CodexCredentialStore::load(path, &error));
+    QVERIFY(OpenAICredentialStore::load(path, &error));
 
     QVERIFY(QFile::setPermissions(path, QFileDevice::ReadOwner | QFileDevice::WriteOwner |
                                             QFileDevice::ReadGroup));
-    QVERIFY(!CodexCredentialStore::load(path, &error));
-    QCOMPARE(error, QStringLiteral("Codex auth file permissions expose credentials"));
+    QVERIFY(!OpenAICredentialStore::load(path, &error));
+    QCOMPARE(error, QStringLiteral("OpenAI auth file permissions expose credentials"));
 
     QVERIFY(QFile::remove(path));
-    QVERIFY(!CodexCredentialStore::load(path, &error));
-    QCOMPARE(error, QStringLiteral("Codex auth file was not found"));
+    QVERIFY(!OpenAICredentialStore::load(path, &error));
+    QCOMPARE(error, QStringLiteral("OpenAI auth file was not found"));
 
     QVERIFY(QFile::link(directory.filePath(QStringLiteral("missing")), path));
-    QVERIFY(!CodexCredentialStore::load(path, &error));
-    QCOMPARE(error, QStringLiteral("Codex auth file must not be a symbolic link"));
+    QVERIFY(!OpenAICredentialStore::load(path, &error));
+    QCOMPARE(error, QStringLiteral("OpenAI auth file must not be a symbolic link"));
 }
 
-void CodexCredentialsTest::rejectsOversizedFile()
+void OpenAICredentialsTest::rejectsOversizedFile()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -245,29 +245,29 @@ void CodexCredentialsTest::rejectsOversizedFile()
     QVERIFY(writePrivateFile(path, QByteArray(1024 * 1024 + 1, 'x')));
 
     QString error;
-    QVERIFY(!CodexCredentialStore::load(path, &error));
-    QCOMPARE(error, QStringLiteral("Codex auth file exceeds the 1 MiB limit"));
+    QVERIFY(!OpenAICredentialStore::load(path, &error));
+    QCOMPARE(error, QStringLiteral("OpenAI auth file exceeds the 1 MiB limit"));
 }
 
-void CodexCredentialsTest::rejectsUnsafePaths()
+void OpenAICredentialsTest::rejectsUnsafePaths()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     QString error;
 
-    QVERIFY(!CodexCredentialStore::load(directory.path(), &error));
-    QCOMPARE(error, QStringLiteral("Codex auth path is not a regular file"));
+    QVERIFY(!OpenAICredentialStore::load(directory.path(), &error));
+    QCOMPARE(error, QStringLiteral("OpenAI auth path is not a regular file"));
 
 #if defined(Q_OS_UNIX)
     if (QFileInfo(QStringLiteral("/etc/passwd")).ownerId() !=
         QFileInfo(directory.path()).ownerId()) {
-        QVERIFY(!CodexCredentialStore::load(QStringLiteral("/etc/passwd"), &error));
-        QCOMPARE(error, QStringLiteral("Codex auth file is owned by another user"));
+        QVERIFY(!OpenAICredentialStore::load(QStringLiteral("/etc/passwd"), &error));
+        QCOMPARE(error, QStringLiteral("OpenAI auth file is owned by another user"));
     }
 #endif
 }
 
-void CodexCredentialsTest::savesRotatedCredentialsAtomically()
+void OpenAICredentialsTest::savesRotatedCredentialsAtomically()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -277,7 +277,7 @@ void CodexCredentialsTest::savesRotatedCredentialsAtomically()
         R"({"tokens":{"access_token":"old","refresh_token":"old-refresh","extra":"keep"},"unknown":7})"));
 
     QString error;
-    auto credentials = CodexCredentialStore::load(path, &error);
+    auto credentials = OpenAICredentialStore::load(path, &error);
     QVERIFY2(credentials.has_value(), qPrintable(error));
     credentials->accessToken = QStringLiteral("new-access");
     credentials->refreshToken = QStringLiteral("new-refresh");
@@ -286,7 +286,7 @@ void CodexCredentialsTest::savesRotatedCredentialsAtomically()
     credentials->lastRefresh =
         QDateTime::fromString(QStringLiteral("2026-09-03T15:00:00Z"), Qt::ISODate);
 
-    QVERIFY2(CodexCredentialStore::save(path, *credentials, &error), qPrintable(error));
+    QVERIFY2(OpenAICredentialStore::save(path, *credentials, &error), qPrintable(error));
     QFile file(path);
     QVERIFY(file.open(QIODevice::ReadOnly));
     const QJsonObject saved = QJsonDocument::fromJson(file.readAll()).object();
@@ -305,27 +305,27 @@ void CodexCredentialsTest::savesRotatedCredentialsAtomically()
              QFileDevice::Permissions{});
 }
 
-void CodexCredentialsTest::rejectsInvalidRotation()
+void OpenAICredentialsTest::rejectsInvalidRotation()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     const QString path = directory.filePath(QStringLiteral("auth.json"));
     QVERIFY(writePrivateFile(path, R"({"OPENAI_API_KEY":"sk-example"})"));
     QString error;
-    const auto credentials = CodexCredentialStore::load(path, &error);
+    const auto credentials = OpenAICredentialStore::load(path, &error);
     QVERIFY(credentials.has_value());
 
-    QVERIFY(!CodexCredentialStore::save(path, *credentials, &error));
-    QCOMPARE(error, QStringLiteral("Codex API-key credentials cannot be rotated"));
-    QVERIFY(!CodexCredentialStore::save(directory.filePath(QStringLiteral("missing")), *credentials,
-                                        &error));
-    QCOMPARE(error, QStringLiteral("Codex auth file was not found"));
+    QVERIFY(!OpenAICredentialStore::save(path, *credentials, &error));
+    QCOMPARE(error, QStringLiteral("OpenAI API-key credentials cannot be rotated"));
+    QVERIFY(!OpenAICredentialStore::save(directory.filePath(QStringLiteral("missing")),
+                                         *credentials, &error));
+    QCOMPARE(error, QStringLiteral("OpenAI auth file was not found"));
 }
 
-void CodexCredentialsTest::calculatesRefreshNeed()
+void OpenAICredentialsTest::calculatesRefreshNeed()
 {
     const QDateTime now = QDateTime::fromSecsSinceEpoch(1'700'000'000, QTimeZone::UTC);
-    CodexCredentials credentials;
+    OpenAICredentials credentials;
 
     credentials.apiKey = true;
     QVERIFY(!credentials.needsRefresh(now));
@@ -345,9 +345,9 @@ void CodexCredentialsTest::calculatesRefreshNeed()
     QVERIFY(credentials.needsRefresh(now));
 }
 
-void CodexCredentialsTest::redactsIdentity()
+void OpenAICredentialsTest::redactsIdentity()
 {
-    CodexCredentials credentials;
+    OpenAICredentials credentials;
     credentials.email = QStringLiteral("person@example.com");
     QCOMPARE(credentials.redactedEmail(), QStringLiteral("redacted@example.com"));
     credentials.email = QStringLiteral("opaque");
@@ -356,6 +356,6 @@ void CodexCredentialsTest::redactsIdentity()
     QVERIFY(credentials.redactedEmail().isEmpty());
 }
 
-QTEST_GUILESS_MAIN(CodexCredentialsTest)
+QTEST_GUILESS_MAIN(OpenAICredentialsTest)
 
-#include "tst_codex_credentials.moc"
+#include "tst_openai_credentials.moc"

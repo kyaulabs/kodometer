@@ -55,12 +55,11 @@ TestCase {
     }
 
     function test_providerAssets_data() {
-        return ["codex", "claude", "deepseek", "gemini", "kimi", "openrouter", "xai", "zai"].map(id => (
-        {
-
-            tag: id,
-            id: id
-        }))
+        return ["openai", "claude", "deepseek", "gemini", "kimi", "openrouter", "xai", "zai"].map(
+                    id => ({
+                        tag: id,
+                        id: id
+                    }))
     }
 
         function test_providerAssets(data) {
@@ -69,7 +68,7 @@ TestCase {
     })
         verify(icon.knownProvider)
         tryCompare(icon, "status", Image.Ready)
-        compare(icon.needsBacking, data.id === "codex" || data.id === "openrouter")
+        compare(icon.needsBacking, data.id === "openai" || data.id === "openrouter")
         verify(waitForRendering(icon))
         const pixels = grabImage(icon)
         verify(pixels.width > 0)

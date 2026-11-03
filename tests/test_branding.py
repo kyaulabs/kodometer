@@ -55,11 +55,11 @@ class BrandingTests(unittest.TestCase):
         originals = ROOT / "branding/provider-icons"
         runtime = ROOT / "applet/assets/providers"
         self.assertEqual({p.stem for p in runtime.glob("*.svg")},
-                         {"codex", "claude", "deepseek", "gemini", "kimi", "openrouter", "xai", "zai"})
+                         {"openai", "claude", "deepseek", "gemini", "kimi", "openrouter", "xai", "zai"})
         for source in originals.glob("*.svg"):
             with self.subTest(name=source.name):
                 original = ET.parse(source).getroot()
-                name = "codex.svg" if source.name == "openai.svg" else source.name
+                name = "openai.svg" if source.name == "openai.svg" else source.name
                 normalized = ET.parse(runtime / name).getroot()
                 x, y, w, h = map(float, original.attrib["viewBox"].split())
                 nx, ny, nw, nh = map(float, normalized.attrib["viewBox"].split())

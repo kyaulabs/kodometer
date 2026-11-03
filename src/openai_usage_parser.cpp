@@ -1,4 +1,4 @@
-#include <kodometer/codex_usage_parser.hpp>
+#include <kodometer/openai_usage_parser.hpp>
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -128,18 +128,18 @@ QVariant credits(const QJsonObject &root)
 
 } // namespace
 
-std::optional<QVariantMap> CodexUsageParser::parse(const QByteArray &data,
-                                                   const CodexCredentials &credentials,
-                                                   const QDateTime &updatedAt, QString *error)
+std::optional<QVariantMap> OpenAIUsageParser::parse(const QByteArray &data,
+                                                    const OpenAICredentials &credentials,
+                                                    const QDateTime &updatedAt, QString *error)
 {
     QJsonParseError parseError;
     const QJsonDocument document = QJsonDocument::fromJson(data, &parseError);
     if (parseError.error != QJsonParseError::NoError) {
-        setError(error, QStringLiteral("Codex usage API returned invalid JSON"));
+        setError(error, QStringLiteral("OpenAI usage API returned invalid JSON"));
         return std::nullopt;
     }
     if (!document.isObject()) {
-        setError(error, QStringLiteral("Codex usage API returned an invalid object"));
+        setError(error, QStringLiteral("OpenAI usage API returned an invalid object"));
         return std::nullopt;
     }
     const QJsonObject root = document.object();
@@ -194,8 +194,8 @@ std::optional<QVariantMap> CodexUsageParser::parse(const QByteArray &data,
 
     // GCOVR_EXCL_BR_START -- Qt container allocation branches
     QVariantMap provider{
-        {QStringLiteral("id"), QStringLiteral("codex")},
-        {QStringLiteral("name"), QStringLiteral("Codex")},
+        {QStringLiteral("id"), QStringLiteral("openai")},
+        {QStringLiteral("name"), QStringLiteral("OpenAI")},
         {QStringLiteral("enabled"), true},
         {QStringLiteral("source"),
          credentials.apiKey ? QStringLiteral("api-key") : QStringLiteral("oauth")},
@@ -222,7 +222,7 @@ std::optional<QVariantMap> CodexUsageParser::parse(const QByteArray &data,
     return provider;
 }
 
-QString CodexUsageParser::formatPlan(const QString &plan)
+QString OpenAIUsageParser::formatPlan(const QString &plan)
 {
     const QString normalized = plan.trimmed().toLower();
     if (normalized == QLatin1String("pro")) {

@@ -21,7 +21,7 @@ QtObject {
     }
 
     function enabled(providerId, windowData) {
-        const spark = providerId === "codex" && /spark/i.test(String(windowData.kind || ""))
+        const spark = providerId === "openai" && /spark/i.test(String(windowData.kind || ""))
         // The master Spark switch supersedes obsolete per-window Spark entries.
         return (spark ? showSpark : !hiddenWindows.includes(key(providerId, windowData))) && (showIdleWindows ||
                                                                                               !windowData.idle)
@@ -62,7 +62,7 @@ QtObject {
     readonly property var catalog: {
         const entries = []
         const names = {
-            codex: "Codex",
+            openai: "OpenAI",
             claude: "Claude",
             gemini: "Gemini",
             kimi: "Kimi Code",

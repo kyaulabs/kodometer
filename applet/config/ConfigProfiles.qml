@@ -21,15 +21,15 @@ Kirigami.ScrollablePage {
         QQC2.Label {
             Layout.fillWidth: true
             text: qsTr(
-                      "Only the selected profile is refreshed. Choose existing folders containing Codex auth.json, Claude .credentials.json, or Gemini oauth_creds.json (with settings.json when present). Kodometer does not sign in or copy credentials.")
+                      "Only the selected profile is refreshed. Choose existing folders containing OpenAI auth.json, Claude .credentials.json, or Gemini oauth_creds.json (with settings.json when present). Kodometer does not sign in or copy credentials.")
             wrapMode: Text.WordWrap
         }
 
         ProfileEditor {
             Layout.fillWidth: true
             profileModel: profiles
-            providerId: "codex"
-            providerName: "Codex"
+            providerId: "openai"
+            providerName: "OpenAI"
         }
 
         Kirigami.Separator {

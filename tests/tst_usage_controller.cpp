@@ -146,6 +146,56 @@ class UsageControllerTest final : public QObject
     Q_OBJECT
 
   private slots:
+    void groupsOpenAIWithoutCouplingCredentials()
+    {
+        auto *plan = new FakeProviderAdapter("openai");
+        auto *api = new FakeProviderAdapter("openai-api");
+        UsageController controller(QList<ProviderAdapter *>{plan, api});
+        controller.setAutoRefresh(false);
+        controller.refresh();
+        api->succeed({{"id", "openai-api"},
+                      {"configured", true},
+                      {"cost", QVariantMap{{"monthToDateUSD", 4.0}}}});
+        QCOMPARE(controller.providers().size(), 1);
+        QCOMPARE(controller.providers().first().toMap().value("id").toString(),
+                 QStringLiteral("openai"));
+        plan->succeed({{"id", "openai"}, {"name", "OpenAI"}, {"windows", QVariantList{}}});
+        QCOMPARE(controller.providers().size(), 1);
+        QVERIFY(controller.providers()
+                    .first()
+                    .toMap()
+                    .value("api")
+                    .toMap()
+                    .value("configured")
+                    .toBool());
+        controller.setDisabledProviders({"openai"});
+        QVERIFY(controller.providers().isEmpty());
+        controller.refresh();
+        QCOMPARE(api->refreshCount, 1);
+        QCOMPARE(plan->refreshCount, 1);
+    }
+
+    void exposesApiOnlyAfterConfigurationWithoutDisplacingOtherProviders()
+    {
+        auto *claude = new FakeProviderAdapter("claude");
+        auto *api = new FakeProviderAdapter("openai-api");
+        UsageController controller(QList<ProviderAdapter *>{claude, api});
+        controller.setAutoRefresh(false);
+        controller.refresh();
+        claude->succeed({{"id", "claude"}});
+        api->succeed({{"id", "openai-api"}, {"configured", false}});
+        QCOMPARE(controller.providers().size(), 1);
+        controller.refresh();
+        api->succeed({{"id", "openai-api"}, {"configured", true}});
+        claude->succeed({{"id", "claude"}});
+        QCOMPARE(controller.providers().size(), 2);
+        const auto first = controller.providers().first().toMap();
+        QCOMPARE(first.value("id").toString(), QStringLiteral("openai"));
+        QVERIFY(first.value("apiOnly").toBool());
+        QCOMPARE(controller.providers().last().toMap().value("id").toString(),
+                 QStringLiteral("claude"));
+    }
+
     void recordsOnlyCurrentAuthenticatedQuota();
     void rejectsReplacedDefaultCredentials();
     void keepsRotatedIdentityCurrent();
@@ -180,20 +230,20 @@ class UsageControllerTest final : public QObject
 
 void UsageControllerTest::forgetsExternalReplacementBeforePublication()
 {
-    auto *adapter = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("openai"));
     adapter->historyIdentity("old-key");
     UsageController controller(QList<ProviderAdapter *>{adapter});
     controller.setAutoRefresh(false);
     QVariantMap provider{
-        {"id", "codex"},
+        {"id", "openai"},
         {"windows", QVariantList{QVariantMap{{"kind", "session"}, {"remainingPercent", 50.0}}}}};
     controller.refresh();
     adapter->succeed(provider);
-    QCOMPARE(controller.history()->view("codex").size(), 1);
+    QCOMPARE(controller.history()->view("openai").size(), 1);
     bool observed = false;
     connect(&controller, &UsageController::providersChanged, &controller, [&] {
         observed = true;
-        QVERIFY(controller.history()->view("codex").isEmpty());
+        QVERIFY(controller.history()->view("openai").isEmpty());
     });
     adapter->historyIdentity("new-key");
     provider["windows"] =
@@ -202,7 +252,7 @@ void UsageControllerTest::forgetsExternalReplacementBeforePublication()
     adapter->succeed(provider);
     QVERIFY(observed);
     const auto points =
-        controller.history()->view("codex").first().toMap().value("points").toList();
+        controller.history()->view("openai").first().toMap().value("points").toList();
     QCOMPARE(points.size(), 1);
     QCOMPARE(points.first().toList().at(1).toDouble(), 55.0);
 }
@@ -273,12 +323,12 @@ void UsageControllerTest::rejectsReplacedDefaultCredentials()
 
 void UsageControllerTest::recordsOnlyCurrentAuthenticatedQuota()
 {
-    auto *adapter = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("openai"));
     UsageController controller(QList<ProviderAdapter *>{adapter});
     controller.setAutoRefresh(false);
     const QVariantMap window{{QStringLiteral("kind"), QStringLiteral("session")},
                              {QStringLiteral("remainingPercent"), 65.0}};
-    const QVariantMap provider{{QStringLiteral("id"), QStringLiteral("codex")},
+    const QVariantMap provider{{QStringLiteral("id"), QStringLiteral("openai")},
                                {QStringLiteral("windows"), QVariantList{window}}};
     auto *history = controller.history();
     QVERIFY(history);
@@ -298,7 +348,7 @@ void UsageControllerTest::recordsOnlyCurrentAuthenticatedQuota()
     QCOMPARE(adapter->historyIdentities().size(), 1);
     controller.refresh();
     adapter->succeed(provider);
-    QCOMPARE(history->view("codex").size(), 1);
+    QCOMPARE(history->view("openai").size(), 1);
     const int revision = history->revision();
     adapter->succeed(provider); // Unsolicited duplicate cannot append history.
     QCOMPARE(history->revision(), revision);
@@ -309,17 +359,17 @@ void UsageControllerTest::recordsOnlyCurrentAuthenticatedQuota()
     controller.refresh();
     const auto connection = connect(&controller, &UsageController::providersChanged, &controller, [&] {
         controller.profiles()->setConfiguration(QStringLiteral(
-            R"({"version":1,"codex":[{"id":"11111111-1111-4111-8111-111111111111","name":"Other","directory":"/synthetic/other"}],"selectedCodex":"11111111-1111-4111-8111-111111111111"})"));
+            R"({"version":1,"openai":[{"id":"11111111-1111-4111-8111-111111111111","name":"Other","directory":"/synthetic/other"}],"selectedOpenAI":"11111111-1111-4111-8111-111111111111"})"));
     });
     QVariantMap changed = provider;
     changed.insert("updatedAt", "changed");
     adapter->succeed(changed);
     disconnect(connection);
-    QVERIFY(history->view("codex").isEmpty());
+    QVERIFY(history->view("openai").isEmpty());
     controller.refresh();
     adapter->historyIdentity("other-account");
     const auto reentrant = connect(history, &Kodometer::QuotaHistory::changed, &controller, [&] {
-        controller.setDisabledProviders({QStringLiteral("codex")});
+        controller.setDisabledProviders({QStringLiteral("openai")});
     });
     QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
     adapter->succeed(provider);
@@ -329,27 +379,27 @@ void UsageControllerTest::recordsOnlyCurrentAuthenticatedQuota()
 
 void UsageControllerTest::aggregatesProvidersInRegistrationOrder()
 {
-    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *openai = new FakeProviderAdapter(QStringLiteral("openai"));
     auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
-    UsageController controller({codex, claude});
+    UsageController controller({openai, claude});
     QSignalSpy finished(&controller, &UsageController::refreshFinished);
 
     controller.refresh();
     controller.refresh();
 
     QVERIFY(controller.busy());
-    QCOMPARE(codex->refreshCount, 1);
+    QCOMPARE(openai->refreshCount, 1);
     QCOMPARE(claude->refreshCount, 1);
     claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
     QVERIFY(controller.busy());
-    codex->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    openai->succeed({{QStringLiteral("id"), QStringLiteral("openai")}});
 
     QVERIFY(!controller.busy());
     QCOMPARE(finished.count(), 1);
     QCOMPARE(finished.first().first().toBool(), true);
     QCOMPARE(controller.providers().size(), 2);
     QCOMPARE(controller.providers().at(0).toMap().value(QStringLiteral("id")).toString(),
-             QStringLiteral("codex"));
+             QStringLiteral("openai"));
     QCOMPARE(controller.providers().at(1).toMap().value(QStringLiteral("id")).toString(),
              QStringLiteral("claude"));
     QVERIFY(controller.error().isEmpty());
@@ -360,27 +410,27 @@ void UsageControllerTest::aggregatesProvidersInRegistrationOrder()
 
 void UsageControllerTest::retainsLastGoodProviderOnFailure()
 {
-    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *openai = new FakeProviderAdapter(QStringLiteral("openai"));
     auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
-    UsageController controller({codex, claude});
+    UsageController controller({openai, claude});
     QSignalSpy finished(&controller, &UsageController::refreshFinished);
 
     controller.refresh();
-    codex->succeed(
-        {{QStringLiteral("id"), QStringLiteral("codex")}, {QStringLiteral("version"), 1}});
+    openai->succeed(
+        {{QStringLiteral("id"), QStringLiteral("openai")}, {QStringLiteral("version"), 1}});
     claude->fail(QStringLiteral("Claude unavailable"));
     QCOMPARE(finished.takeFirst().first().toBool(), false);
     QCOMPARE(controller.providers().size(), 1);
     QCOMPARE(controller.error(), QStringLiteral("Claude: Claude unavailable"));
 
     controller.refresh();
-    codex->fail(QStringLiteral("Codex unavailable"));
+    openai->fail(QStringLiteral("OpenAI unavailable"));
     claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
 
     QCOMPARE(finished.takeFirst().first().toBool(), false);
     QCOMPARE(controller.providers().size(), 2);
     QCOMPARE(controller.providers().at(0).toMap().value(QStringLiteral("version")).toInt(), 1);
-    QCOMPARE(controller.error(), QStringLiteral("Codex: Codex unavailable"));
+    QCOMPARE(controller.error(), QStringLiteral("OpenAI: OpenAI unavailable"));
 }
 
 void UsageControllerTest::handlesRegistrationEdges()
@@ -484,7 +534,7 @@ void UsageControllerTest::handlesNoProviders()
 
 void UsageControllerTest::schedulesRefreshWithoutOverlap()
 {
-    auto *adapter = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("openai"));
     UsageController controller(QList<ProviderAdapter *>{adapter});
     QSignalSpy settings(&controller, &UsageController::refreshSettingsChanged);
     auto *timer = controller.findChild<QTimer *>(QStringLiteral("refreshTimer"));
@@ -501,7 +551,7 @@ void UsageControllerTest::schedulesRefreshWithoutOverlap()
     controller.setAutoRefresh(true);
     controller.refresh();
     QVERIFY(!timer->isActive());
-    adapter->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    adapter->succeed({{QStringLiteral("id"), QStringLiteral("openai")}});
     QVERIFY(timer->isActive());
     QVERIFY(timer->isSingleShot());
     QCOMPARE(timer->interval(), 86400000);
@@ -526,9 +576,9 @@ void UsageControllerTest::schedulesRefreshWithoutOverlap()
 
 void UsageControllerTest::filtersDisabledProviders()
 {
-    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *openai = new FakeProviderAdapter(QStringLiteral("openai"));
     auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
-    UsageController controller({codex, claude});
+    UsageController controller({openai, claude});
     QSignalSpy changed(&controller, &UsageController::disabledProvidersChanged);
     QSignalSpy finished(&controller, &UsageController::refreshFinished);
     QVERIFY(controller.disabledProviders().isEmpty());
@@ -536,13 +586,13 @@ void UsageControllerTest::filtersDisabledProviders()
     QCOMPARE(controller.disabledProviders(), QStringList{QStringLiteral("claude")});
     controller.setDisabledProviders({QStringLiteral("claude")});
     QCOMPARE(changed.count(), 1);
-    QCOMPARE(codex->refreshCount, 0); // Applying startup settings must not start networking.
+    QCOMPARE(openai->refreshCount, 0); // Applying startup settings must not start networking.
     controller.refresh();
-    QCOMPARE(codex->refreshCount, 1);
+    QCOMPARE(openai->refreshCount, 1);
     QCOMPARE(claude->refreshCount, 0);
-    codex->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    openai->succeed({{QStringLiteral("id"), QStringLiteral("openai")}});
     QCOMPARE(controller.providers().size(), 1);
-    controller.setDisabledProviders({QStringLiteral("codex"), QStringLiteral("claude")});
+    controller.setDisabledProviders({QStringLiteral("openai"), QStringLiteral("claude")});
     QVERIFY(controller.providers().isEmpty());
     QVERIFY(controller.snapshot().value(QStringLiteral("providers")).toList().isEmpty());
     QVERIFY(!controller.busy());
@@ -550,37 +600,37 @@ void UsageControllerTest::filtersDisabledProviders()
     QVERIFY(!controller.findChild<QTimer *>()->isActive());
     QCOMPARE(finished.count(), 2);
     controller.setDisabledProviders({QStringLiteral("unknown")});
-    QCOMPARE(codex->refreshCount, 2);
+    QCOMPARE(openai->refreshCount, 2);
     QCOMPARE(claude->refreshCount, 1);
-    codex->fail(QStringLiteral("Unavailable"));
+    openai->fail(QStringLiteral("Unavailable"));
     claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
-    QCOMPARE(controller.providers().size(), 2); // Last-good Codex retained.
+    QCOMPARE(controller.providers().size(), 2); // Last-good OpenAI retained.
 }
 
 void UsageControllerTest::changesProvidersDuringRefresh()
 {
-    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *openai = new FakeProviderAdapter(QStringLiteral("openai"));
     auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
-    UsageController controller({codex, claude});
+    UsageController controller({openai, claude});
     controller.refresh();
-    codex->fail(QStringLiteral("Old error"));
-    controller.setDisabledProviders({QStringLiteral("codex")});
-    controller.setDisabledProviders({QStringLiteral("claude"), QStringLiteral("codex")});
+    openai->fail(QStringLiteral("Old error"));
+    controller.setDisabledProviders({QStringLiteral("openai")});
+    controller.setDisabledProviders({QStringLiteral("claude"), QStringLiteral("openai")});
     claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
     QCoreApplication::processEvents();
     QVERIFY(!controller.busy());
     QVERIFY(controller.error().isEmpty());
     QVERIFY(controller.providers().isEmpty());
-    QCOMPARE(codex->refreshCount, 1);
+    QCOMPARE(openai->refreshCount, 1);
     QCOMPARE(claude->refreshCount, 1);
     // Unsolicited late completions must not republish disabled providers or corrupt counts.
     claude->fail(QStringLiteral("Late error"));
-    codex->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    openai->succeed({{QStringLiteral("id"), QStringLiteral("openai")}});
     QVERIFY(controller.error().isEmpty());
     QVERIFY(controller.providers().isEmpty());
     controller.setDisabledProviders({QStringLiteral("claude")});
-    QCOMPARE(codex->refreshCount, 2);
-    codex->succeed({{QStringLiteral("id"), QStringLiteral("codex")}});
+    QCOMPARE(openai->refreshCount, 2);
+    openai->succeed({{QStringLiteral("id"), QStringLiteral("openai")}});
     QCOMPARE(controller.providers().size(), 1);
 }
 
@@ -610,32 +660,32 @@ void UsageControllerTest::handlesSynchronousCompletion()
 
 void UsageControllerTest::publishesOnlyFreshEnabledResults()
 {
-    auto *codex = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *openai = new FakeProviderAdapter(QStringLiteral("openai"));
     auto *claude = new FakeProviderAdapter(QStringLiteral("claude"));
-    UsageController controller({codex, claude});
+    UsageController controller({openai, claude});
     QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
-    const QVariantMap result{{QStringLiteral("id"), QStringLiteral("codex")}};
+    const QVariantMap result{{QStringLiteral("id"), QStringLiteral("openai")}};
     controller.refresh();
-    codex->succeed(result);
+    openai->succeed(result);
     claude->fail(QStringLiteral("Unavailable"));
     QCOMPARE(fresh.count(), 1);
     QCOMPARE(fresh.first().first().toMap(), result);
     controller.refresh();
-    codex->fail(QStringLiteral("Unavailable"));
+    openai->fail(QStringLiteral("Unavailable"));
     controller.setDisabledProviders({QStringLiteral("claude")});
     claude->succeed({{QStringLiteral("id"), QStringLiteral("claude")}});
     QCOMPARE(fresh.count(), 1);
-    codex->succeed(result); // Unsolicited result before the queued refresh is ignored.
+    openai->succeed(result); // Unsolicited result before the queued refresh is ignored.
     QCOMPARE(fresh.count(), 1);
-    QTRY_COMPARE(codex->refreshCount, 3);
-    codex->succeed(result); // Identical, but newly fetched data is still a fresh result.
+    QTRY_COMPARE(openai->refreshCount, 3);
+    openai->succeed(result); // Identical, but newly fetched data is still a fresh result.
     QCOMPARE(fresh.count(), 2);
 }
 
 void UsageControllerTest::isolatesSelectedProfilesAndInflightResults_data()
 {
     QTest::addColumn<QString>("provider");
-    QTest::newRow("codex") << QStringLiteral("codex");
+    QTest::newRow("openai") << QStringLiteral("openai");
     QTest::newRow("claude") << QStringLiteral("claude");
     QTest::newRow("gemini") << QStringLiteral("gemini");
 }
@@ -723,7 +773,7 @@ void UsageControllerTest::appliesMultipleContextsAtomicallyAndRenamesWithoutFetc
 {
     QTest::addColumn<QString>("provider");
     QTest::addColumn<QString>("selection");
-    QTest::newRow("codex") << QStringLiteral("codex") << QStringLiteral("selectedCodex");
+    QTest::newRow("openai") << QStringLiteral("openai") << QStringLiteral("selectedOpenAI");
     QTest::newRow("gemini") << QStringLiteral("gemini") << QStringLiteral("selectedGemini");
 }
 
@@ -773,7 +823,7 @@ void UsageControllerTest::rejectsReentrantContextChanges_data()
 void UsageControllerTest::rejectsReentrantContextChanges()
 {
     QFETCH(bool, disable);
-    auto *adapter = new FakeProviderAdapter(QStringLiteral("codex"));
+    auto *adapter = new FakeProviderAdapter(QStringLiteral("openai"));
     UsageController controller(QList<ProviderAdapter *>{adapter});
     QSignalSpy fresh(&controller, &UsageController::providerRefreshed);
     bool changed = false;
@@ -781,15 +831,15 @@ void UsageControllerTest::rejectsReentrantContextChanges()
         if (!changed && !controller.providers().isEmpty()) {
             changed = true;
             if (disable) {
-                controller.setDisabledProviders({QStringLiteral("codex")});
+                controller.setDisabledProviders({QStringLiteral("openai")});
             }
             else {
-                QVERIFY(controller.profiles()->addProfile("codex", "Work", "/work"));
+                QVERIFY(controller.profiles()->addProfile("openai", "Work", "/work"));
             }
         }
     });
     controller.refresh();
-    adapter->succeed({{"id", "codex"}});
+    adapter->succeed({{"id", "openai"}});
     QVERIFY(changed);
     QVERIFY(controller.providers().isEmpty());
     QCOMPARE(fresh.count(), 0);

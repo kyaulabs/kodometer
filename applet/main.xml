@@ -22,8 +22,20 @@
             <label>Show idle quota windows</label>
             <default>false</default>
         </entry>
+        <entry name="openaiTabbed" type="Bool">
+            <label>Show OpenAI Plan and API in separate tabs</label>
+            <default>true</default>
+        </entry>
+        <entry name="openaiMigrationComplete" type="Bool">
+            <label>OpenAI provider preference migration completed</label>
+            <default>false</default>
+        </entry>
         <entry name="showCodexSpark" type="Bool">
-            <label>Show Codex Spark quota</label>
+            <label>Legacy Spark preference used only for migration</label>
+            <default>false</default>
+        </entry>
+        <entry name="showOpenAISpark" type="Bool">
+            <label>Show OpenAI Spark quota</label>
             <default>false</default>
         </entry>
         <entry name="quotaBarsRemaining" type="Bool">

@@ -24,7 +24,7 @@ QtObject {
     function summary(kind) {
         // Only public names and normalized numeric usage enter the panel tooltip.
         const names = {
-            codex: "Codex",
+            openai: "OpenAI",
             claude: "Claude",
             gemini: "Gemini",
             kimi: "Kimi Code",

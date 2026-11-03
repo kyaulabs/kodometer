@@ -9,7 +9,7 @@
 
 namespace Kodometer {
 
-struct CodexCredentials
+struct OpenAICredentials
 {
     QString accessToken;
     QString refreshToken;
@@ -25,7 +25,7 @@ struct CodexCredentials
     [[nodiscard]] QString redactedEmail() const;
 };
 
-class CodexCredentialStore
+class OpenAICredentialStore
 {
   public:
     static constexpr qint64 MaximumFileSize = 1024 * 1024;
@@ -33,15 +33,15 @@ class CodexCredentialStore
     [[nodiscard]] static QString
     authenticationFilePath(const QMap<QString, QString> &environment = {},
                            const QString &homeDirectory = {});
-    [[nodiscard]] static std::optional<CodexCredentials> load(const QString &path,
-                                                              QString *error = nullptr);
-    [[nodiscard]] static std::optional<CodexCredentials> parse(const QByteArray &data,
+    [[nodiscard]] static std::optional<OpenAICredentials> load(const QString &path,
                                                                QString *error = nullptr);
-    [[nodiscard]] static bool save(const QString &path, const CodexCredentials &credentials,
+    [[nodiscard]] static std::optional<OpenAICredentials> parse(const QByteArray &data,
+                                                                QString *error = nullptr);
+    [[nodiscard]] static bool save(const QString &path, const OpenAICredentials &credentials,
                                    QString *error = nullptr);
 
   private:
-    CodexCredentialStore() = delete;
+    OpenAICredentialStore() = delete;
 };
 
 } // namespace Kodometer

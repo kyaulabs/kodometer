@@ -1,4 +1,4 @@
-#include <kodometer/codex_credentials.hpp>
+#include <kodometer/openai_credentials.hpp>
 
 #include <QDir>
 #include <QFile>
@@ -81,7 +81,7 @@ QDateTime expirationFromClaims(const QJsonObject &claims)
         return {};
     }
     const double seconds = expiration.toDouble();
-    // Keep dates within the range accepted by Codex's cross-platform timestamp implementation.
+    // Keep dates within the range accepted by OpenAI's cross-platform timestamp implementation.
     constexpr double minimumExpiration = -8'334'601'228'800.0;
     constexpr double maximumExpiration = 8'210'266'876'799.0;
     if (!std::isfinite(seconds) || std::floor(seconds) != seconds || // GCOVR_EXCL_BR_LINE
@@ -109,29 +109,29 @@ bool permissionsExposeCredentials(QFileDevice::Permissions permissions)
 bool validateExistingFile(const QFileInfo &info, QString *error)
 {
     if (info.isSymbolicLink()) {
-        setError(error, QStringLiteral("Codex auth file must not be a symbolic link"));
+        setError(error, QStringLiteral("OpenAI auth file must not be a symbolic link"));
         return false;
     }
     if (!info.exists()) {
-        setError(error, QStringLiteral("Codex auth file was not found"));
+        setError(error, QStringLiteral("OpenAI auth file was not found"));
         return false;
     }
     if (!info.isFile()) {
-        setError(error, QStringLiteral("Codex auth path is not a regular file"));
+        setError(error, QStringLiteral("OpenAI auth path is not a regular file"));
         return false;
     }
 #if defined(Q_OS_UNIX)
     if (info.ownerId() != static_cast<uint>(geteuid())) {
-        setError(error, QStringLiteral("Codex auth file is owned by another user"));
+        setError(error, QStringLiteral("OpenAI auth file is owned by another user"));
         return false;
     }
 #endif
     if (permissionsExposeCredentials(info.permissions())) {
-        setError(error, QStringLiteral("Codex auth file permissions expose credentials"));
+        setError(error, QStringLiteral("OpenAI auth file permissions expose credentials"));
         return false;
     }
-    if (info.size() > CodexCredentialStore::MaximumFileSize) {
-        setError(error, QStringLiteral("Codex auth file exceeds the 1 MiB limit"));
+    if (info.size() > OpenAICredentialStore::MaximumFileSize) {
+        setError(error, QStringLiteral("OpenAI auth file exceeds the 1 MiB limit"));
         return false;
     }
     return true;
@@ -139,7 +139,7 @@ bool validateExistingFile(const QFileInfo &info, QString *error)
 
 } // namespace
 
-bool CodexCredentials::needsRefresh(const QDateTime &now) const
+bool OpenAICredentials::needsRefresh(const QDateTime &now) const
 {
     if (apiKey) {
         return false;
@@ -153,7 +153,7 @@ bool CodexCredentials::needsRefresh(const QDateTime &now) const
     return lastRefresh.secsTo(now) > 8 * 24 * 60 * 60;
 }
 
-QString CodexCredentials::redactedEmail() const
+QString OpenAICredentials::redactedEmail() const
 {
     if (email.isEmpty()) {
         return {};
@@ -165,8 +165,8 @@ QString CodexCredentials::redactedEmail() const
     return QStringLiteral("redacted") + email.mid(separator);
 }
 
-QString CodexCredentialStore::authenticationFilePath(const QMap<QString, QString> &environment,
-                                                     const QString &homeDirectory)
+QString OpenAICredentialStore::authenticationFilePath(const QMap<QString, QString> &environment,
+                                                      const QString &homeDirectory)
 {
     QString root = environment.value(QStringLiteral("CODEX_HOME")).trimmed();
     if (root.isEmpty()) {
@@ -176,7 +176,7 @@ QString CodexCredentialStore::authenticationFilePath(const QMap<QString, QString
     return QDir::cleanPath(QDir(root).filePath(QStringLiteral("auth.json")));
 }
 
-std::optional<CodexCredentials> CodexCredentialStore::load(const QString &path, QString *error)
+std::optional<OpenAICredentials> OpenAICredentialStore::load(const QString &path, QString *error)
 {
     const QFileInfo info(path);
     if (!validateExistingFile(info, error)) {
@@ -185,35 +185,36 @@ std::optional<CodexCredentials> CodexCredentialStore::load(const QString &path, 
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) { // GCOVR_EXCL_LINE -- validated file changed concurrently
-        setError(error, QStringLiteral("Codex auth file could not be read")); // GCOVR_EXCL_LINE
-        return std::nullopt;                                                  // GCOVR_EXCL_LINE
+        setError(error, QStringLiteral("OpenAI auth file could not be read")); // GCOVR_EXCL_LINE
+        return std::nullopt;                                                   // GCOVR_EXCL_LINE
     }
     const QByteArray data = file.read(MaximumFileSize + 1);
     if (data.size() > MaximumFileSize) { // GCOVR_EXCL_LINE -- file grew after validation
         setError(error,
-                 QStringLiteral("Codex auth file exceeds the 1 MiB limit")); // GCOVR_EXCL_LINE
-        return std::nullopt;                                                 // GCOVR_EXCL_LINE
+                 QStringLiteral("OpenAI auth file exceeds the 1 MiB limit")); // GCOVR_EXCL_LINE
+        return std::nullopt;                                                  // GCOVR_EXCL_LINE
     }
     return parse(data, error);
 }
 
-std::optional<CodexCredentials> CodexCredentialStore::parse(const QByteArray &data, QString *error)
+std::optional<OpenAICredentials> OpenAICredentialStore::parse(const QByteArray &data,
+                                                              QString *error)
 {
     QJsonParseError parseError;
     const QJsonDocument document = QJsonDocument::fromJson(data, &parseError);
     if (parseError.error != QJsonParseError::NoError) {
-        setError(error, QStringLiteral("Codex auth file contains invalid JSON"));
+        setError(error, QStringLiteral("OpenAI auth file contains invalid JSON"));
         return std::nullopt;
     }
     if (!document.isObject()) {
-        setError(error, QStringLiteral("Codex auth file must contain a JSON object"));
+        setError(error, QStringLiteral("OpenAI auth file must contain a JSON object"));
         return std::nullopt;
     }
 
     const QJsonObject root = document.object();
     const QString apiKey = nonEmpty(root.value(QStringLiteral("OPENAI_API_KEY")));
     if (!apiKey.isEmpty()) {
-        CodexCredentials credentials;
+        OpenAICredentials credentials;
         credentials.accessToken = apiKey;
         credentials.apiKey = true;
         credentials.document = root;
@@ -226,11 +227,11 @@ std::optional<CodexCredentials> CodexCredentialStore::parse(const QByteArray &da
     const QString refreshToken =
         tokenValue(tokens, QStringLiteral("refresh_token"), QStringLiteral("refreshToken"));
     if (accessToken.isEmpty() || refreshToken.isEmpty()) {
-        setError(error, QStringLiteral("Codex auth file contains no usable credentials"));
+        setError(error, QStringLiteral("OpenAI auth file contains no usable credentials"));
         return std::nullopt;
     }
 
-    CodexCredentials credentials;
+    OpenAICredentials credentials;
     credentials.accessToken = accessToken;
     credentials.refreshToken = refreshToken;
     credentials.idToken = tokenValue(tokens, QStringLiteral("id_token"), QStringLiteral("idToken"));
@@ -255,15 +256,15 @@ std::optional<CodexCredentials> CodexCredentialStore::parse(const QByteArray &da
     return credentials;
 }
 
-bool CodexCredentialStore::save(const QString &path, const CodexCredentials &credentials,
-                                QString *error)
+bool OpenAICredentialStore::save(const QString &path, const OpenAICredentials &credentials,
+                                 QString *error)
 {
     const QFileInfo info(path);
     if (!validateExistingFile(info, error)) {
         return false;
     }
     if (credentials.apiKey) {
-        setError(error, QStringLiteral("Codex API-key credentials cannot be rotated"));
+        setError(error, QStringLiteral("OpenAI API-key credentials cannot be rotated"));
         return false;
     }
 
@@ -287,22 +288,24 @@ bool CodexCredentialStore::save(const QString &path, const CodexCredentials &cre
     file.setDirectWriteFallback(false);
     if (!file.open(
             QIODevice::WriteOnly)) { // GCOVR_EXCL_LINE -- validated path changed concurrently
-        setError(error, QStringLiteral(
-                            "Codex auth file could not be opened for rotation")); // GCOVR_EXCL_LINE
+        setError(
+            error,
+            QStringLiteral("OpenAI auth file could not be opened for rotation")); // GCOVR_EXCL_LINE
         return false;                                                             // GCOVR_EXCL_LINE
     }
     if (!file.setPermissions(QFileDevice::ReadOwner |
                              QFileDevice::WriteOwner)) { // GCOVR_EXCL_LINE -- platform failure
         file.cancelWriting();                            // GCOVR_EXCL_LINE
-        setError(error, QStringLiteral(
-                            "Codex auth file permissions could not be secured")); // GCOVR_EXCL_LINE
+        setError(
+            error,
+            QStringLiteral("OpenAI auth file permissions could not be secured")); // GCOVR_EXCL_LINE
         return false;                                                             // GCOVR_EXCL_LINE
     }
     const QByteArray data = QJsonDocument(root).toJson(QJsonDocument::Indented);
     if (file.write(data) != data.size() || !file.commit()) { // GCOVR_EXCL_LINE -- storage failure
         setError(error, QStringLiteral(
-                            "Codex auth file rotation could not be committed")); // GCOVR_EXCL_LINE
-        return false;                                                            // GCOVR_EXCL_LINE
+                            "OpenAI auth file rotation could not be committed")); // GCOVR_EXCL_LINE
+        return false;                                                             // GCOVR_EXCL_LINE
     }
     return true;
 }

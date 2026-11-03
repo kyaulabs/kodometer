@@ -538,7 +538,14 @@ class AppletConfigurationTest final : public QObject
             {"windows", QVariantList{QVariantMap{{"kind", "session"}, {"remainingPercent", 65.0}}}},
             {"credits", QVariantMap{{"remaining", 50.0}}},
             {"api",
-             QVariantMap{{"configured", true}, {"cost", QVariantMap{{"monthToDateUSD", 12.5}}}}}};
+             QVariantMap{
+                 {"configured", true},
+                 {"cost", QVariantMap{{"monthToDateUSD", 12.5},
+                                      {"currencyCode", "USD"},
+                                      {"historyEndDate", "2027-01-15"},
+                                      {"historyIncludesCurrentDay", true},
+                                      {"daily", QVariantList{QVariantMap{{"label", "2027-01-15"},
+                                                                         {"value", 12.5}}}}}}}}};
         QScopedPointer<QObject> page(
             component.createWithInitialProperties({{"width", 400}, {"provider", provider}}));
         QVERIFY2(page, qPrintable(component.errorString()));
@@ -553,9 +560,19 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(!page->property("planVisible").toBool());
         QVERIFY(!page->property("hasCredits").toBool());
         QCOMPARE(page->property("windows").value<QJSValue>().property("length").toInt(), 0);
-        auto *balance = findVisualItem(item, "openaiCreditBalance");
-        QVERIFY(balance);
-        QVERIFY(balance->property("text").toString().contains("unavailable"));
+        QVERIFY(!findVisualItem(item, "openaiCreditBalance"));
+        auto *history = findVisualItem(item, "openaiApiHistory");
+        QVERIFY(history);
+        QVERIFY(history->isVisible());
+        for (const auto &name : {"costHistoryPartial", "costHistoryCurrentDay"}) {
+            auto *note = findVisualItem(history, name);
+            QVERIFY(note);
+            QVERIFY(!note->isVisible());
+        }
+        auto *total = findVisualItem(item, "openaiMonthToDate");
+        QVERIFY(total);
+        QVERIFY(total->isVisible());
+        QVERIFY(total->property("text").toString().contains("12.50"));
         QVERIFY(page->setProperty("openaiTabbed", false));
         QVERIFY(page->property("planVisible").toBool());
         QVERIFY(page->property("apiVisible").toBool());

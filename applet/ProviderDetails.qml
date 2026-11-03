@@ -365,6 +365,13 @@ PaginatedPage {
                           Private.PresentationFormatter.usdLabel(Number(root.apiCost.monthToDateUSD
                                                                         || 0)))
             }
+            QQC2.Label {
+                objectName: "openaiCachedInput"
+                visible: root.apiData.usage?.cachedInputPercent !== undefined
+                text: qsTr("Cached input (month to date): %1%").arg(Number(root.apiData.usage
+                                                                           ?.cachedInputPercent
+                                                                           || 0).toFixed(1))
+            }
             CostHistory {
                 objectName: "openaiApiHistory"
                 Layout.fillWidth: true

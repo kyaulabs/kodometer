@@ -13,5 +13,8 @@ class OpenAICosts
     // Requires a complete, ungrouped daily organization Costs response.
     [[nodiscard]] static std::optional<QVariantMap> parse(const QByteArray &bytes, qint64 startTime,
                                                           const QDateTime &now);
+    // Complete, ungrouped daily Usage response; zero input leaves the percentage absent.
+    [[nodiscard]] static std::optional<QVariantMap>
+    parseUsage(const QByteArray &bytes, qint64 startTime, const QDateTime &now);
 };
 } // namespace Kodometer

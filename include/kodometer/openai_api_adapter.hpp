@@ -18,16 +18,23 @@ class OpenAIApiAdapter : public ProviderAdapter
     [[nodiscard]] QByteArray defaultCredentialContext() const override;
     void refresh() override;
     void setEndpoint(const QUrl &endpoint);
+    void setUsageEndpoint(const QUrl &endpoint);
     void setTimeoutMilliseconds(int milliseconds);
 
   private:
     QMap<QString, QString> environment() const;
+    void request(const QUrl &endpoint, qint64 start, int limit);
     void readData();
     void finish();
     QNetworkAccessManager *m_network;
     QPointer<QNetworkReply> m_reply;
     QTimer m_timeout;
     QUrl m_endpoint{QStringLiteral("https://api.openai.com/v1/organization/costs")};
+    QUrl m_usageEndpoint{
+        QStringLiteral("https://api.openai.com/v1/organization/usage/completions")};
+    QString m_key;
+    QVariantMap m_result;
+    bool m_readingUsage = false;
     QDateTime m_now;
     qint64 m_start = 0;
     QByteArray m_data;

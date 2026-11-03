@@ -7,6 +7,7 @@
 #include <QTimeZone>
 #include <QUrlQuery>
 #include <algorithm>
+#include <utility>
 
 namespace Kodometer {
 OpenAIApiAdapter::OpenAIApiAdapter(QNetworkAccessManager *network, QObject *parent)
@@ -43,6 +44,10 @@ void OpenAIApiAdapter::setEndpoint(const QUrl &endpoint)
 {
     m_endpoint = endpoint;
 }
+void OpenAIApiAdapter::setUsageEndpoint(const QUrl &endpoint)
+{
+    m_usageEndpoint = endpoint;
+}
 void OpenAIApiAdapter::setTimeoutMilliseconds(int milliseconds)
 {
     m_timeoutMilliseconds = std::max(1, milliseconds);
@@ -72,17 +77,24 @@ void OpenAIApiAdapter::refresh()
     const QDate first(today.year(), today.month(), 1);
     const QDate start = std::min(first, today.addDays(-29));
     m_start = QDateTime(start, QTime(), QTimeZone::UTC).toSecsSinceEpoch();
-    QUrl endpoint = m_endpoint;
+    m_key = key;
+    m_readingUsage = false;
+    m_result.clear();
+    request(m_endpoint, m_start, 62);
+}
+void OpenAIApiAdapter::request(const QUrl &url, qint64 start, int limit)
+{
+    QUrl endpoint = url;
     QUrlQuery query;
-    query.addQueryItem(QStringLiteral("start_time"), QString::number(m_start));
+    query.addQueryItem(QStringLiteral("start_time"), QString::number(start));
     query.addQueryItem(QStringLiteral("end_time"), QString::number(m_now.toSecsSinceEpoch()));
     query.addQueryItem(QStringLiteral("bucket_width"), QStringLiteral("1d"));
-    query.addQueryItem(QStringLiteral("limit"), QStringLiteral("62"));
+    query.addQueryItem(QStringLiteral("limit"), QString::number(limit));
     endpoint.setQuery(query);
     QNetworkRequest request(endpoint);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::ManualRedirectPolicy);
-    request.setRawHeader("Authorization", QByteArray("Bearer ") + key.toUtf8());
+    request.setRawHeader("Authorization", QByteArray("Bearer ") + m_key.toUtf8());
     request.setRawHeader("Accept", "application/json");
     request.setRawHeader("User-Agent", QByteArray("Kodometer/") + KODOMETER_VERSION);
     m_data.clear();
@@ -112,6 +124,18 @@ void OpenAIApiAdapter::finish()
     const auto networkError = m_reply->error();
     m_reply->deleteLater();
     m_reply = nullptr;
+    if (m_readingUsage) {
+        if (!m_oversized && !m_timedOut && status >= 200 && status < 300 &&
+            networkError == QNetworkReply::NoError) {
+            const auto usage = OpenAICosts::parseUsage(m_data, m_start, m_now);
+            if (usage)
+                m_result.insert(QStringLiteral("usage"), *usage);
+        }
+        m_key.clear();
+        const auto result = std::exchange(m_result, {});
+        emit refreshSucceeded(result);
+        return;
+    }
     QString error;
     if (m_oversized)
         error = QStringLiteral("OpenAI API spending response exceeds the 1 MiB limit");
@@ -124,11 +148,17 @@ void OpenAIApiAdapter::finish()
         if (result) {
             result->insert(QStringLiteral("id"), providerId());
             result->insert(QStringLiteral("configured"), true);
-            emit refreshSucceeded(*result);
+            m_result = *result;
+            m_readingUsage = true;
+            const QDate today = m_now.date();
+            m_start = QDateTime(QDate(today.year(), today.month(), 1), QTime(), QTimeZone::UTC)
+                          .toSecsSinceEpoch();
+            request(m_usageEndpoint, m_start, 31);
             return;
         }
         error = QStringLiteral("OpenAI API spending response is invalid or incomplete");
     }
+    m_key.clear();
     emit refreshFailed(error);
 }
 } // namespace Kodometer

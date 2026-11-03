@@ -7,8 +7,9 @@
 #include <cmath>
 
 namespace Kodometer {
-std::optional<QVariantMap> OpenAICosts::parse(const QByteArray &bytes, qint64 startTime,
-                                              const QDateTime &now)
+namespace {
+std::optional<QVariantMap> parseResponse(const QByteArray &bytes, qint64 startTime,
+                                         const QDateTime &now, bool usage)
 {
     const auto document = QJsonDocument::fromJson(bytes);
     if (!document.isObject() || !now.isValid())
@@ -23,10 +24,12 @@ std::optional<QVariantMap> OpenAICosts::parse(const QByteArray &bytes, qint64 st
         !next.isNull())
         return std::nullopt;
     const auto buckets = data.toArray();
-    if (buckets.size() > 62)
+    if (buckets.size() > (usage ? 31 : 62))
         return std::nullopt;
     QVariantList daily;
     QSet<qint64> seen;
+    double inputTokens = 0;
+    double cachedTokens = 0;
     double month = 0;
     double total = 0;
     bool monthReported = false;
@@ -63,6 +66,21 @@ std::optional<QVariantMap> OpenAICosts::parse(const QByteArray &bytes, qint64 st
         const auto row = rows.first().toObject();
         const auto rowTypeValue = row.value(QStringLiteral("object"));
         const QString rowType = rowTypeValue.toString();
+        if (usage) {
+            const auto input = row.value(QStringLiteral("input_tokens"));
+            const auto cached = row.value(QStringLiteral("input_cached_tokens"));
+            const double inputCount = input.toDouble(-1);
+            const double cachedCount = cached.toDouble(-1);
+            constexpr double maximumExactInteger = 9007199254740991.0;
+            if (rowType != QLatin1String("organization.usage.completions.result") ||
+                !input.isDouble() || !cached.isDouble() || inputCount < 0 || cachedCount < 0 ||
+                std::floor(inputCount) != inputCount || std::floor(cachedCount) != cachedCount ||
+                cachedCount > inputCount || inputCount > maximumExactInteger - inputTokens)
+                return std::nullopt;
+            inputTokens += inputCount;
+            cachedTokens += cachedCount;
+            continue;
+        }
         const auto amountValue = row.value(QStringLiteral("amount"));
         const auto amount = amountValue.toObject();
         const auto currencyValue = amount.value(QStringLiteral("currency"));
@@ -93,6 +111,13 @@ std::optional<QVariantMap> OpenAICosts::parse(const QByteArray &bytes, qint64 st
         if (day == date)
             today = spent;
     }
+    if (usage) {
+        QVariantMap result;
+        if (inputTokens > 0)
+            result.insert(QStringLiteral("cachedInputPercent"),
+                          100.0 * (cachedTokens / inputTokens));
+        return result;
+    }
     const QString endDate = date.toString(Qt::ISODate);
     QVariantMap cost;
     cost.insert(QStringLiteral("daily"), daily);
@@ -110,5 +135,18 @@ std::optional<QVariantMap> OpenAICosts::parse(const QByteArray &bytes, qint64 st
     result.insert(QStringLiteral("cost"), cost);
     result.insert(QStringLiteral("balanceUnavailable"), true);
     return result;
+}
+} // namespace
+
+std::optional<QVariantMap> OpenAICosts::parse(const QByteArray &bytes, qint64 startTime,
+                                              const QDateTime &now)
+{
+    return parseResponse(bytes, startTime, now, false);
+}
+
+std::optional<QVariantMap> OpenAICosts::parseUsage(const QByteArray &bytes, qint64 startTime,
+                                                   const QDateTime &now)
+{
+    return parseResponse(bytes, startTime, now, true);
 }
 } // namespace Kodometer

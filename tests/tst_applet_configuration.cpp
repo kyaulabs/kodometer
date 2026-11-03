@@ -540,6 +540,7 @@ class AppletConfigurationTest final : public QObject
             {"api",
              QVariantMap{
                  {"configured", true},
+                 {"usage", QVariantMap{{"cachedInputPercent", 25.0}}},
                  {"cost", QVariantMap{{"monthToDateUSD", 12.5},
                                       {"currencyCode", "USD"},
                                       {"historyEndDate", "2027-01-15"},
@@ -573,6 +574,20 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(total);
         QVERIFY(total->isVisible());
         QVERIFY(total->property("text").toString().contains("12.50"));
+        auto *cache = findVisualItem(item, "openaiCachedInput");
+        QVERIFY(cache);
+        QVERIFY(cache->isVisible());
+        QCOMPARE(cache->property("text").toString(),
+                 QStringLiteral("Cached input (month to date): 25.0%"));
+        QVariantMap withoutUsage = provider;
+        auto api = withoutUsage.value("api").toMap();
+        api.remove("usage");
+        withoutUsage.insert("api", api);
+        QVERIFY(page->setProperty("provider", withoutUsage));
+        QVERIFY(!cache->isVisible());
+        QVERIFY(history->isVisible());
+        QVERIFY(page->setProperty("provider", provider));
+        QVERIFY(cache->isVisible());
         QVERIFY(page->setProperty("openaiTabbed", false));
         QVERIFY(page->property("planVisible").toBool());
         QVERIFY(page->property("apiVisible").toBool());

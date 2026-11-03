@@ -135,7 +135,7 @@ TestCase {
     function test_providerColorsAreValidatedAndDoNotMutateSnapshots() {
         const source = [
                   {
-                      id: "codex",
+                      id: "openai",
                       display: {
                           accentColor: "#49a3b0"
                       },
@@ -151,11 +151,13 @@ TestCase {
                                                 providers: source
                                             })
         verify(model)
-        model.providerColors = '{"codex":"#123456"}'
+        model.providerColors = '{"openai":"#123456"}'
         compare(model.displayedProviders[0].display.accentColor, "#123456")
         compare(model.displayedProviders[0].accounts[0].display.accentColor, "#123456")
         compare(source[0].display.accentColor, "#49a3b0")
-        for (const invalid of ['{}', 'null', '[]', 'broken', '{"codex":"red"}', '{"codex":123}']) {
+        for (const invalid of ['{}', 'null', '[]', 'broken', '{"openai":"red"}',
+                               '{"openai":123}']) {
+
             model.providerColors = invalid
             compare(model.displayedProviders[0].display.accentColor, "#49a3b0")
         }
@@ -163,11 +165,11 @@ TestCase {
 
     function test_sparkToggleOverridesLegacyPerWindowHiding() {
         const model = createTemporaryObject(presentationComponent, this, {
-                                                hiddenWindows: ["codex/model-spark",
-                                                    "codex/model-spark-weekly", "codex/weekly"],
+                                                hiddenWindows: ["openai/model-spark",
+                                                    "openai/model-spark-weekly", "openai/weekly"],
                                                 providers: [
                                                     {
-                                                        id: "codex",
+                                                        id: "openai",
                                                         windows: [
                                                             {
                                                                 kind: "session"
@@ -201,7 +203,7 @@ TestCase {
     function test_filtersWithoutMutatingSnapshots() {
         const source = [
                   {
-                      id: "codex",
+                      id: "openai",
                       windows: [
                           {
                               kind: "session",
@@ -228,7 +230,7 @@ TestCase {
         compare(model.displayedProviders[0].windows.length, 2)
         model.showIdleWindows = true
         compare(model.displayedProviders[0].windows.length, 3)
-        model.hiddenWindows = ["codex/session"]
+        model.hiddenWindows = ["openai/session"]
         compare(model.displayedProviders[0].windows.length, 2)
         compare(model.catalog.length, 3)
     }
@@ -237,7 +239,7 @@ TestCase {
         const model = createTemporaryObject(presentationComponent, this, {
                                                 providers: [
                                                     {
-                                                        id: "codex",
+                                                        id: "openai",
                                                         windows: [
                                                             {
                                                                 kind: "session",
@@ -280,7 +282,7 @@ TestCase {
                                                 ]
                                             })
         compare(model.quotaProviders.length, 2)
-        compare(model.quotaProviders[0].id, "codex")
+        compare(model.quotaProviders[0].id, "openai")
         compare(model.quotaProviders[1].windows.length, 2)
         model.hiddenWindows = ["kimi/weekly", "kimi/session"]
         compare(model.quotaProviders.length, 1)

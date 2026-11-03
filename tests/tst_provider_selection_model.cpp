@@ -56,7 +56,7 @@ void ProviderSelectionModelTest::startsEmpty()
 void ProviderSelectionModelTest::selectsOverviewForMultipleProviders()
 {
     ProviderSelectionModel model;
-    model.setProviders(providers({provider(QStringLiteral("codex"), QStringLiteral("Codex")),
+    model.setProviders(providers({provider(QStringLiteral("openai"), QStringLiteral("OpenAI")),
                                   provider(QStringLiteral("claude"), QStringLiteral("Claude"))}));
 
     QVERIFY(model.overviewSelected());
@@ -66,19 +66,19 @@ void ProviderSelectionModelTest::selectsOverviewForMultipleProviders()
 void ProviderSelectionModelTest::selectsOnlyProvider()
 {
     ProviderSelectionModel model;
-    model.setProviders(providers({provider(QStringLiteral("codex"), QStringLiteral("Codex"))}));
+    model.setProviders(providers({provider(QStringLiteral("openai"), QStringLiteral("OpenAI"))}));
 
     QVERIFY(!model.overviewSelected());
-    QCOMPARE(model.selectedProviderId(), QStringLiteral("codex"));
+    QCOMPARE(model.selectedProviderId(), QStringLiteral("openai"));
     QCOMPARE(model.selectedProvider().value(QStringLiteral("name")).toString(),
-             QStringLiteral("Codex"));
+             QStringLiteral("OpenAI"));
     QCOMPARE(model.selectedTabIndex(), 0);
 }
 
 void ProviderSelectionModelTest::selectsProviderById()
 {
     ProviderSelectionModel model;
-    model.setProviders(providers({provider(QStringLiteral("codex"), QStringLiteral("Codex")),
+    model.setProviders(providers({provider(QStringLiteral("openai"), QStringLiteral("OpenAI")),
                                   provider(QStringLiteral("claude"), QStringLiteral("Claude"))}));
     QSignalSpy selectionSpy(&model, &ProviderSelectionModel::selectionChanged);
 
@@ -95,11 +95,11 @@ void ProviderSelectionModelTest::selectsProviderById()
 void ProviderSelectionModelTest::cyclesThroughTabs()
 {
     ProviderSelectionModel model;
-    model.setProviders(providers({provider(QStringLiteral("codex"), QStringLiteral("Codex")),
+    model.setProviders(providers({provider(QStringLiteral("openai"), QStringLiteral("OpenAI")),
                                   provider(QStringLiteral("claude"), QStringLiteral("Claude"))}));
 
     model.selectNext();
-    QCOMPARE(model.selectedProviderId(), QStringLiteral("codex"));
+    QCOMPARE(model.selectedProviderId(), QStringLiteral("openai"));
     model.selectNext();
     QCOMPARE(model.selectedProviderId(), QStringLiteral("claude"));
     model.selectNext();
@@ -108,7 +108,7 @@ void ProviderSelectionModelTest::cyclesThroughTabs()
     model.selectPrevious();
     QCOMPARE(model.selectedProviderId(), QStringLiteral("claude"));
     model.selectPrevious();
-    QCOMPARE(model.selectedProviderId(), QStringLiteral("codex"));
+    QCOMPARE(model.selectedProviderId(), QStringLiteral("openai"));
     model.selectPrevious();
     QVERIFY(model.overviewSelected());
 }
@@ -116,7 +116,7 @@ void ProviderSelectionModelTest::cyclesThroughTabs()
 void ProviderSelectionModelTest::preservesAvailableSelection()
 {
     ProviderSelectionModel model;
-    model.setProviders(providers({provider(QStringLiteral("codex"), QStringLiteral("Codex")),
+    model.setProviders(providers({provider(QStringLiteral("openai"), QStringLiteral("OpenAI")),
                                   provider(QStringLiteral("claude"), QStringLiteral("Claude"))}));
     model.selectProvider(QStringLiteral("claude"));
 
@@ -131,12 +131,12 @@ void ProviderSelectionModelTest::preservesAvailableSelection()
 void ProviderSelectionModelTest::fallsBackWhenSelectionDisappears()
 {
     ProviderSelectionModel model;
-    model.setProviders(providers({provider(QStringLiteral("codex"), QStringLiteral("Codex")),
+    model.setProviders(providers({provider(QStringLiteral("openai"), QStringLiteral("OpenAI")),
                                   provider(QStringLiteral("claude"), QStringLiteral("Claude"))}));
     model.selectProvider(QStringLiteral("claude"));
 
-    model.setProviders(providers({provider(QStringLiteral("codex"), QStringLiteral("Codex"))}));
-    QCOMPARE(model.selectedProviderId(), QStringLiteral("codex"));
+    model.setProviders(providers({provider(QStringLiteral("openai"), QStringLiteral("OpenAI"))}));
+    QCOMPARE(model.selectedProviderId(), QStringLiteral("openai"));
 
     model.setProviders({});
     QVERIFY(model.overviewSelected());
@@ -146,7 +146,7 @@ void ProviderSelectionModelTest::fallsBackWhenSelectionDisappears()
 void ProviderSelectionModelTest::ignoresInvalidSelections()
 {
     ProviderSelectionModel model;
-    model.setProviders(providers({provider(QStringLiteral("codex"), QStringLiteral("Codex"))}));
+    model.setProviders(providers({provider(QStringLiteral("openai"), QStringLiteral("OpenAI"))}));
     QSignalSpy selectionSpy(&model, &ProviderSelectionModel::selectionChanged);
 
     model.selectProvider(QStringLiteral("missing"));
@@ -154,7 +154,7 @@ void ProviderSelectionModelTest::ignoresInvalidSelections()
     model.selectNext();
     model.selectPrevious();
 
-    QCOMPARE(model.selectedProviderId(), QStringLiteral("codex"));
+    QCOMPARE(model.selectedProviderId(), QStringLiteral("openai"));
     QCOMPARE(selectionSpy.count(), 0);
 }
 
@@ -162,7 +162,7 @@ void ProviderSelectionModelTest::avoidsRedundantSignals()
 {
     ProviderSelectionModel model;
     const QVariantList values =
-        providers({provider(QStringLiteral("codex"), QStringLiteral("Codex")),
+        providers({provider(QStringLiteral("openai"), QStringLiteral("OpenAI")),
                    provider(QStringLiteral("claude"), QStringLiteral("Claude"))});
     QSignalSpy providersSpy(&model, &ProviderSelectionModel::providersChanged);
     QSignalSpy selectionSpy(&model, &ProviderSelectionModel::selectionChanged);

@@ -91,29 +91,29 @@ TestCase {
 
     function test_stagesQuotaWindowAndBarPreferences() {
         const page = createTemporaryObject(settingsComponent, this)
-        compare(page.cfg_showCodexSpark, false)
+        compare(page.cfg_showOpenAISpark, false)
         compare(page.cfg_quotaBarsRemaining, true)
         compare(page.cfg_hiddenQuotaWindows.length, 0)
-        findChild(page, "showCodexSpark").click()
-        compare(page.cfg_showCodexSpark, true)
+        findChild(page, "showOpenAISpark").click()
+        compare(page.cfg_showOpenAISpark, true)
         findChild(page, "quotaBarsRemaining").click()
         compare(page.cfg_quotaBarsRemaining, false)
         page.cfg_quotaWindowCatalog = JSON.stringify([
                                                          {
-                                                             key: "codex/session",
-                                                             provider: "Codex",
+                                                             key: "openai/session",
+                                                             provider: "OpenAI",
                                                              label: "<b>Session</b>"
                                                          }
                                                      ])
-        const window = findChild(page, "quota-window-codex/session")
+        const window = findChild(page, "quota-window-openai/session")
         verify(window)
         compare(window.contentItem.textFormat, Text.PlainText)
-        compare(window.contentItem.text, "Codex — <b>Session</b>")
+        compare(window.contentItem.text, "OpenAI — <b>Session</b>")
         window.click()
-        compare(page.cfg_hiddenQuotaWindows[0], "codex/session")
+        compare(page.cfg_hiddenQuotaWindows[0], "openai/session")
         window.click()
         compare(page.cfg_hiddenQuotaWindows.length, 0)
-        page.cfg_hiddenQuotaWindows = ["codex/session"]
+        page.cfg_hiddenQuotaWindows = ["openai/session"]
         compare(window.checked, false)
         page.cfg_quotaWindowCatalog = "broken"
         compare(page.quotaWindows.length, 0)
@@ -127,7 +127,7 @@ TestCase {
         const page = createTemporaryObject(settingsComponent, this)
         compare(findChild(page, "panelSessionColor"), null)
         compare(findChild(page, "panelWeeklyColor"), null)
-        compare(findChild(page, "provider-color-codex").fallbackColor, "#a28be0")
+        compare(findChild(page, "provider-color-openai").fallbackColor, "#a28be0")
         compare(findChild(page, "provider-color-kimi").fallbackColor, "#49a3b0")
         compare(findChild(page, "provider-color-openrouter").fallbackColor, "#c8ff00")
     }
@@ -136,73 +136,73 @@ TestCase {
         const page = createTemporaryObject(settingsComponent, this, {
                                                cfg_quotaWindowCatalog: JSON.stringify([
                                                                                           {
-                                                                                              key: "codex/session",
-                                                                                              provider: "Codex",
+                                                                                              key: "openai/session",
+                                                                                              provider: "OpenAI",
                                                                                               label: "Session"
                                                                                           },
                                                                                           {
-                                                                                              key: "codex/model-gpt-5-3-codex-spark",
-                                                                                              provider: "Codex",
+                                                                                              key: "openai/model-gpt-5-3-codex-spark",
+                                                                                              provider: "OpenAI",
                                                                                               label: "Spark"
                                                                                           },
                                                                                           {
-                                                                                              key: "codex/model-gpt-5-3-codex-spark-weekly",
-                                                                                              provider: "Codex",
+                                                                                              key: "openai/model-gpt-5-3-codex-spark-weekly",
+                                                                                              provider: "OpenAI",
                                                                                               label: "Spark Weekly"
                                                                                           }
                                                                                       ])
                                            })
         compare(page.quotaWindows.length, 1)
-        verify(findChild(page, "showCodexSpark"))
-        verify(findChild(page, "quota-window-codex/session"))
-        compare(findChild(page, "quota-window-codex/model-gpt-5-3-codex-spark"), null)
-        compare(findChild(page, "quota-window-codex/model-gpt-5-3-codex-spark-weekly"), null)
-        findChild(page, "showCodexSpark").click()
-        compare(page.cfg_showCodexSpark, true)
+        verify(findChild(page, "showOpenAISpark"))
+        verify(findChild(page, "quota-window-openai/session"))
+        compare(findChild(page, "quota-window-openai/model-gpt-5-3-codex-spark"), null)
+        compare(findChild(page, "quota-window-openai/model-gpt-5-3-codex-spark-weekly"), null)
+        findChild(page, "showOpenAISpark").click()
+        compare(page.cfg_showOpenAISpark, true)
     }
 
     function test_providerColorsFollowApplyCancelAndDefaults() {
         const page = createTemporaryObject(settingsComponent, this)
-        const codex = findChild(page, "provider-color-codex")
+        const openai = findChild(page, "provider-color-openai")
         const kimi = findChild(page, "provider-color-kimi")
-        verify(codex)
+        verify(openai)
         verify(kimi)
         compare(page.cfg_providerColors, "{}")
-        codex.colorValue = "#123456"
-        compare(JSON.parse(page.cfg_providerColors).codex, "#123456")
+        openai.colorValue = "#123456"
+        compare(JSON.parse(page.cfg_providerColors).openai, "#123456")
         kimi.colorValue = "#abcdef"
-        compare(JSON.parse(page.cfg_providerColors).codex, "#123456")
+        compare(JSON.parse(page.cfg_providerColors).openai, "#123456")
         compare(JSON.parse(page.cfg_providerColors).kimi, "#abcdef")
-        page.cfg_providerColors = '{"codex":"#654321"}'
-        compare(codex.colorValue, "#654321")
+        page.cfg_providerColors = '{"openai":"#654321"}'
+        compare(openai.colorValue, "#654321")
         compare(kimi.colorValue, "")
         page.cfg_providerColors = "{}"
-        compare(codex.colorValue, "")
-        codex.colorValue = "#112233"
-        findChild(codex, "resetColor").click()
+        compare(openai.colorValue, "")
+        openai.colorValue = "#112233"
+        findChild(openai, "resetColor").click()
         compare(page.cfg_providerColors, "{}")
     }
 
     function test_providerSwitchesAndReset() {
         const page = createTemporaryObject(settingsComponent, this)
-        const codex = findChild(page, "provider-codex")
+        const openai = findChild(page, "provider-openai")
         const claude = findChild(page, "provider-claude")
-        verify(codex)
+        verify(openai)
         verify(claude)
-        compare(codex.checked, true)
-        codex.click()
-        compare(page.cfg_disabledProviders, ["codex"])
+        compare(openai.checked, true)
+        openai.click()
+        compare(page.cfg_disabledProviders, ["openai"])
         claude.click()
-        compare(page.cfg_disabledProviders, ["codex", "claude"])
-        codex.click()
+        compare(page.cfg_disabledProviders, ["openai", "claude"])
+        openai.click()
         compare(page.cfg_disabledProviders, ["claude"])
         page.cfg_disabledProviders = []
-        compare(codex.checked, true)
+        compare(openai.checked, true)
         compare(claude.checked, true)
-        page.cfg_disabledProviders = ["codex", "unknown-provider"]
-        compare(codex.checked, false)
+        page.cfg_disabledProviders = ["openai", "unknown-provider"]
+        compare(openai.checked, false)
         compare(claude.checked, true)
         claude.click()
-        compare(page.cfg_disabledProviders, ["codex", "unknown-provider", "claude"])
+        compare(page.cfg_disabledProviders, ["openai", "unknown-provider", "claude"])
     }
 }

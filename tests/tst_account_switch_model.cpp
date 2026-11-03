@@ -63,7 +63,7 @@ class AccountSwitchModelTest final : public QObject
         QVERIFY(!model.accounts());
         OAuthProfiles profiles;
         for (const QString &provider :
-             {QStringLiteral("codex"), QStringLiteral("claude"), QStringLiteral("gemini")}) {
+             {QStringLiteral("openai"), QStringLiteral("claude"), QStringLiteral("gemini")}) {
             QVERIFY(profiles.addProfile(provider, "<b>Work</b>", "/profiles/work"));
             const QString id = profiles.selectedId(provider);
             const QString original = profiles.configuration();
@@ -84,9 +84,9 @@ class AccountSwitchModelTest final : public QObject
             QVERIFY(model.selectionChange(provider, "missing").isEmpty());
         }
         QVERIFY(model.selectionChange("unknown", "default").isEmpty());
-        model.setProperty("disabledProviders", QStringList{"codex"});
-        QVERIFY(view(model, "codex").isEmpty());
-        QVERIFY(model.selectionChange("codex", "default").isEmpty());
+        model.setProperty("disabledProviders", QStringList{"openai"});
+        QVERIFY(view(model, "openai").isEmpty());
+        QVERIFY(model.selectionChange("openai", "default").isEmpty());
         model.setProperty("oauthConfiguration", "invalid");
         QVERIFY(!view(model, "gemini").value("enabled").toBool());
         QVERIFY(model.selectionChange("gemini", "default").isEmpty());

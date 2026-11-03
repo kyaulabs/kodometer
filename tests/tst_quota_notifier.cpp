@@ -67,7 +67,7 @@ class QuotaNotifierTest final : public QObject
                                        QDBusConnection::ExportAllSignals));
         {
             Kodometer::QuotaNotifier notifier;
-            QVariantMap provider{{QStringLiteral("id"), QStringLiteral("codex")},
+            QVariantMap provider{{QStringLiteral("id"), QStringLiteral("openai")},
                                  {QStringLiteral("name"), QStringLiteral("private@example.test")},
                                  {QStringLiteral("windows"),
                                   QVariantList{QVariantMap{{QStringLiteral("remainingPercent"), 5},
@@ -78,7 +78,7 @@ class QuotaNotifierTest final : public QObject
             notifier.setEnabled(true);
             notifier.observe(provider);
             QTRY_COMPARE(service.count, 1U);
-            QCOMPARE(service.title, QStringLiteral("Codex quota is low"));
+            QCOMPARE(service.title, QStringLiteral("OpenAI quota is low"));
             QCOMPARE(service.body, QStringLiteral("Most constrained quota: 5.0% remaining."));
             QCOMPARE(service.icon, QStringLiteral("kodometer"));
             QCOMPARE(service.hints.value(QStringLiteral("urgency")).toUInt(), 1U);

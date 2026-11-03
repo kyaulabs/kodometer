@@ -76,7 +76,7 @@ QString streamKey(const QString &provider, const QByteArray &scope, const QByteA
 
 bool supported(const QString &provider)
 {
-    static const QStringList providers{QStringLiteral("codex"), QStringLiteral("claude"),
+    static const QStringList providers{QStringLiteral("openai"), QStringLiteral("claude"),
                                        QStringLiteral("gemini"), QStringLiteral("kimi"),
                                        QStringLiteral("zai")};
     return providers.contains(provider);
@@ -331,6 +331,12 @@ void QuotaHistory::observe(const QString &provider, const QByteArray &scope,
     const QString key = streamKey(provider, scope, identities.last());
     QJsonObject series;
     for (const auto &identity : identities) {
+        if (provider == QLatin1String("openai")) {
+            // Move legacy opaque partitions only after matching authenticated context.
+            const QString legacy = streamKey(QStringLiteral("codex"), scope, identity);
+            const QJsonValue legacyValue = m_streams.take(legacy);
+            mergeSeries(series, legacyValue.toObject());
+        }
         const QString alias = streamKey(provider, scope, identity);
         const QJsonValue aliasValue = m_streams.value(alias);
         const QJsonObject aliasSeries = aliasValue.toObject();

@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import "OpenAIMigration.js" as OpenAIMigration
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasmoid
@@ -29,7 +30,7 @@ PlasmoidItem {
     QuotaPresentation {
         id: presentation
         providers: backend.providers
-        showSpark: Plasmoid.configuration.showCodexSpark
+        showSpark: Plasmoid.configuration.showOpenAISpark
         showIdleWindows: Plasmoid.configuration.showIdleWindows
         hiddenWindows: Plasmoid.configuration.hiddenQuotaWindows
         providerColors: Plasmoid.configuration.providerColors
@@ -155,6 +156,7 @@ PlasmoidItem {
         clockTick: root.clockTick
         showIdleWindows: Plasmoid.configuration.showIdleWindows
         fillRemaining: Plasmoid.configuration.quotaBarsRemaining
+        openaiTabbed: Plasmoid.configuration.openaiTabbed
         onRefreshRequested: {
             credentialStore.open()
             backend.refresh()
@@ -164,6 +166,7 @@ PlasmoidItem {
     }
 
     Component.onCompleted: {
+        OpenAIMigration.migrate(root.settings)
         credentialStore.open()
         backend.refresh()
     }

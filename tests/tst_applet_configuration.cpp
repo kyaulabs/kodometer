@@ -124,7 +124,7 @@ class AppletConfigurationTest final : public QObject
         const QUrl root(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/"));
         QQmlComponent component(&engine, root.resolved(QUrl(QStringLiteral("ProviderIcon.qml"))));
         for (const QString &id :
-             {QStringLiteral("codex"), QStringLiteral("claude"), QStringLiteral("deepseek"),
+             {QStringLiteral("openai"), QStringLiteral("claude"), QStringLiteral("deepseek"),
               QStringLiteral("gemini"), QStringLiteral("kimi"), QStringLiteral("openrouter"),
               QStringLiteral("xai"), QStringLiteral("zai")}) {
             QScopedPointer<QObject> icon(
@@ -145,14 +145,14 @@ class AppletConfigurationTest final : public QObject
                                      root.resolved(QUrl(QStringLiteral("CompactMeter.qml"))));
         const QVariantMap quotaWindow{{QStringLiteral("kind"), QStringLiteral("session")},
                                       {QStringLiteral("remainingPercent"), 12.8}};
-        const QVariantMap quotaProvider{{QStringLiteral("id"), QStringLiteral("codex")},
+        const QVariantMap quotaProvider{{QStringLiteral("id"), QStringLiteral("openai")},
                                         {QStringLiteral("windows"), QVariantList{quotaWindow}}};
         QScopedPointer<QObject> meter(meterComponent.createWithInitialProperties(
             {{QStringLiteral("donutCharts"), true},
              {QStringLiteral("providers"), QVariantList{quotaProvider}}}));
         QVERIFY2(meter, qPrintable(meterComponent.errorString()));
         auto *session = findVisualItem(qobject_cast<QQuickItem *>(meter.data()),
-                                       QStringLiteral("quota-ring-codex-session"));
+                                       QStringLiteral("quota-ring-openai-session"));
         QVERIFY(session);
         QCOMPARE(session->property("value").toDouble(), 12.8);
     }
@@ -166,10 +166,10 @@ class AppletConfigurationTest final : public QObject
             {"kind", "session"}, {"label", "Session"}, {"remainingPercent", 65.0}};
         const QVariantMap weekly{
             {"kind", "weekly"}, {"label", "7-day usage"}, {"remainingPercent", 30.0}};
-        const QVariantMap codex{{"id", "codex"},
-                                {"name", "Codex"},
-                                {"windows", QVariantList{session}},
-                                {"display", QVariantMap{{"accentColor", "#a28be0"}}}};
+        const QVariantMap openai{{"id", "openai"},
+                                 {"name", "OpenAI"},
+                                 {"windows", QVariantList{session}},
+                                 {"display", QVariantMap{{"accentColor", "#a28be0"}}}};
         const QVariantMap kimi{{"id", "kimi"},
                                {"name", "Kimi Code"},
                                {"windows", QVariantList{weekly, session}},
@@ -178,12 +178,12 @@ class AppletConfigurationTest final : public QObject
             {"id", "deepseek"}, {"name", "DeepSeek"}, {"cost", QVariantMap{{"balance", 0.61}}}};
         QQmlComponent navigationComponent(&engine, root.resolved(QUrl("UsageNavigation.qml")));
         QScopedPointer<QObject> navigation(navigationComponent.createWithInitialProperties(
-            {{"providers", QVariantList{codex, kimi, balance}}}));
+            {{"providers", QVariantList{openai, kimi, balance}}}));
         QVERIFY2(navigation, qPrintable(navigationComponent.errorString()));
         QQmlComponent switchingComponent(&engine, root.resolved(QUrl("AccountSwitching.qml")));
         const QVariantMap configuration{
             {"oauthProfiles", "{}"}, {"disabledProviders", QStringList{}},
-            {"codexAccountId", ""},  {"deepseekAccountId", ""},
+            {"openaiAccountId", ""}, {"deepseekAccountId", ""},
             {"kimiAccountId", ""},   {"openrouterAccountId", ""},
             {"xaiAccountId", ""},    {"zaiAccountId", ""}};
         QScopedPointer<QObject> switching(
@@ -292,9 +292,9 @@ class AppletConfigurationTest final : public QObject
         };
         capture("overview");
         QVERIFY(QMetaObject::invokeMethod(navigation.data(), "selectProvider",
-                                          Q_ARG(QVariant, QStringLiteral("codex"))));
+                                          Q_ARG(QVariant, QStringLiteral("openai"))));
         QTRY_VERIFY(item->implicitHeight() != overviewHeight);
-        const qreal codexHeight = item->implicitHeight();
+        const qreal openaiHeight = item->implicitHeight();
         auto *chart = findVisualItem(item, QStringLiteral("quotaHistoryChart"));
         QVERIFY(chart);
         QVariantList observed;
@@ -304,7 +304,7 @@ class AppletConfigurationTest final : public QObject
                 QVariant(QVariantList{end - (287 - i) * 300, 65.0 + ((287 - i) % 48) * 0.4, 0}));
         QVERIFY(chart->setProperty(
             "series", QVariantList{QVariantMap{{"kind", "session"}, {"points", observed}}}));
-        capture("codex");
+        capture("openai");
         QVERIFY(popup->setProperty("availableHeight", 500));
         auto *pagedLoader = findVisualItem(item, "popupPageLoader");
         QVERIFY(pagedLoader);
@@ -314,13 +314,13 @@ class AppletConfigurationTest final : public QObject
         for (int index = 0; index < paged->property("pageCount").toInt(); ++index) {
             QVERIFY(paged->setProperty("currentPage", index));
             QTRY_VERIFY(item->implicitHeight() <= 425);
-            capture(QStringLiteral("codex-page-%1").arg(index + 1));
+            capture(QStringLiteral("openai-page-%1").arg(index + 1));
         }
         QVERIFY(popup->setProperty("availableHeight", 1400));
         QTRY_COMPARE(paged->property("pageCount").toInt(), 1);
         QVERIFY(QMetaObject::invokeMethod(navigation.data(), "selectProvider",
                                           Q_ARG(QVariant, QStringLiteral("deepseek"))));
-        QTRY_VERIFY(item->implicitHeight() < codexHeight);
+        QTRY_VERIFY(item->implicitHeight() < openaiHeight);
         capture("deepseek");
         QVERIFY(popup->setProperty("availableHeight", 300));
         QTRY_VERIFY(item->implicitHeight() <= 255);
@@ -406,8 +406,8 @@ class AppletConfigurationTest final : public QObject
         QQmlEngine engine;
         const QUrl root(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/"));
         const QVariantMap provider{
-            {"id", "codex"},
-            {"name", "Codex"},
+            {"id", "openai"},
+            {"name", "OpenAI"},
             {"display", QVariantMap{{"accentColor", "#123456"}}},
             {"windows",
              QVariantList{QVariantMap{{"kind", "session"}, {"remainingPercent", 45.0}}}}};
@@ -449,7 +449,7 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(meter->metaObject()->indexOfProperty("sessionColor"), -1);
         QCOMPARE(meter->metaObject()->indexOfProperty("weeklyColor"), -1);
         auto *ring =
-            findVisualItem(qobject_cast<QQuickItem *>(meter.data()), "quota-ring-codex-session");
+            findVisualItem(qobject_cast<QQuickItem *>(meter.data()), "quota-ring-openai-session");
         QVERIFY(ring);
         QCOMPARE(ring->property("accentColor").value<QColor>(), QColor("#123456"));
         QVariant barColor;
@@ -503,8 +503,8 @@ class AppletConfigurationTest final : public QObject
             &engine, QUrl(QStringLiteral(
                          "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ProviderSummary.qml")));
         const QVariantMap provider{
-            {"id", "codex"},
-            {"name", "Codex"},
+            {"id", "openai"},
+            {"name", "OpenAI"},
             {"bankedResets", 2},
             {"windows",
              QVariantList{QVariantMap{{"kind", "session"}, {"remainingPercent", 45.0}}}}};
@@ -526,12 +526,48 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(bar->mapToItem(item, QPointF(bar->width(), 0)).x() <= item->width() - 6);
     }
 
+    void separatesOpenAIPlanAndApiWithoutMixingUnits()
+    {
+        QQmlEngine engine;
+        QQmlComponent component(
+            &engine, QUrl(QStringLiteral(
+                         "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ProviderDetails.qml")));
+        const QVariantMap provider{
+            {"id", "openai"},
+            {"name", "OpenAI"},
+            {"windows", QVariantList{QVariantMap{{"kind", "session"}, {"remainingPercent", 65.0}}}},
+            {"credits", QVariantMap{{"remaining", 50.0}}},
+            {"api",
+             QVariantMap{{"configured", true}, {"cost", QVariantMap{{"monthToDateUSD", 12.5}}}}}};
+        QScopedPointer<QObject> page(
+            component.createWithInitialProperties({{"width", 400}, {"provider", provider}}));
+        QVERIFY2(page, qPrintable(component.errorString()));
+        auto *item = qobject_cast<QQuickItem *>(page.data());
+        auto *tabs = findVisualItem(item, "openaiServiceTabs");
+        QVERIFY(tabs);
+        QVERIFY(page->property("planVisible").toBool());
+        QVERIFY(!page->property("apiVisible").toBool());
+        QVERIFY(page->property("hasCredits").toBool());
+        QVERIFY(tabs->setProperty("currentIndex", 1));
+        QTRY_VERIFY(page->property("apiVisible").toBool());
+        QVERIFY(!page->property("planVisible").toBool());
+        QVERIFY(!page->property("hasCredits").toBool());
+        QCOMPARE(page->property("windows").value<QJSValue>().property("length").toInt(), 0);
+        auto *balance = findVisualItem(item, "openaiCreditBalance");
+        QVERIFY(balance);
+        QVERIFY(balance->property("text").toString().contains("unavailable"));
+        QVERIFY(page->setProperty("openaiTabbed", false));
+        QVERIFY(page->property("planVisible").toBool());
+        QVERIFY(page->property("apiVisible").toBool());
+        QCOMPARE(page->property("windows").value<QJSValue>().property("length").toInt(), 1);
+    }
+
     void fillsBarsWithRemainingOrUsedQuota()
     {
         QQmlEngine engine;
         const QUrl root(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/"));
         const QVariantMap window{{"kind", "session"}, {"remainingPercent", 65.0}};
-        const QVariantMap provider{{"id", "codex"}, {"windows", QVariantList{window}}};
+        const QVariantMap provider{{"id", "openai"}, {"windows", QVariantList{window}}};
         for (const auto &name :
              {QStringLiteral("WindowRow.qml"), QStringLiteral("ProviderSummary.qml")}) {
             const bool detail = name == QLatin1String("WindowRow.qml");
@@ -563,6 +599,10 @@ class AppletConfigurationTest final : public QObject
         KConfigLoader loader(KConfigGroup(&config, "General"), &schema);
         QCOMPARE(loader.property("autoRefresh").toBool(), true);
         QCOMPARE(loader.property("refreshIntervalMinutes").toInt(), 5);
+        QVERIFY(loader.property("openaiTabbed").toBool());
+        QVERIFY(!loader.property("openaiMigrationComplete").toBool());
+        QVERIFY(QFile::exists(
+            QStringLiteral(":/qt/qml/plasma/applet/org/kyaulabs/kodometer/OpenAIMigration.js")));
         QCOMPARE(loader.property("showIdleWindows").toBool(), false);
         QVERIFY(loader.findItemByName(QStringLiteral("panelDonutCharts")));
         QVERIFY(loader.findItemByName(QStringLiteral("panelSystemAccent")));
@@ -607,11 +647,12 @@ class AppletConfigurationTest final : public QObject
         QVERIFY2(page, qPrintable(component.errorString()));
         QVERIFY(page->property("flickable").value<QObject *>());
         QVERIFY(page->setProperty("cfg_panelDonutCharts", true));
-        QVERIFY(page->setProperty("cfg_providerColors", QStringLiteral("{\"codex\":\"#112233\"}")));
-        auto *codex = findVisualItem(qobject_cast<QQuickItem *>(page.data()),
-                                     QStringLiteral("provider-color-codex"));
-        QVERIFY(codex);
-        QCOMPARE(codex->property("colorValue").toString(), QStringLiteral("#112233"));
+        QVERIFY(
+            page->setProperty("cfg_providerColors", QStringLiteral("{\"openai\":\"#112233\"}")));
+        auto *openai = findVisualItem(qobject_cast<QQuickItem *>(page.data()),
+                                      QStringLiteral("provider-color-openai"));
+        QVERIFY(openai);
+        QCOMPARE(openai->property("colorValue").toString(), QStringLiteral("#112233"));
         QVERIFY(!findVisualItem(qobject_cast<QQuickItem *>(page.data()),
                                 QStringLiteral("panelSessionColor")));
         QVERIFY(!findVisualItem(qobject_cast<QQuickItem *>(page.data()),
@@ -626,21 +667,22 @@ class AppletConfigurationTest final : public QObject
         {
             KConfig config(path, KConfig::SimpleConfig);
             KConfigLoader loader(KConfigGroup(&config, "Widget"), &schema);
-            QCOMPARE(loader.items().size(), 21);
+            QCOMPARE(loader.items().size(), 24);
             const QVariantMap preferences{
                 {QStringLiteral("autoRefresh"), false},
                 {QStringLiteral("refreshIntervalMinutes"), 15},
-                {QStringLiteral("disabledProviders"), QStringList{QStringLiteral("codex")}},
+                {QStringLiteral("disabledProviders"), QStringList{QStringLiteral("openai")}},
                 {QStringLiteral("showIdleWindows"), true},
-                {QStringLiteral("showCodexSpark"), true},
+                {QStringLiteral("showOpenAISpark"), true},
                 {QStringLiteral("quotaBarsRemaining"), false},
-                {QStringLiteral("hiddenQuotaWindows"), QStringList{QStringLiteral("codex/weekly")}},
+                {QStringLiteral("hiddenQuotaWindows"),
+                 QStringList{QStringLiteral("openai/weekly")}},
                 {QStringLiteral("quotaWindowCatalog"), QStringLiteral("[]")},
                 {QStringLiteral("panelDonutCharts"), true},
                 {QStringLiteral("panelSystemAccent"), true},
                 {QStringLiteral("panelSessionColor"), QStringLiteral("#112233")},
                 {QStringLiteral("panelWeeklyColor"), QStringLiteral("#aabbcc")},
-                {QStringLiteral("providerColors"), QStringLiteral("{\"codex\":\"#123456\"}")},
+                {QStringLiteral("providerColors"), QStringLiteral("{\"openai\":\"#123456\"}")},
                 {QStringLiteral("quotaNotifications"), true},
                 {QStringLiteral("quotaNotificationThreshold"), 20},
                 {QStringLiteral("deepseekAccountId"),
@@ -655,7 +697,7 @@ class AppletConfigurationTest final : public QObject
                  QStringLiteral("55555555-5555-4555-8555-555555555555")},
                 {QStringLiteral("oauthProfiles"),
                  QStringLiteral(
-                     R"({"version":1,"codex":[{"id":"11111111-1111-4111-8111-111111111111","name":"Work","directory":"/profiles/work"}],"selectedCodex":"11111111-1111-4111-8111-111111111111","gemini":[{"id":"22222222-2222-4222-8222-222222222222","name":"Gemini Work","directory":"/profiles/gemini"}],"selectedGemini":"22222222-2222-4222-8222-222222222222"})")}};
+                     R"({"version":1,"openai":[{"id":"11111111-1111-4111-8111-111111111111","name":"Work","directory":"/profiles/work"}],"selectedOpenAI":"11111111-1111-4111-8111-111111111111","gemini":[{"id":"22222222-2222-4222-8222-222222222222","name":"Gemini Work","directory":"/profiles/gemini"}],"selectedGemini":"22222222-2222-4222-8222-222222222222"})")}};
             for (auto it = preferences.cbegin(); it != preferences.cend(); ++it) {
                 auto *item = loader.findItemByName(it.key());
                 QVERIFY(item);
@@ -669,18 +711,18 @@ class AppletConfigurationTest final : public QObject
         QCOMPARE(reloaded.property("autoRefresh").toBool(), false);
         QCOMPARE(reloaded.property("refreshIntervalMinutes").toInt(), 15);
         QCOMPARE(reloaded.property("disabledProviders").toStringList(),
-                 QStringList{QStringLiteral("codex")});
+                 QStringList{QStringLiteral("openai")});
         QCOMPARE(reloaded.property("showIdleWindows").toBool(), true);
-        QCOMPARE(reloaded.property("showCodexSpark").toBool(), true);
+        QCOMPARE(reloaded.property("showOpenAISpark").toBool(), true);
         QCOMPARE(reloaded.property("quotaBarsRemaining").toBool(), false);
         QCOMPARE(reloaded.property("hiddenQuotaWindows").toStringList(),
-                 QStringList{QStringLiteral("codex/weekly")});
+                 QStringList{QStringLiteral("openai/weekly")});
         QCOMPARE(reloaded.property("panelDonutCharts").toBool(), true);
         QCOMPARE(reloaded.property("panelSystemAccent").toBool(), true);
         QCOMPARE(reloaded.property("panelSessionColor").toString(), QStringLiteral("#112233"));
         QCOMPARE(reloaded.property("panelWeeklyColor").toString(), QStringLiteral("#aabbcc"));
         QCOMPARE(reloaded.property("providerColors").toString(),
-                 QStringLiteral("{\"codex\":\"#123456\"}"));
+                 QStringLiteral("{\"openai\":\"#123456\"}"));
         QCOMPARE(reloaded.property("quotaNotifications").toBool(), true);
         QCOMPARE(reloaded.property("quotaNotificationThreshold").toInt(), 20);
         QCOMPARE(reloaded.property("deepseekAccountId").toString(),
@@ -705,7 +747,7 @@ class AppletConfigurationTest final : public QObject
     {
         QTest::addColumn<QString>("provider");
         for (const QString &id :
-             {QStringLiteral("codex"), QStringLiteral("claude"), QStringLiteral("gemini"),
+             {QStringLiteral("openai"), QStringLiteral("claude"), QStringLiteral("gemini"),
               QStringLiteral("deepseek"), QStringLiteral("kimi"), QStringLiteral("openrouter"),
               QStringLiteral("xai"), QStringLiteral("zai")})
             QTest::newRow(qPrintable(id)) << id;
@@ -715,9 +757,12 @@ class AppletConfigurationTest final : public QObject
     {
         QFETCH(QString, provider);
         QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
-        const bool oauth = provider == "codex" || provider == "claude" || provider == "gemini";
+        const bool oauth = provider == "openai" || provider == "claude" || provider == "gemini";
         const QString id = QStringLiteral("11111111-1111-4111-8111-111111111111");
-        const QString selectionKey = "selected" + provider.left(1).toUpper() + provider.mid(1);
+        const QString selectionKey =
+            provider == QLatin1String("openai")
+                ? QStringLiteral("selectedOpenAI")
+                : "selected" + provider.left(1).toUpper() + provider.mid(1);
         const QString original = QString::fromUtf8(
             QJsonDocument(
                 QJsonObject{{provider, QJsonArray{QJsonObject{{"id", id},
@@ -882,7 +927,7 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(provider->setProperty("currentIndex", 0));
         QVERIFY(QMetaObject::invokeMethod(provider, "activated", Q_ARG(int, 0)));
         QCOMPARE(preferences->property("writes").toInt(), 0);
-        QCOMPARE(dialog->property("targetProviderId").toString(), QStringLiteral("codex"));
+        QCOMPARE(dialog->property("targetProviderId").toString(), QStringLiteral("openai"));
         // Selecting the already selected Default closes the dialog without a write.
         QVERIFY(QMetaObject::invokeMethod(account, "activated", Q_ARG(int, 0)));
         QTRY_VERIFY(!dialog->property("opened").toBool());
@@ -910,21 +955,21 @@ class AppletConfigurationTest final : public QObject
                          "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/UsageNavigation.qml")));
         QScopedPointer<QObject> navigation(component.create());
         QVERIFY2(navigation, qPrintable(component.errorString()));
-        const QVariantList catalog{QVariantMap{{"id", "codex"}, {"name", "Codex"}},
+        const QVariantList catalog{QVariantMap{{"id", "openai"}, {"name", "OpenAI"}},
                                    QVariantMap{{"id", "kimi"}, {"name", "Kimi"}}};
         navigation->setProperty("catalog", catalog);
         navigation->setProperty(
             "providers",
             QVariantList{QVariantMap{{"id", "kimi"}, {"cost", QVariantMap{{"balance", 40}}}}});
         QVERIFY(QMetaObject::invokeMethod(navigation.data(), "focusProvider",
-                                          Q_ARG(QVariant, QStringLiteral("codex"))));
+                                          Q_ARG(QVariant, QStringLiteral("openai"))));
         QTRY_COMPARE(navigation->property("selectedProviderId").toString(),
-                     QStringLiteral("codex"));
+                     QStringLiteral("openai"));
         auto selected = navigation->property("selectedProvider").toMap();
         QVERIFY(selected.value("pendingSelection").toBool());
         QVERIFY(!selected.contains("cost"));
         navigation->setProperty("providers",
-                                QVariantList{QVariantMap{{"id", "codex"}, {"fresh", true}}});
+                                QVariantList{QVariantMap{{"id", "openai"}, {"fresh", true}}});
         QTRY_VERIFY(navigation->property("selectedProvider").toMap().value("fresh").toBool());
         navigation->setProperty("providers", QVariantList{});
         QTRY_VERIFY(
@@ -935,7 +980,7 @@ class AppletConfigurationTest final : public QObject
         QVERIFY(navigation->property("requestedProviderId").toString().isEmpty());
         QVERIFY(navigation->property("displayedProviders").toList().isEmpty());
         QVERIFY(QMetaObject::invokeMethod(navigation.data(), "focusProvider",
-                                          Q_ARG(QVariant, QStringLiteral("codex"))));
+                                          Q_ARG(QVariant, QStringLiteral("openai"))));
         navigation->setProperty("catalog", QVariantList{});
         QCoreApplication::processEvents();
         QVERIFY(navigation->property("requestedProviderId").toString().isEmpty());
@@ -945,7 +990,7 @@ class AppletConfigurationTest final : public QObject
     void stagesProfileEditsUntilApplied_data()
     {
         QTest::addColumn<QString>("provider");
-        QTest::newRow("codex") << QStringLiteral("codex");
+        QTest::newRow("openai") << QStringLiteral("openai");
         QTest::newRow("claude") << QStringLiteral("claude");
         QTest::newRow("gemini") << QStringLiteral("gemini");
     }
@@ -1306,7 +1351,7 @@ class AppletConfigurationTest final : public QObject
             QQmlComponent component(
                 &engine,
                 QUrl(QStringLiteral("qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/") + file));
-            QVariantMap provider{{"id", "codex"}, {"bankedResets", 2}};
+            QVariantMap provider{{"id", "openai"}, {"bankedResets", 2}};
             QScopedPointer<QObject> object(component.createWithInitialProperties(
                 {{"provider", provider}, {"width", 400}, {"height", 400}}));
             QVERIFY2(object, qPrintable(component.errorString()));
@@ -1355,7 +1400,7 @@ class AppletConfigurationTest final : public QObject
         QTest::failOnWarning(QRegularExpression(QStringLiteral(".*")));
         QQmlEngine engine;
         const QVariantMap provider{
-            {QStringLiteral("id"), QStringLiteral("codex")},
+            {QStringLiteral("id"), QStringLiteral("openai")},
             {QStringLiteral("windows"),
              QVariantList{QVariantMap{{QStringLiteral("kind"), QStringLiteral("session")},
                                       {QStringLiteral("remainingPercent"), 50}},
@@ -1472,7 +1517,7 @@ class AppletConfigurationTest final : public QObject
             &engine, QUrl(QStringLiteral(
                          "qrc:/qt/qml/plasma/applet/org/kyaulabs/kodometer/ProviderDetails.qml")));
         QVariantMap provider{
-            {QStringLiteral("id"), QStringLiteral("codex")},
+            {QStringLiteral("id"), QStringLiteral("openai")},
             {QStringLiteral("dashboardUrl"), QStringLiteral("https://evil.test/?token=secret")},
             {QStringLiteral("profileName"), QStringLiteral("<b>Work</b>")}};
         QScopedPointer<QObject> object(component.createWithInitialProperties(

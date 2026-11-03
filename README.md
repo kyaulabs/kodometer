@@ -14,26 +14,27 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 
 ## Status
 
-Kodometer targets KDE Plasma 6.4 and newer. Version 0.6.1 rebuilds native packages for the Plasma 6.8 library ABI and bounds Arch binaries to their build's Plasma minor series. Source builds still support older compatible Plasma releases; one binary does not span different library ABIs. The hover-inspectable charts and balanced popup controls from 0.6.0 remain. Charts hold the last observed percentage through gaps without adding stored samples. The neutral Overview accent, single Spark toggle, and provider-only chart colors from 0.5.1 remain. Popup pages remain content-sized, account selection lives in settings, and provider links sit below usage/history. Spark is hidden by default, and popup bars fill with remaining quota unless configured otherwise. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
+Kodometer targets KDE Plasma 6.4 and newer. Version 0.7.0 renames Codex to OpenAI, preserves saved settings and quota history through migration, and adds organization-wide OpenAI API Platform spending with configurable Plan/API tabs or stacked graphs. API spending requires a separate Admin API key; actual prepaid credit balance is unavailable through the supported public API. This release also updates the development-tool dependency affected by four security advisories. Arch binaries retain bounds to their build's Plasma minor series. Source builds still support older compatible Plasma releases; one binary does not span different library ABIs. The hover-inspectable charts and balanced popup controls from 0.6.0 remain. Charts hold the last observed percentage through gaps without adding stored samples. The neutral Overview accent, single Spark toggle, and provider-only chart colors from 0.5.1 remain. Popup pages remain content-sized, account selection lives in settings, and provider links sit below usage/history. Spark is hidden by default, and popup bars fill with remaining quota unless configured otherwise. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
 
 - a compiled Plasma 6 applet for Wayland and X11;
-- native Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
+- native OpenAI, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
 - secure loading, atomic OAuth rotation, and KWallet-backed API-key entry;
 - session, weekly, model-specific, routines, spend-limit, and Gemini tier windows;
 - Claude monthly-cap and plan presentation;
+- OpenAI organization API spending, month-to-date totals, and Plan/API tabs or stacked graphs;
 - xAI prepaid balance and 30-day platform spend summaries;
 - Kimi Code 7-day and short-window request quotas;
 - DeepSeek account balance with paid and granted credit breakdowns;
 - z.ai and BigModel CN Coding Plan, MCP, model-token, and account-balance data;
 - OpenRouter credit balance, API-key spending cap, and optional 30-day activity totals;
-- 7-day and 30-day daily spend charts for xAI and OpenRouter;
+- 7-day and 30-day daily spend charts for OpenAI API Platform, xAI, and OpenRouter;
 - Soft Iris branding, native provider icons, and provider-specific nested panel donut meters;
 - content-sized popup tabs, configurable quota-window visibility, and remaining-quota bars;
 - 30-day local observations of subscription quotas, with minimal provider-colored history charts;
 - provider tabs, an overview, reset countdowns, and account and plan labels;
 - official dashboard and documentation links from provider details;
 - per-widget automatic refresh, provider switches, and idle-window preferences;
-- named Codex, Claude, and Gemini credential profiles, with only the selected profile polled;
+- named OpenAI, Claude, and Gemini credential profiles, with only the selected profile polled;
 - named DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai accounts in KWallet, with selected-only polling;
 - profile/account selection in settings, including recovery when usage data is unavailable;
 - opt-in low-quota desktop notifications with duplicate suppression;
@@ -43,7 +44,7 @@ Kodometer targets KDE Plasma 6.4 and newer. Version 0.6.1 rebuilds native packag
 - C++ and QML tests with 96% minimum line, function, and branch coverage gates;
 - CI checks for formatting, builds, tests, QML, commits, dependencies, workflows, and leaked secrets.
 
-Codex, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. Codex, Claude, and Gemini support named credential profiles; DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai support named KWallet accounts.
+OpenAI, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai are available as native providers. OpenAI, Claude, and Gemini support named credential profiles; DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai support named KWallet accounts.
 
 ## Requirements
 
@@ -52,7 +53,7 @@ Runtime:
 - KDE Plasma 6.4 or newer;
 - Qt 6.4 or newer, including Qt Quick Controls and Qt Quick Dialogs;
 - KDE Frameworks 6 Wallet and Notifications, with a configured KDE Wallet service;
-- a Codex login at `~/.codex/auth.json`, or under `$CODEX_HOME/auth.json`;
+- an OpenAI plan login at `~/.codex/auth.json`, or under `$CODEX_HOME/auth.json`;
 - a Claude login at `~/.claude/.credentials.json`;
 - a Gemini CLI OAuth login at `~/.gemini/oauth_creds.json` or in a selected profile folder;
 - a Kimi Code API key exported as `KIMI_CODE_API_KEY`, or a fresh Kimi Code CLI login at `~/.kimi-code/credentials/kimi-code.json`;
@@ -63,9 +64,13 @@ Runtime:
 
 Open the widget's **Configure Kodometer…** action to store DeepSeek, Kimi Code, OpenRouter, xAI, or z.ai API keys in KDE Wallet. Kodometer stores entries in a `Kodometer` folder of the network wallet and never copies wallet values into Plasma configuration. In Default mode, a non-empty environment credential takes precedence over its matching wallet entry. Named DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai accounts instead use only their selected wallet credentials and selectors. On the Credentials page, OpenRouter's Default keys remain separate entries. Default xAI uses `XAI_TEAM_ID`; Default z.ai uses environment settings for region, scope, organization, and project.
 
-Kodometer accepts OAuth credentials written by Codex, Claude, and Gemini CLI. Codex's `OPENAI_API_KEY` file form is also supported. Claude profile roots set through `CLAUDE_CONFIG_DIR` are honored, as is `CLAUDE_SECURESTORAGE_CONFIG_DIR`; relative profile paths resolve from Kodometer's working directory, matching Claude Code's literal-path behavior.
+Kodometer accepts OAuth credentials written by Codex CLI (shown as OpenAI), Claude, and Gemini CLI. OpenAI's `OPENAI_API_KEY` file form is also supported. Claude profile roots set through `CLAUDE_CONFIG_DIR` are honored, as is `CLAUDE_SECURESTORAGE_CONFIG_DIR`; relative profile paths resolve from Kodometer's working directory, matching Claude Code's literal-path behavior.
 
-Codex distinguishes Pro from Pro-Lite using the API-reported plan, not quota percentages. Subscription labels omit prices rather than attach hard-coded amounts to selected tiers. When the usage response reports at least one available banked reset, both Codex details and Overview show its count. Kodometer only reads this count; it does not consume resets or make extra requests for them.
+OpenAI API Platform spending is independent of the selected plan profile. Store an organization **Admin API key** under **Configure Kodometer… → Provider credentials**, or export `OPENAI_ADMIN_KEY` before starting Plasma. A normal project API key or a Codex OAuth login cannot read organization Costs. Kodometer uses the official `GET /v1/organization/costs` endpoint for reported daily USD spending, month-to-date totals, and 7-day/30-day charts. Missing days remain unknown and reporting may be delayed. Spending is not a prepaid-credit balance or necessarily a credit deduction. The supported public API does not expose a prepaid credit balance; Kodometer labels it unavailable rather than estimating it or accessing private dashboard endpoints.
+
+The **Show OpenAI Plan and API in separate tabs** setting is on by default. Turn it off to stack plan quotas/history and API spending on one OpenAI page. Plan profiles and the API Admin key remain independent: changing one does not select or reuse the other's credentials. Existing Codex provider switches, colors, Spark preferences, window visibility, profile selections, and quota history migrate to OpenAI. External `$CODEX_HOME`, `~/.codex/auth.json`, and official Codex protocol names remain unchanged.
+
+OpenAI distinguishes Pro from Pro-Lite using the API-reported plan, not quota percentages. Subscription labels omit prices rather than attach hard-coded amounts to selected tiers. When the usage response reports at least one available banked reset, both OpenAI details and Overview show its count. Kodometer only reads this count; it does not consume resets or make extra requests for them.
 
 Gemini API-key and Vertex AI sessions do not expose the Code Assist OAuth quota endpoint and are not supported by this adapter. Token refresh reads Gemini CLI's public installed-app OAuth values from its installed JavaScript package without running the CLI. `GEMINI_OAUTH_CLIENT_ID` and `GEMINI_OAUTH_CLIENT_SECRET` override discovery; `GEMINI_OAUTH2_JS_PATH` selects a specific `oauth2.js` file. Following Google's June 2026 consumer-tier shutdown, Gemini quota access is limited to Workspace, education, and Code Assist Standard or Enterprise accounts. Individual, Google AI Pro, and Ultra accounts must use Antigravity instead.
 
@@ -219,13 +224,13 @@ Open **Configure Kodometer… → General** to choose which providers run and ho
 - Turn automatic refresh off for startup and manual refresh only. Credential changes and provider switches still trigger a refresh; changes during an active cycle queue one follow-up cycle.
 - Uncheck a provider to hide its data and errors and skip it on future refreshes. Requests already in progress may finish. KWallet entries and last-good data are retained so the provider can be re-enabled. Disabling all providers stops polling.
 - **Show idle quota windows** is off by default. Enable it to include windows marked idle in the overview, provider details, and account summaries.
-- **Show Codex Spark quota** is the single Spark toggle and is off by default. It controls every Codex Spark window; old per-window Spark hiding entries no longer apply. Idle Spark windows still require **Show idle quota windows**.
+- **Show OpenAI Spark quota** is the single Spark toggle and is off by default. It controls every OpenAI Spark window; old per-window Spark hiding entries no longer apply. Idle Spark windows still require **Show idle quota windows**.
 - Individual quota-window switches appear after a successful refresh. Disabling a window hides it from Overview, provider quota rows, panel meters and tooltips, and the history chart's selector. These presentation switches do not change polling, recorded observations, or notification policy.
 - **Fill bars with remaining quota (instead of used)** is on by default: 65% left fills 65% of a popup bar. Turn it off to fill bars with used quota. Bars use a thicker, slightly rounded fill and a neutral track.
 - **Panel meters** offers **Bars** (default) or **Donut charts**. Bar mode retains the most constrained session and weekly remaining quotas across providers. Donut mode shows one meter per provider with valid visible quota. Its windows form differently colored nested rings in the provider's reported order. Hovering shows only that provider's percentages, with outer-to-inner ring positions. Provider icons identify meters when there is room. Meters sit side by side on horizontal panels and stack on vertical panels; balance-only providers do not get quota rings. With no usable quota, donut mode shows the Kodometer icon. Missing quota is **Not reported**, not zero.
 - Each provider under **General → Providers** has a **Choose color…** control. Its accent applies to provider tabs, Overview and detail bars, quota and spend history, and panel meters. **Use default color** restores that provider's built-in accent. Colors are staged per widget: Apply saves them, Cancel restores saved choices, and Defaults clears overrides. Color changes do not refresh providers or change credentials.
 - Panel bars use the accent of the provider supplying the most constrained session or weekly quota. **Bar meter accent** supplies the fallback when no provider accent is available, with **Kodometer Iris** or **Desktop accent** choices. Other controls and surfaces keep your desktop theme. See [artwork integration](branding/README.md).
-- Provider colors are the only source for donut accents; inner rings derive contrasting colors from that accent. The old **Session donut color** and **Weekly donut color** controls are removed, and their saved values are no longer applied. Default accents are Codex `#A28BE0`, Kimi Code `#49A3B0`, and OpenRouter `#C8FF00`; existing custom provider choices are preserved.
+- Provider colors are the only source for donut accents; inner rings derive contrasting colors from that accent. The old **Session donut color** and **Weekly donut color** controls are removed, and their saved values are no longer applied. Default accents are OpenAI `#A28BE0`, Kimi Code `#49A3B0`, and OpenRouter `#C8FF00`; existing custom provider choices are preserved.
 
 The popup keeps a stable width and fits its height to the current content, rather than retaining a taller tab's size. Provider rows include padding inside their hover background. Footer actions use visually balanced icon sizes, with the symbolic settings icon two logical pixels smaller than its neighbors. Provider tabs have equal top and bottom content padding. The Overview tab uses the logo's Cloud (`#F7F5FB`) accent on dark surfaces and Ink (`#252333`) on light surfaces. When a tab exceeds the available screen-height budget, numbered page tabs appear inside it. Pages break between sections where possible; an exceptionally tall section continues on another page. Keyboard focus follows the active page, and popup pages have no vertical scrollbar. Overview includes all enabled providers with data. Settings dialogs can still scroll.
 
@@ -233,7 +238,7 @@ These preferences use Plasma's per-widget configuration and its Apply, Cancel, a
 
 ## Select profiles and accounts
 
-Use **Configure Kodometer… → OAuth profiles** for Codex, Claude, and Gemini, or **KWallet accounts** for the other providers. The popup footer's configuration icon opens settings even when no usage is available. Profile/account selectors no longer occupy provider details or a popup switch dialog.
+Use **Configure Kodometer… → OAuth profiles** for OpenAI, Claude, and Gemini, or **KWallet accounts** for the other providers. The popup footer's configuration icon opens settings even when no usage is available. Profile/account selectors no longer occupy provider details or a popup switch dialog.
 
 Select an existing entry and press **Apply**. Cancel discards staged selection changes. Applying a different selection clears only that provider's old data and uses the normal refresh cycle; it does not copy credentials, change another widget, or switch a CLI login. Normal OAuth renewal still applies.
 
@@ -241,7 +246,7 @@ Use **Open / retry KWallet** to reload unavailable wallet entries, or explicitly
 
 ## OAuth profiles
 
-Open **Configure Kodometer… → OAuth profiles** to add an existing credential folder and a nonsecret name, such as Work. Codex folders must contain `auth.json`; Claude folders must contain `.credentials.json`; Gemini folders must contain `oauth_creds.json`. Use **Browse…** or enter an absolute path, then **Add and select** and **Apply**. Kodometer does not sign in, copy credentials, or change the CLI's active login. Codex's existing API-key file form remains supported.
+Open **Configure Kodometer… → OAuth profiles** to add an existing credential folder and a nonsecret name, such as Work. OpenAI folders must contain `auth.json`; Claude folders must contain `.credentials.json`; Gemini folders must contain `oauth_creds.json`. Use **Browse…** or enter an absolute path, then **Add and select** and **Apply**. Kodometer does not sign in, copy credentials, or change the CLI's active login. OpenAI's existing API-key file form remains supported.
 
 Gemini reads `settings.json` from the same selected folder when present. API-key and Vertex AI selections remain unsupported; missing settings never cause a lookup in Default's folder. Default restores `~/.gemini/oauth_creds.json` and `~/.gemini/settings.json`. Gemini's public installed-app OAuth client configuration remains shared across profiles, including the `GEMINI_OAUTH_CLIENT_ID`, `GEMINI_OAUTH_CLIENT_SECRET`, and `GEMINI_OAUTH2_JS_PATH` overrides. Settings files are not rewritten. OAuth renewal updates only the request's original credential file, even if another profile is selected while renewal is pending.
 
@@ -249,7 +254,7 @@ Each provider accepts up to eight named profiles plus **Default (environment)**.
 
 Only the selected profile is refreshed. Applying a selection change clears that provider's displayed data and errors and queues a normal refresh, even with automatic refresh disabled. Existing requests may finish against their original credential file, but their results cannot populate the new selection. Last-good data remains available after failures within the same profile; it is not reused across profile changes, including when switching back. Other enabled providers continue normally.
 
-The page follows Plasma's Apply, Cancel, and Defaults controls. Removing an active profile selects Default without deleting any credential files. Invalid stored profile configuration pauses Codex, Claude, and Gemini rather than silently using another account; restore Defaults to recover. File ownership, permissions, size, and type are still checked before credentials are used. Normal OAuth renewal may update the selected credential file atomically. Existing Codex/Claude profile documents remain valid; Gemini starts at Default until a named profile is selected.
+The page follows Plasma's Apply, Cancel, and Defaults controls. Removing an active profile selects Default without deleting any credential files. Invalid stored profile configuration pauses OpenAI, Claude, and Gemini rather than silently using another account; restore Defaults to recover. File ownership, permissions, size, and type are still checked before credentials are used. Normal OAuth renewal may update the selected credential file atomically. Existing OpenAI/Claude profile documents remain valid; Gemini starts at Default until a named profile is selected.
 
 ## Named KWallet accounts
 
@@ -277,7 +282,7 @@ Closing the wallet clears both registries. Late read replies and abandoned open 
 
 ## Recorded quota history
 
-Codex, Claude, Gemini, Kimi Code, and z.ai details include a minimal **Quota history** chart for their visible quota windows. Choose a window and **24 hours**, **7 days**, or **30 days**. Lines use the provider tab's accent and plot **remaining quota**, not request counts or spend. History starts with successful normal refreshes; idle and invalid quotas do not produce observations, and monetary spending caps are not recorded. Kodometer does not fetch or invent earlier activity. Disabled automatic polling therefore produces only the observations available from startup, manual refreshes, and context-triggered refreshes.
+OpenAI, Claude, Gemini, Kimi Code, and z.ai details include a minimal **Quota history** chart for their visible quota windows. Choose a window and **24 hours**, **7 days**, or **30 days**. Lines use the provider tab's accent and plot **remaining quota**, not request counts or spend. History starts with successful normal refreshes; idle and invalid quotas do not produce observations, and monetary spending caps are not recorded. Kodometer does not fetch or invent earlier activity. Disabled automatic polling therefore produces only the observations available from startup, manual refreshes, and context-triggered refreshes.
 
 The chart holds the last observed percentage horizontally until the next observation and through the end of the view. Its fill stays continuous after the first known sample; a retained observation before the selected range can supply its starting value. Drops, resets, and increases appear as vertical steps at their observation timestamps. Hover over the plot for a position marker, time, and last observed percentage. These held values are a visual aid, not proof of activity or additional recorded samples; nothing is drawn before the first known observation. The chart retains the latest actual observation in each five-minute bucket, so faster polling does not create unlimited samples.
 
@@ -356,11 +361,11 @@ Development follows Git Flow and Conventional Commits.
 5. The workflow opens or reuses a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret. Published assets are never replaced on retry.
 6. When explicitly enabled and configured, a separate job updates AUR recipes with a GPG-signed commit after GitHub publication. A failed AUR update can be retried without replacing GitHub assets.
 
-See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.6.1 overview](docs/releases/0.6.1.md) for the latest features, packages, and compatibility limits.
+See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.7.0 overview](docs/releases/0.7.0.md) for the latest features, packages, and compatibility limits.
 
 ## Security and privacy
 
-Kodometer reads OAuth credentials only from the expected Codex, Claude, Gemini, and Kimi Code authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state. Kimi Code credentials remain read-only; Kodometer creates only a missing owner-only device ID required by the official API. Manually entered API keys are held by KDE Wallet, not plaintext Plasma configuration. Non-empty API-key environment values retain precedence over corresponding Default KWallet entries. Explicit named DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai accounts bypass that discovery and have no credential fallback. BigModel CN and Zhipu key files are read-only inputs.
+Kodometer reads OAuth credentials only from the expected OpenAI, Claude, Gemini, and Kimi Code authentication files. It rejects symbolic links, unexpected ownership, permissive file modes, non-regular files, and files larger than 1 MiB. OAuth refreshes are written with `QSaveFile` so replacement is atomic and permissions remain owner-only. Claude refresh-token rotation and Gemini access-token renewal are persisted to their provider-owned files so the provider tools and Kodometer share the current token state. Kimi Code credentials remain read-only; Kodometer creates only a missing owner-only device ID required by the official API. Manually entered API keys are held by KDE Wallet, not plaintext Plasma configuration. Non-empty API-key environment values retain precedence over corresponding Default KWallet entries. Explicit named DeepSeek, Kimi Code, OpenRouter, xAI, and z.ai accounts bypass that discovery and have no credential fallback. BigModel CN and Zhipu key files are read-only inputs.
 
 Network requests use fixed provider endpoints, bounded response buffers, explicit timeouts, and disabled automatic redirects. Account email addresses are redacted before data reaches QML. Tokens are never added to the presentation model or logs.
 

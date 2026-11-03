@@ -4,7 +4,7 @@
 namespace Kodometer {
 namespace {
 const QList<QPair<QString, QString>> Providers{
-    {QStringLiteral("codex"), QStringLiteral("Codex")},
+    {QStringLiteral("openai"), QStringLiteral("OpenAI")},
     {QStringLiteral("claude"), QStringLiteral("Claude")},
     {QStringLiteral("gemini"), QStringLiteral("Gemini")},
     {QStringLiteral("xai"), QStringLiteral("xAI")},

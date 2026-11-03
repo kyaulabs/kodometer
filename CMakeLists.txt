@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.24)
 
 project(
     kodometer
-    VERSION 0.6.1
+    VERSION 0.7.0
     DESCRIPTION "AI provider usage meter for KDE Plasma 6"
     HOMEPAGE_URL "https://github.com/kyaulabs/kodometer"
     LANGUAGES CXX
@@ -55,9 +55,9 @@ endfunction()
 add_library(kodometer-core STATIC)
 target_sources(kodometer-core
     PRIVATE
-        src/codex_credentials.cpp
-        src/codex_provider_adapter.cpp
-        src/codex_usage_parser.cpp
+        src/openai_credentials.cpp
+        src/openai_provider_adapter.cpp
+        src/openai_usage_parser.cpp
         src/credential_store.cpp
         src/wallet_accounts.cpp
         src/account_switch_model.cpp
@@ -84,6 +84,8 @@ target_sources(kodometer-core
         src/zai_usage_parser.cpp
         src/oauth_profiles.cpp
         src/cost_history_model.cpp
+        src/openai_costs.cpp
+        src/openai_api_adapter.cpp
         src/quota_history.cpp
         src/presentation_formatter.cpp
         src/quota_alert_policy.cpp
@@ -95,9 +97,9 @@ target_sources(kodometer-core
         FILE_SET HEADERS
         BASE_DIRS include
         FILES
-            include/kodometer/codex_credentials.hpp
-            include/kodometer/codex_provider_adapter.hpp
-            include/kodometer/codex_usage_parser.hpp
+            include/kodometer/openai_credentials.hpp
+            include/kodometer/openai_provider_adapter.hpp
+            include/kodometer/openai_usage_parser.hpp
             include/kodometer/credential_store.hpp
             include/kodometer/wallet_accounts.hpp
             include/kodometer/account_switch_model.hpp
@@ -124,6 +126,8 @@ target_sources(kodometer-core
             include/kodometer/zai_usage_parser.hpp
             include/kodometer/oauth_profiles.hpp
             include/kodometer/cost_history_model.hpp
+            include/kodometer/openai_costs.hpp
+            include/kodometer/openai_api_adapter.hpp
             include/kodometer/quota_history.hpp
             include/kodometer/presentation_formatter.hpp
             include/kodometer/quota_alert_policy.hpp

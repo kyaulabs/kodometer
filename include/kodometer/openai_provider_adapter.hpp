@@ -1,6 +1,6 @@
 #pragma once
 
-#include <kodometer/codex_credentials.hpp>
+#include <kodometer/openai_credentials.hpp>
 #include <kodometer/provider_adapter.hpp>
 
 #include <QByteArray>
@@ -12,15 +12,15 @@ class QNetworkAccessManager;
 
 namespace Kodometer {
 
-class CodexProviderAdapter final : public ProviderAdapter
+class OpenAIProviderAdapter final : public ProviderAdapter
 {
     Q_OBJECT
 
   public:
     static constexpr qsizetype MaximumResponseSize = 1024 * 1024;
 
-    explicit CodexProviderAdapter(QNetworkAccessManager *network = nullptr,
-                                  QObject *parent = nullptr);
+    explicit OpenAIProviderAdapter(QNetworkAccessManager *network = nullptr,
+                                   QObject *parent = nullptr);
 
     [[nodiscard]] QString providerId() const override;
     [[nodiscard]] bool busy() const noexcept;
@@ -68,7 +68,7 @@ class CodexProviderAdapter final : public ProviderAdapter
     QUrl m_usageEndpoint{QStringLiteral("https://chatgpt.com/backend-api/wham/usage")};
     QUrl m_tokenEndpoint{QStringLiteral("https://auth.openai.com/oauth/token")};
     int m_timeoutMilliseconds = 30'000;
-    CodexCredentials m_credentials;
+    OpenAICredentials m_credentials;
     QVariantMap m_provider;
     QString m_error;
     QByteArray m_responseData;

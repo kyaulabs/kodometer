@@ -1,5 +1,6 @@
 #include <kodometer/openai_api_adapter.hpp>
 
+#include <QNetworkAccessManager>
 #include <QSignalSpy>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -18,7 +19,8 @@ class OpenAIApiAdapterTest : public QObject
     }
     void missingKeyDoesNotRequest()
     {
-        OpenAIApiAdapter adapter;
+        QNetworkAccessManager network;
+        OpenAIApiAdapter adapter(&network);
         QSignalSpy success(&adapter, &OpenAIApiAdapter::refreshSucceeded);
         adapter.refresh();
         QCOMPARE(success.size(), 1);

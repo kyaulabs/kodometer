@@ -10,9 +10,10 @@
 
 namespace Kodometer {
 OpenAIApiAdapter::OpenAIApiAdapter(QNetworkAccessManager *network, QObject *parent)
-    : ProviderAdapter(parent),
-      m_network(network == nullptr ? new QNetworkAccessManager(this) : network)
+    : ProviderAdapter(parent), m_network(network)
 {
+    if (m_network == nullptr)
+        m_network = new QNetworkAccessManager(this);
     m_timeout.setSingleShot(true);
     connect(&m_timeout, &QTimer::timeout, this, [this] {
         if (m_reply) {
@@ -52,8 +53,10 @@ void OpenAIApiAdapter::refresh()
         return;
     const QString key = environment().value(QStringLiteral("OPENAI_ADMIN_KEY")).trimmed();
     if (key.isEmpty()) {
-        emit refreshSucceeded(QVariantMap{{QStringLiteral("id"), providerId()},
-                                          {QStringLiteral("configured"), false}});
+        QVariantMap provider;
+        provider.insert(QStringLiteral("id"), providerId());
+        provider.insert(QStringLiteral("configured"), false);
+        emit refreshSucceeded(provider);
         return;
     }
     if (key.size() > 65536 || std::any_of(key.cbegin(), key.cend(), [](QChar character) {

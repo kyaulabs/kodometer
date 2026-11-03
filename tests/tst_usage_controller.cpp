@@ -175,6 +175,27 @@ class UsageControllerTest final : public QObject
         QCOMPARE(plan->refreshCount, 1);
     }
 
+    void exposesApiOnlyAfterConfigurationWithoutDisplacingOtherProviders()
+    {
+        auto *claude = new FakeProviderAdapter("claude");
+        auto *api = new FakeProviderAdapter("openai-api");
+        UsageController controller(QList<ProviderAdapter *>{claude, api});
+        controller.setAutoRefresh(false);
+        controller.refresh();
+        claude->succeed({{"id", "claude"}});
+        api->succeed({{"id", "openai-api"}, {"configured", false}});
+        QCOMPARE(controller.providers().size(), 1);
+        controller.refresh();
+        api->succeed({{"id", "openai-api"}, {"configured", true}});
+        claude->succeed({{"id", "claude"}});
+        QCOMPARE(controller.providers().size(), 2);
+        const auto first = controller.providers().first().toMap();
+        QCOMPARE(first.value("id").toString(), QStringLiteral("openai"));
+        QVERIFY(first.value("apiOnly").toBool());
+        QCOMPARE(controller.providers().last().toMap().value("id").toString(),
+                 QStringLiteral("claude"));
+    }
+
     void recordsOnlyCurrentAuthenticatedQuota();
     void rejectsReplacedDefaultCredentials();
     void keepsRotatedIdentityCurrent();

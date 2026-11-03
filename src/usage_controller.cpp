@@ -356,11 +356,11 @@ QList<ProviderAdapter *> UsageController::enabledAdapters() const
     QList<ProviderAdapter *> enabled;
     for (ProviderAdapter *adapter : m_adapters) {
         const QString id = adapter->providerId();
+        const QString publicId = publicProviderId(id);
         const bool profileAllowed = !OAuthProfiles::supportsProvider(id) || m_profiles.valid();
         const bool accountAllowed =
             m_accountSelections.value(id).isEmpty() || selectedAccountKey(id).has_value();
-        if (!m_disabledProviders.contains(publicProviderId(id)) && profileAllowed &&
-            accountAllowed) {
+        if (!m_disabledProviders.contains(publicId) && profileAllowed && accountAllowed) {
             enabled.append(adapter);
         }
     }
@@ -437,22 +437,21 @@ void UsageController::adapterSucceeded(ProviderAdapter *adapter, const QVariantM
     const QString id = adapter->providerId();
     const quint64 revision = m_pendingProfileRevisions.take(adapter);
     const bool current = revision == m_profileRevisions.value(id);
+    const QString publicId = publicProviderId(id);
     const auto historyIdentities = adapter->historyIdentities();
     const QVariant windowValue = provider.value(QStringLiteral("windows"));
     const QVariantList historyWindows = windowValue.toList();
     const auto historyScope =
         m_profiles.contextKey(id).toUtf8() + '\0' + m_accountSelections.value(id).toUtf8();
-    if (!m_disabledProviders.contains(publicProviderId(id)) && current) {
+    if (!m_disabledProviders.contains(publicId) && current) {
         m_history.prepareContext(id, historyScope, historyIdentities);
         m_providerSnapshots.insert(id, provider);
         m_anySuccess = true;
         rebuildProviders();
         // Presentation signals can synchronously change selection or disable the provider.
-        if (revision == m_profileRevisions.value(id) &&
-            !m_disabledProviders.contains(publicProviderId(id))) {
+        if (revision == m_profileRevisions.value(id) && !m_disabledProviders.contains(publicId)) {
             m_history.observe(id, historyScope, historyIdentities, historyWindows);
-            if (revision == m_profileRevisions.value(id) &&
-                !m_disabledProviders.contains(publicProviderId(id)))
+            if (revision == m_profileRevisions.value(id) && !m_disabledProviders.contains(publicId))
                 emit providerRefreshed(provider);
         }
     }
@@ -500,6 +499,7 @@ void UsageController::finishAdapter()
 void UsageController::rebuildProviders()
 {
     QVariantList providers;
+    QVariantMap api;
     providers.reserve(m_adapters.size());
     for (const ProviderAdapter *adapter : enabledAdapters()) {
         const QString id = adapter->providerId();
@@ -507,6 +507,10 @@ void UsageController::rebuildProviders()
         const auto iterator = m_providerSnapshots.constFind(id);
         if (iterator != m_providerSnapshots.cend()) {
             QVariantMap provider = *iterator;
+            if (id == QLatin1String("openai-api")) {
+                api = provider;
+                continue;
+            }
             if (OAuthProfiles::supportsProvider(id) && selectedId != QLatin1String("default")) {
                 provider.insert(QStringLiteral("profileName"), m_profiles.selectedName(id));
             }
@@ -519,33 +523,33 @@ void UsageController::rebuildProviders()
         }
     }
     // The Platform key is independent of the selected subscription credential folder.
-    QVariantMap api;
-    for (qsizetype index = providers.size(); index > 0; --index) {
-        const auto row = providers.at(index - 1).toMap();
-        if (row.value(QStringLiteral("id")) == QLatin1String("openai-api")) {
-            api = row;
-            providers.removeAt(index - 1);
-        }
-    }
     if (!api.isEmpty()) {
-        qsizetype index = 0;
-        while (index < providers.size() &&
-               providers.at(index).toMap().value(QStringLiteral("id")) != QLatin1String("openai"))
-            ++index;
-        if (index == providers.size() && api.value(QStringLiteral("configured")).toBool()) {
-            providers.prepend(QVariantMap{
-                {QStringLiteral("id"), QStringLiteral("openai")},
-                {QStringLiteral("name"), QStringLiteral("OpenAI")},
-                {QStringLiteral("apiOnly"), true},
-                {QStringLiteral("display"),
-                 QVariantMap{{QStringLiteral("accentColor"), QStringLiteral("#A28BE0")}}}});
-            index = 0;
+        qsizetype planIndex = -1;
+        for (qsizetype index = 0; index < providers.size(); ++index) {
+            const auto row = providers.at(index).toMap();
+            const auto idValue = row.value(QStringLiteral("id"));
+            const QString id = idValue.toString();
+            if (id == QLatin1String("openai")) {
+                planIndex = index;
+                break;
+            }
         }
-        if (index < providers.size() &&
-            providers.at(index).toMap().value(QStringLiteral("id")) == QLatin1String("openai")) {
-            QVariantMap row = providers.at(index).toMap();
+        const auto configured = api.value(QStringLiteral("configured"));
+        if (planIndex < 0 && configured.toBool()) {
+            QVariantMap display;
+            display.insert(QStringLiteral("accentColor"), QStringLiteral("#A28BE0"));
+            QVariantMap provider;
+            provider.insert(QStringLiteral("id"), QStringLiteral("openai"));
+            provider.insert(QStringLiteral("name"), QStringLiteral("OpenAI"));
+            provider.insert(QStringLiteral("apiOnly"), true);
+            provider.insert(QStringLiteral("display"), display);
+            providers.prepend(provider);
+            planIndex = 0;
+        }
+        if (planIndex >= 0) {
+            QVariantMap row = providers.at(planIndex).toMap();
             row.insert(QStringLiteral("api"), api);
-            providers[index] = row;
+            providers[planIndex] = row;
         }
     }
     if (m_providers == providers) {

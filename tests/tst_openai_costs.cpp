@@ -62,6 +62,17 @@ class OpenAICostsTest : public QObject
         const auto current = OpenAICosts::parse(page({bucket(today, 0)}), start, now);
         QVERIFY(current);
         QCOMPARE(current->value("cost").toMap().value("todayUSD").toDouble(), 0.0);
+        auto clipped = bucket(today, 2.0);
+        clipped.insert("end_time", now.toSecsSinceEpoch());
+        QVERIFY(OpenAICosts::parse(page({clipped}), start, now));
+        clipped = bucket(start, 2.0);
+        clipped.insert("end_time", now.toSecsSinceEpoch());
+        QVERIFY(!OpenAICosts::parse(page({clipped}), start, now));
+        const qint64 priorMonth =
+            QDateTime(QDate(2026, 5, 31), QTime(), QTimeZone::UTC).toSecsSinceEpoch();
+        const auto previous = OpenAICosts::parse(page({bucket(priorMonth)}), priorMonth, now);
+        QVERIFY(previous);
+        QVERIFY(!previous->value("cost").toMap().contains("monthToDateUSD"));
         auto unreported = bucket(today);
         unreported.insert("results", QJsonArray{});
         const auto missing = OpenAICosts::parse(page({unreported}), start, now);
@@ -107,9 +118,16 @@ class OpenAICostsTest : public QObject
         QTest::newRow("overflow") << page({bucket(start, 1.7e308), bucket(start + 86400, 1.7e308)});
         wrong = bucket(start);
         wrong.insert("results", QJsonArray{QJsonObject{
+                                    {"object", "organization.costs.result"},
                                     {"amount", QJsonObject{{"value", 1}, {"currency", "eur"}}}}});
         QTest::newRow("currency") << page({wrong});
         auto root = QJsonDocument::fromJson(page({bucket(start)})).object();
+        root.insert("data", false);
+        QTest::newRow("data-type") << QJsonDocument(root).toJson();
+        root.insert("data", QJsonArray{bucket(start)});
+        root.insert("next_page", "unexpected");
+        QTest::newRow("unexpected-cursor") << QJsonDocument(root).toJson();
+        root.insert("next_page", QJsonValue::Null);
         root.insert("has_more", true);
         QTest::newRow("partial") << QJsonDocument(root).toJson();
         root.insert("has_more", "false");

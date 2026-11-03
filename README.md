@@ -14,7 +14,7 @@ Kodometer talks to provider APIs directly. It does not require CodexBar, invoke 
 
 ## Status
 
-Kodometer targets KDE Plasma 6.4 and newer. Version 0.6.1 rebuilds native packages for the Plasma 6.8 library ABI and bounds Arch binaries to their build's Plasma minor series. Source builds still support older compatible Plasma releases; one binary does not span different library ABIs. The hover-inspectable charts and balanced popup controls from 0.6.0 remain. Charts hold the last observed percentage through gaps without adding stored samples. The neutral Overview accent, single Spark toggle, and provider-only chart colors from 0.5.1 remain. Popup pages remain content-sized, account selection lives in settings, and provider links sit below usage/history. Spark is hidden by default, and popup bars fill with remaining quota unless configured otherwise. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
+Kodometer targets KDE Plasma 6.4 and newer. Version 0.7.0 renames Codex to OpenAI, preserves saved settings and quota history through migration, and adds organization-wide OpenAI API Platform spending with configurable Plan/API tabs or stacked graphs. API spending requires a separate Admin API key; actual prepaid credit balance is unavailable through the supported public API. This release also updates the development-tool dependency affected by four security advisories. Arch binaries retain bounds to their build's Plasma minor series. Source builds still support older compatible Plasma releases; one binary does not span different library ABIs. The hover-inspectable charts and balanced popup controls from 0.6.0 remain. Charts hold the last observed percentage through gaps without adding stored samples. The neutral Overview accent, single Spark toggle, and provider-only chart colors from 0.5.1 remain. Popup pages remain content-sized, account selection lives in settings, and provider links sit below usage/history. Spark is hidden by default, and popup bars fill with remaining quota unless configured otherwise. Native x64 packages remain available for Arch Linux, Ubuntu 26.04 LTS, and Fedora 43/44, plus source-based AUR recipes. Widget features include:
 
 - a compiled Plasma 6 applet for Wayland and X11;
 - native OpenAI, Claude, DeepSeek, Gemini, Kimi Code, OpenRouter, xAI, and z.ai requests through Qt Network;
@@ -361,7 +361,7 @@ Development follows Git Flow and Conventional Commits.
 5. The workflow opens or reuses a `main` to `develop` back-merge pull request with the `KYAULABS_BOT_TOKEN` repository secret. Published assets are never replaced on retry.
 6. When explicitly enabled and configured, a separate job updates AUR recipes with a GPG-signed commit after GitHub publication. A failed AUR update can be retried without replacing GitHub assets.
 
-See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.6.1 overview](docs/releases/0.6.1.md) for the latest features, packages, and compatibility limits.
+See [the release runbook](docs/releasing.md) for preflight checks and recovery, and [the 0.7.0 overview](docs/releases/0.7.0.md) for the latest features, packages, and compatibility limits.
 
 ## Security and privacy
 

@@ -27,7 +27,8 @@ class ReleaseNotesTest(unittest.TestCase):
         self.notes = (ROOT / "docs/releases" / f"{self.version}.md").read_text()
 
     def test_current_overview_has_fixed_nonempty_sections(self):
-        self.assertTrue(self.notes.startswith(f"# 🚀 Kodometer {self.version}\n"))
+        title = self.notes.split("\n\n", 1)[1] if self.notes.startswith('<p align="center">') else self.notes
+        self.assertTrue(title.startswith(f"# 🚀 Kodometer {self.version}\n"))
         self.assertEqual(re.findall(r"^## (.+)$", self.notes, re.MULTILINE), SECTIONS)
         for section in SECTIONS:
             body = self.notes.split(f"## {section}\n", 1)[1].split("\n## ", 1)[0]
@@ -36,7 +37,13 @@ class ReleaseNotesTest(unittest.TestCase):
 
     def test_template_has_the_same_sections(self):
         template = (ROOT / "docs/releases/TEMPLATE.md").read_text()
-        self.assertTrue(template.startswith("# 🚀 Kodometer X.Y.Z\n"))
+        logo_path = "branding/kodometer-brand-pack/logos/kodometer-iris-on-dark.svg"
+        self.assertTrue(template.startswith(
+            '<p align="center"><img src="https://raw.githubusercontent.com/'
+            f'kyaulabs/kodometer/vX.Y.Z/{logo_path}" width="473" '
+            'alt="Kodometer logo on a dark background"></p>\n\n# 🚀 Kodometer X.Y.Z\n'
+        ))
+        self.assertTrue((ROOT / logo_path).is_file())
         self.assertEqual(re.findall(r"^## (.+)$", template, re.MULTILINE), SECTIONS)
 
     def test_package_table_covers_inventory_and_native_targets(self):

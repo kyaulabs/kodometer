@@ -32,6 +32,49 @@ class OpenAICostsTest : public QObject
 {
     Q_OBJECT
   private slots:
+    void aggregatesCachedInputTokens()
+    {
+        const QDateTime now(QDate(2026, 6, 12), QTime(12, 0), QTimeZone::UTC);
+        const qint64 start = 1780272000;
+        auto usageBucket = [](qint64 time, QJsonValue input, QJsonValue cached) {
+            auto value = bucket(time);
+            value.insert("results",
+                         QJsonArray{QJsonObject{{"object", "organization.usage.completions.result"},
+                                                {"input_tokens", input},
+                                                {"input_cached_tokens", cached}}});
+            return value;
+        };
+        const auto result = OpenAICosts::parseUsage(
+            page({usageBucket(start, 100, 50), usageBucket(start + 86400, 900, 90)}), start, now);
+        QVERIFY(result);
+        QCOMPARE(result->value("cachedInputPercent").toDouble(), 14.0);
+        for (const int cached : {0, 100}) {
+            const auto edge =
+                OpenAICosts::parseUsage(page({usageBucket(start, 100, cached)}), start, now);
+            QVERIFY(edge);
+            QCOMPARE(edge->value("cachedInputPercent").toDouble(), double(cached));
+        }
+        QVERIFY(!OpenAICosts::parseUsage(
+            page({usageBucket(start, 9007199254740991.0, 0), usageBucket(start + 86400, 1, 0)}),
+            start, now));
+        for (const auto &rows : {QJsonArray{}, QJsonArray{usageBucket(start, 0, 0)}}) {
+            const auto empty = OpenAICosts::parseUsage(page(rows), start, now);
+            QVERIFY(empty);
+            QVERIFY(!empty->contains("cachedInputPercent"));
+        }
+        for (const auto &values : {QPair<QJsonValue, QJsonValue>{100, 101},
+                                   {-1, 0},
+                                   {100, -1},
+                                   {100.5, 1},
+                                   {100, 1.5},
+                                   {"100", 1},
+                                   {100, QJsonValue::Null},
+                                   {1e20, 0}}) {
+            QVERIFY(!OpenAICosts::parseUsage(
+                page({usageBucket(start, values.first, values.second)}), start, now));
+        }
+    }
+
     void preservesReportedDaysAndUnknownBalance()
     {
         const QDateTime now(QDate(2026, 6, 12), QTime(12, 0), QTimeZone::UTC);
@@ -136,8 +179,9 @@ class OpenAICostsTest : public QObject
     void rejectsMalformedOrPartialPages()
     {
         QFETCH(QByteArray, bytes);
-        QVERIFY(!OpenAICosts::parse(bytes, 1780272000,
-                                    QDateTime(QDate(2026, 6, 12), QTime(12, 0), QTimeZone::UTC)));
+        const QDateTime now(QDate(2026, 6, 12), QTime(12, 0), QTimeZone::UTC);
+        QVERIFY(!OpenAICosts::parse(bytes, 1780272000, now));
+        QVERIFY(!OpenAICosts::parseUsage(bytes, 1780272000, now));
     }
 };
 QTEST_GUILESS_MAIN(OpenAICostsTest)

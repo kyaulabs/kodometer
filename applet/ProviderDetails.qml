@@ -359,12 +359,6 @@ PaginatedPage {
                 wrapMode: Text.WordWrap
             }
             QQC2.Label {
-                objectName: "openaiCreditBalance"
-                Layout.fillWidth: true
-                text: qsTr("Credit balance: unavailable through the supported public API")
-                wrapMode: Text.WordWrap
-            }
-            QQC2.Label {
                 objectName: "openaiMonthToDate"
                 visible: root.apiCost.monthToDateUSD !== undefined
                 text: qsTr("Month to date (reported): %1").arg(
@@ -372,17 +366,17 @@ PaginatedPage {
                                                                         || 0)))
             }
             QQC2.Label {
-                Layout.fillWidth: true
-                visible: Boolean(root.apiData.configured)
-                text: qsTr(
-                          "Organization-wide reported spending, not subscription usage or prepaid credit deductions. Billing data may be delayed; missing days are unknown.")
-                color: Kirigami.Theme.disabledTextColor
-                wrapMode: Text.WordWrap
+                objectName: "openaiCachedInput"
+                visible: root.apiData.usage?.cachedInputPercent !== undefined
+                text: qsTr("Cached input (month to date): %1%").arg(Number(root.apiData.usage
+                                                                           ?.cachedInputPercent
+                                                                           || 0).toFixed(1))
             }
             CostHistory {
                 objectName: "openaiApiHistory"
                 Layout.fillWidth: true
                 cost: root.apiCost
+                showNotes: false
                 accentColor: root.accentColor
             }
         }

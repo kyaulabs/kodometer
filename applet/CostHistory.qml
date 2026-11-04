@@ -11,6 +11,7 @@ ColumnLayout {
 
     required property var cost
     property color accentColor: Kirigami.Theme.highlightColor
+    property bool showNotes: true
     property string selectedDate: ""
     readonly property var points: history.view.points || []
     readonly property int dayCount: points.length
@@ -121,7 +122,7 @@ ColumnLayout {
     QQC2.Label {
         objectName: "costHistoryPartial"
         Layout.fillWidth: true
-        visible: history.view.partial === true
+        visible: root.showNotes && history.view.partial === true
         text: qsTr("Partial history; missing days are not counted as zero.")
         wrapMode: Text.WordWrap
         font: Kirigami.Theme.smallFont
@@ -131,7 +132,7 @@ ColumnLayout {
     QQC2.Label {
         objectName: "costHistoryEstimated"
         Layout.fillWidth: true
-        visible: history.view.estimated === true
+        visible: root.showNotes && history.view.estimated === true
         text: qsTr("Provider history includes estimated spend.")
         wrapMode: Text.WordWrap
         font: Kirigami.Theme.smallFont
@@ -141,7 +142,7 @@ ColumnLayout {
     QQC2.Label {
         objectName: "costHistoryCurrentDay"
         Layout.fillWidth: true
-        visible: history.view.includesCurrentDay === true
+        visible: root.showNotes && history.view.includesCurrentDay === true
         text: qsTr("Includes an incomplete UTC day.")
         wrapMode: Text.WordWrap
         font: Kirigami.Theme.smallFont

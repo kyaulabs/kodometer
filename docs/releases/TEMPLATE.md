@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/kyaulabs/kodometer/vX.Y.Z/branding/kodometer-brand-pack/logos/kodometer-iris-on-dark.svg" width="473" alt="Kodometer logo on a dark background"></p>
+
 # 🚀 Kodometer X.Y.Z
 
 <!-- Copy to X.Y.Z.md and replace every placeholder. Keep all eight sections in
